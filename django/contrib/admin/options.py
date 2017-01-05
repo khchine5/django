@@ -34,14 +34,14 @@ from django.forms.models import (
     modelform_factory, modelformset_factory,
 )
 from django.forms.widgets import CheckboxSelectMultiple, SelectMultiple
-from django.http import Http404, HttpResponseRedirect
+from django.http import HttpResponseRedirect
 from django.http.response import HttpResponseBase
 from django.template.response import SimpleTemplateResponse, TemplateResponse
 from django.urls import reverse
 from django.utils import six
 from django.utils.decorators import method_decorator
 from django.utils.encoding import force_text, python_2_unicode_compatible
-from django.utils.html import escape, format_html
+from django.utils.html import format_html
 from django.utils.http import urlencode, urlquote
 from django.utils.safestring import mark_safe
 from django.utils.text import capfirst, format_lazy, get_text_list
@@ -509,6 +509,7 @@ class ModelAdmin(BaseModelAdmin):
     delete_confirmation_template = None
     delete_selected_confirmation_template = None
     object_history_template = None
+    popup_response_template = None
 
     # Actions
     actions = []
@@ -1073,7 +1074,11 @@ class ModelAdmin(BaseModelAdmin):
                 'value': six.text_type(value),
                 'obj': six.text_type(obj),
             })
-            return SimpleTemplateResponse('admin/popup_response.html', {
+            return TemplateResponse(request, self.popup_response_template or [
+                'admin/%s/%s/popup_response.html' % (opts.app_label, opts.model_name),
+                'admin/%s/popup_response.html' % opts.app_label,
+                'admin/popup_response.html',
+            ], {
                 'popup_response_data': popup_response_data,
             })
 
@@ -1119,8 +1124,9 @@ class ModelAdmin(BaseModelAdmin):
         """
 
         if IS_POPUP_VAR in request.POST:
+            opts = obj._meta
             to_field = request.POST.get(TO_FIELD_VAR)
-            attr = str(to_field) if to_field else obj._meta.pk.attname
+            attr = str(to_field) if to_field else opts.pk.attname
             # Retrieve the `object_id` from the resolved pattern arguments.
             value = request.resolver_match.args[0]
             new_value = obj.serializable_value(attr)
@@ -1130,7 +1136,11 @@ class ModelAdmin(BaseModelAdmin):
                 'obj': six.text_type(obj),
                 'new_value': six.text_type(new_value),
             })
-            return SimpleTemplateResponse('admin/popup_response.html', {
+            return TemplateResponse(request, self.popup_response_template or [
+                'admin/%s/%s/popup_response.html' % (opts.app_label, opts.model_name),
+                'admin/%s/popup_response.html' % opts.app_label,
+                'admin/popup_response.html',
+            ], {
                 'popup_response_data': popup_response_data,
             })
 
@@ -1299,7 +1309,11 @@ class ModelAdmin(BaseModelAdmin):
                 'action': 'delete',
                 'value': str(obj_id),
             })
-            return SimpleTemplateResponse('admin/popup_response.html', {
+            return TemplateResponse(request, self.popup_response_template or [
+                'admin/%s/%s/popup_response.html' % (opts.app_label, opts.model_name),
+                'admin/%s/popup_response.html' % opts.app_label,
+                'admin/popup_response.html',
+            ], {
                 'popup_response_data': popup_response_data,
             })
 
@@ -1375,6 +1389,19 @@ class ModelAdmin(BaseModelAdmin):
                 initial[k] = initial[k].split(",")
         return initial
 
+    def _get_obj_does_not_exist_redirect(self, request, opts, object_id):
+        """
+        Create a message informing the user that the object doesn't exist
+        and return a redirect to the admin index page.
+        """
+        msg = _("""%(name)s with ID "%(key)s" doesn't exist. Perhaps it was deleted?""") % {
+            'name': force_text(opts.verbose_name),
+            'key': unquote(object_id),
+        }
+        self.message_user(request, msg, messages.WARNING)
+        url = reverse('admin:index', current_app=self.admin_site.name)
+        return HttpResponseRedirect(url)
+
     @csrf_protect_m
     def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
         with transaction.atomic(using=router.db_for_write(self.model)):
@@ -1405,8 +1432,7 @@ class ModelAdmin(BaseModelAdmin):
                 raise PermissionDenied
 
             if obj is None:
-                raise Http404(_('%(name)s object with primary key %(key)r does not exist.') % {
-                    'name': force_text(opts.verbose_name), 'key': escape(object_id)})
+                return self._get_obj_does_not_exist_redirect(request, opts, object_id)
 
         ModelForm = self.get_form(request, obj)
         if request.method == 'POST':
@@ -1561,14 +1587,19 @@ class ModelAdmin(BaseModelAdmin):
                 else:
                     action_failed = True
 
+        if action_failed:
+            # Redirect back to the changelist page to avoid resubmitting the
+            # form if the user refreshes the browser or uses the "No, take
+            # me back" button on the action confirmation page.
+            return HttpResponseRedirect(request.get_full_path())
+
         # If we're allowing changelist editing, we need to construct a formset
         # for the changelist given all the fields to be edited. Then we'll
         # use the formset to validate/process POSTed data.
         formset = cl.formset = None
 
         # Handle POSTed bulk-edit data.
-        if (request.method == "POST" and cl.list_editable and
-                '_save' in request.POST and not action_failed):
+        if request.method == 'POST' and cl.list_editable and '_save' in request.POST:
             FormSet = self.get_changelist_formset(request)
             formset = cl.formset = FormSet(request.POST, request.FILES, queryset=self.get_queryset(request))
             if formset.is_valid():
@@ -1673,10 +1704,7 @@ class ModelAdmin(BaseModelAdmin):
             raise PermissionDenied
 
         if obj is None:
-            raise Http404(
-                _('%(name)s object with primary key %(key)r does not exist.') %
-                {'name': force_text(opts.verbose_name), 'key': escape(object_id)}
-            )
+            return self._get_obj_does_not_exist_redirect(request, opts, object_id)
 
         using = router.db_for_write(self.model)
 
@@ -1730,10 +1758,7 @@ class ModelAdmin(BaseModelAdmin):
         model = self.model
         obj = self.get_object(request, unquote(object_id))
         if obj is None:
-            raise Http404(_('%(name)s object with primary key %(key)r does not exist.') % {
-                'name': force_text(model._meta.verbose_name),
-                'key': escape(object_id),
-            })
+            return self._get_obj_does_not_exist_redirect(request, model._meta, object_id)
 
         if not self.has_change_permission(request, obj):
             raise PermissionDenied
@@ -1785,7 +1810,7 @@ class ModelAdmin(BaseModelAdmin):
             }
             if request.method == 'POST':
                 formset_params.update({
-                    'data': request.POST,
+                    'data': request.POST.copy(),
                     'files': request.FILES,
                     'save_as_new': '_saveasnew' in request.POST
                 })

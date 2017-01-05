@@ -198,9 +198,7 @@ test_data = (
     ('repeats', '/repeats/a/', [], {}),
     ('repeats2', '/repeats/aa/', [], {}),
     ('repeats3', '/repeats/aa/', [], {}),
-    ('insensitive', '/CaseInsensitive/fred', ['fred'], {}),
     ('test', '/test/1', [], {}),
-    ('test2', '/test/2', [], {}),
     ('inner-nothing', '/outer/42/', [], {'outer': '42'}),
     ('inner-nothing', '/outer/42/', ['42'], {}),
     ('inner-nothing', NoReverseMatch, ['foo'], {}),
@@ -1005,7 +1003,7 @@ class ViewLoadingTests(SimpleTestCase):
     def test_exceptions(self):
         # A missing view (identified by an AttributeError) should raise
         # ViewDoesNotExist, ...
-        with six.assertRaisesRegex(self, ViewDoesNotExist, ".*View does not exist in.*"):
+        with self.assertRaisesMessage(ViewDoesNotExist, "View does not exist in"):
             get_callable('urlpatterns_reverse.views.i_should_not_exist')
         # ... but if the AttributeError is caused by something else don't
         # swallow it.

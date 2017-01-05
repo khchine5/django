@@ -186,9 +186,6 @@ class AdminViewBasicTestCase(TestCase):
     def setUp(self):
         self.client.force_login(self.superuser)
 
-    def tearDown(self):
-        formats.reset_format_cache()
-
     def assertContentBefore(self, response, text1, text2, failing_msg=None):
         """
         Testing utility asserting that text1 appears before text2 in response
@@ -248,12 +245,16 @@ class AdminViewBasicTest(AdminViewBasicTestCase):
 
     def test_basic_edit_GET_string_PK(self):
         """
-        Ensure GET on the change_view works (returns an HTTP 404 error, see
-        #11191) when passing a string as the PK argument for a model with an
-        integer PK field.
+        GET on the change_view (when passing a string as the PK argument for a
+        model with an integer PK field) redirects to the index page with a
+        message saying the object doesn't exist.
         """
-        response = self.client.get(reverse('admin:admin_views_section_change', args=('abc',)))
-        self.assertEqual(response.status_code, 404)
+        response = self.client.get(reverse('admin:admin_views_section_change', args=(quote("abc/<b>"),)), follow=True)
+        self.assertRedirects(response, reverse('admin:index'))
+        self.assertEqual(
+            [m.message for m in response.context['messages']],
+            ["""section with ID "abc/<b>" doesn't exist. Perhaps it was deleted?"""]
+        )
 
     def test_basic_edit_GET_old_url_redirect(self):
         """
@@ -266,12 +267,15 @@ class AdminViewBasicTest(AdminViewBasicTestCase):
 
     def test_basic_inheritance_GET_string_PK(self):
         """
-        Ensure GET on the change_view works on inherited models (returns an
-        HTTP 404 error, see #19951) when passing a string as the PK argument
-        for a model with an integer PK field.
+        GET on the change_view (for inherited models) redirects to the index
+        page with a message saying the object doesn't exist.
         """
-        response = self.client.get(reverse('admin:admin_views_supervillain_change', args=('abc',)))
-        self.assertEqual(response.status_code, 404)
+        response = self.client.get(reverse('admin:admin_views_supervillain_change', args=('abc',)), follow=True)
+        self.assertRedirects(response, reverse('admin:index'))
+        self.assertEqual(
+            [m.message for m in response.context['messages']],
+            ["""super villain with ID "abc" doesn't exist. Perhaps it was deleted?"""]
+        )
 
     def test_basic_add_POST(self):
         """
@@ -968,6 +972,16 @@ class AdminCustomTemplateTests(AdminViewBasicTestCase):
         self.assertTemplateUsed(response, 'custom_admin/delete_selected_confirmation.html')
         response = self.client.get(reverse('admin:admin_views_customarticle_history', args=(article_pk,)))
         self.assertTemplateUsed(response, 'custom_admin/object_history.html')
+
+        # A custom popup response template may be specified by
+        # ModelAdmin.popup_response_template.
+        response = self.client.post(reverse('admin:admin_views_customarticle_add') + '?%s=1' % IS_POPUP_VAR, {
+            'content': '<p>great article</p>',
+            'date_0': '2008-03-18',
+            'date_1': '10:54:39',
+            IS_POPUP_VAR: '1'
+        })
+        self.assertEqual(response.template_name, 'custom_admin/popup_response.html')
 
     def test_extended_bodyclass_template_change_form(self):
         """
@@ -1780,6 +1794,16 @@ class AdminViewPermissionsTest(TestCase):
         logged = LogEntry.objects.get(content_type=article_ct, action_flag=DELETION)
         self.assertEqual(logged.object_id, str(self.a1.pk))
 
+    def test_delete_view_nonexistent_obj(self):
+        self.client.force_login(self.deleteuser)
+        url = reverse('admin:admin_views_article_delete', args=('nonexistent',))
+        response = self.client.get(url, follow=True)
+        self.assertRedirects(response, reverse('admin:index'))
+        self.assertEqual(
+            [m.message for m in response.context['messages']],
+            ["""article with ID "nonexistent" doesn't exist. Perhaps it was deleted?"""]
+        )
+
     def test_history_view(self):
         """History view should restrict access."""
         # add user should not be able to view the list of article or change any of them
@@ -1821,8 +1845,12 @@ class AdminViewPermissionsTest(TestCase):
 
     def test_history_view_bad_url(self):
         self.client.force_login(self.changeuser)
-        response = self.client.get(reverse('admin:admin_views_article_history', args=('foo',)))
-        self.assertEqual(response.status_code, 404)
+        response = self.client.get(reverse('admin:admin_views_article_history', args=('foo',)), follow=True)
+        self.assertRedirects(response, reverse('admin:index'))
+        self.assertEqual(
+            [m.message for m in response.context['messages']],
+            ["""article with ID "foo" doesn't exist. Perhaps it was deleted?"""]
+        )
 
     def test_conditionally_show_add_section_link(self):
         """
@@ -1952,7 +1980,7 @@ class AdminViewPermissionsTest(TestCase):
         # Can't use self.assertRedirects() because User.get_absolute_url() is silly.
         self.assertEqual(response.status_code, 302)
         # Domain may depend on contrib.sites tests also run
-        six.assertRegex(self, response.url, 'http://(testserver|example.com)/dummy/foo/')
+        self.assertRegex(response.url, 'http://(testserver|example.com)/dummy/foo/')
 
     def test_has_module_permission(self):
         """
@@ -2113,7 +2141,7 @@ class AdminViewDeletedObjectsTest(TestCase):
             )
         )
         response = self.client.get(reverse('admin:admin_views_villain_delete', args=(self.v1.pk,)))
-        six.assertRegex(self, response.content, pattern)
+        self.assertRegex(response.content, pattern)
 
     def test_cyclic(self):
         """
@@ -3399,7 +3427,10 @@ action)</option>
             'action': 'delete_selected',
             'index': 0,
         }
-        response = self.client.post(reverse('admin:admin_views_subscriber_changelist'), action_data)
+        url = reverse('admin:admin_views_subscriber_changelist')
+        response = self.client.post(url, action_data)
+        self.assertRedirects(response, url, fetch_redirect_response=False)
+        response = self.client.get(response.url)
         msg = """Items must be selected in order to perform actions on them. No items have been changed."""
         self.assertContains(response, msg)
         self.assertEqual(Subscriber.objects.count(), 2)
@@ -3413,7 +3444,10 @@ action)</option>
             'action': '',
             'index': 0,
         }
-        response = self.client.post(reverse('admin:admin_views_subscriber_changelist'), action_data)
+        url = reverse('admin:admin_views_subscriber_changelist')
+        response = self.client.post(url, action_data)
+        self.assertRedirects(response, url, fetch_redirect_response=False)
+        response = self.client.get(response.url)
         msg = """No action selected."""
         self.assertContains(response, msg)
         self.assertEqual(Subscriber.objects.count(), 2)
@@ -3433,7 +3467,7 @@ action)</option>
             reverse('admin:admin_views_subscriber_changelist') + '?%s' % IS_POPUP_VAR)
         self.assertIsNone(response.context["action_form"])
 
-    def test_popup_template_response(self):
+    def test_popup_template_response_on_add(self):
         """
         Success on popups shall be rendered from template in order to allow
         easy customization.
@@ -3442,7 +3476,40 @@ action)</option>
             reverse('admin:admin_views_actor_add') + '?%s=1' % IS_POPUP_VAR,
             {'name': 'Troy McClure', 'age': '55', IS_POPUP_VAR: '1'})
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.template_name, 'admin/popup_response.html')
+        self.assertListEqual(response.template_name, [
+            'admin/admin_views/actor/popup_response.html',
+            'admin/admin_views/popup_response.html',
+            'admin/popup_response.html',
+        ])
+        self.assertTemplateUsed(response, 'admin/popup_response.html')
+
+    def test_popup_template_response_on_change(self):
+        instance = Actor.objects.create(name='David Tennant', age=45)
+        response = self.client.post(
+            reverse('admin:admin_views_actor_change', args=(instance.pk,)) + '?%s=1' % IS_POPUP_VAR,
+            {'name': 'David Tennant', 'age': '46', IS_POPUP_VAR: '1'}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertListEqual(response.template_name, [
+            'admin/admin_views/actor/popup_response.html',
+            'admin/admin_views/popup_response.html',
+            'admin/popup_response.html',
+        ])
+        self.assertTemplateUsed(response, 'admin/popup_response.html')
+
+    def test_popup_template_response_on_delete(self):
+        instance = Actor.objects.create(name='David Tennant', age=45)
+        response = self.client.post(
+            reverse('admin:admin_views_actor_delete', args=(instance.pk,)) + '?%s=1' % IS_POPUP_VAR,
+            {IS_POPUP_VAR: '1'}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertListEqual(response.template_name, [
+            'admin/admin_views/actor/popup_response.html',
+            'admin/admin_views/popup_response.html',
+            'admin/popup_response.html',
+        ])
+        self.assertTemplateUsed(response, 'admin/popup_response.html')
 
     def test_popup_template_escaping(self):
         popup_response_data = json.dumps({
@@ -3563,11 +3630,16 @@ class AdminCustomQuerysetTest(TestCase):
 
     def test_change_view(self):
         for i in self.pks:
-            response = self.client.get(reverse('admin:admin_views_emptymodel_change', args=(i,)))
+            url = reverse('admin:admin_views_emptymodel_change', args=(i,))
+            response = self.client.get(url, follow=True)
             if i > 1:
                 self.assertEqual(response.status_code, 200)
             else:
-                self.assertEqual(response.status_code, 404)
+                self.assertRedirects(response, reverse('admin:index'))
+                self.assertEqual(
+                    [m.message for m in response.context['messages']],
+                    ["""empty model with ID "1" doesn't exist. Perhaps it was deleted?"""]
+                )
 
     def test_add_model_modeladmin_defer_qs(self):
         # Test for #14529. defer() is used in ModelAdmin.get_queryset()
@@ -5258,9 +5330,6 @@ class DateHierarchyTests(TestCase):
     def setUp(self):
         self.client.force_login(self.superuser)
 
-    def tearDown(self):
-        formats.reset_format_cache()
-
     def assert_non_localized_year(self, response, year):
         """
         The year is not localized with USE_THOUSAND_SEPARATOR (#15234).
@@ -5937,7 +6006,7 @@ class AdminViewOnSiteTests(TestCase):
             response, 'inline_admin_formset', 0, None,
             ['Children must share a family name with their parents in this contrived test case']
         )
-        msg = "The formset 'inline_admin_formset' in context 4 does not contain any non-form errors."
+        msg = "The formset 'inline_admin_formset' in context 10 does not contain any non-form errors."
         with self.assertRaisesMessage(AssertionError, msg):
             self.assertFormsetError(response, 'inline_admin_formset', None, None, ['Error'])
 

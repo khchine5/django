@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 import codecs
+import datetime
 import os
 import shutil
 import tempfile
@@ -15,7 +16,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
 from django.test import mock, override_settings
 from django.test.utils import extend_sys_path
-from django.utils import six
+from django.utils import six, timezone
 from django.utils._os import symlinks_supported
 from django.utils.encoding import force_text
 from django.utils.functional import empty
@@ -387,9 +388,32 @@ class TestCollectionOverwriteWarning(CollectionTestCase):
 @override_settings(STATICFILES_STORAGE='staticfiles_tests.storage.DummyStorage')
 class TestCollectionNonLocalStorage(TestNoFilesCreated, CollectionTestCase):
     """
-    Tests for #15035
+    Tests for a Storage that implements get_modified_time() but not path()
+    (#15035).
     """
-    pass
+    def test_storage_properties(self):
+        # Properties of the Storage as described in the ticket.
+        storage = DummyStorage()
+        self.assertEqual(storage.get_modified_time('name'), datetime.datetime(1970, 1, 1, tzinfo=timezone.utc))
+        with self.assertRaisesMessage(NotImplementedError, "This backend doesn't support absolute paths."):
+            storage.path('name')
+
+
+class TestCollectionNeverCopyStorage(CollectionTestCase):
+
+    @override_settings(STATICFILES_STORAGE='staticfiles_tests.storage.NeverCopyRemoteStorage')
+    def test_skips_newer_files_in_remote_storage(self):
+        """
+        collectstatic skips newer files in a remote storage.
+        run_collectstatic() in setUp() copies the static files, then files are
+        always skipped after NeverCopyRemoteStorage is activated since
+        NeverCopyRemoteStorage.get_modified_time() returns a datetime in the
+        future to simulate an unmodified file.
+        """
+        stdout = six.StringIO()
+        self.run_collectstatic(stdout=stdout, verbosity=2)
+        output = force_text(stdout.getvalue())
+        self.assertIn("Skipping 'test.txt' (not modified)", output)
 
 
 @unittest.skipUnless(symlinks_supported(), "Must be able to symlink to run this test.")
@@ -401,8 +425,8 @@ class TestCollectionLinks(TestDefaults, CollectionTestCase):
     the standard file resolving tests here, to make sure using
     ``--link`` does not change the file-selection semantics.
     """
-    def run_collectstatic(self, clear=False):
-        super(TestCollectionLinks, self).run_collectstatic(link=True, clear=clear)
+    def run_collectstatic(self, clear=False, link=True, **kwargs):
+        super(TestCollectionLinks, self).run_collectstatic(link=link, clear=clear, **kwargs)
 
     def test_links_created(self):
         """
@@ -417,6 +441,18 @@ class TestCollectionLinks(TestDefaults, CollectionTestCase):
         path = os.path.join(settings.STATIC_ROOT, 'test.txt')
         os.unlink(path)
         self.run_collectstatic()
+        self.assertTrue(os.path.islink(path))
+
+    def test_symlinks_and_files_replaced(self):
+        """
+        Running collectstatic in non-symlink mode replaces symlinks with files,
+        while symlink mode replaces files with symlinks.
+        """
+        path = os.path.join(settings.STATIC_ROOT, 'test.txt')
+        self.assertTrue(os.path.islink(path))
+        self.run_collectstatic(link=False)
+        self.assertFalse(os.path.islink(path))
+        self.run_collectstatic(link=True)
         self.assertTrue(os.path.islink(path))
 
     def test_clear_broken_symlink(self):

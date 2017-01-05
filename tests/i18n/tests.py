@@ -215,17 +215,17 @@ class TranslationTests(SimpleTestCase):
             self.assertEqual(complex_nonlazy % {'num': 4, 'name': 'Jim'}, 'Hallo Jim, 4 guten Resultate')
             self.assertEqual(complex_deferred % {'name': 'Jim', 'num': 1}, 'Hallo Jim, 1 gutes Resultat')
             self.assertEqual(complex_deferred % {'name': 'Jim', 'num': 5}, 'Hallo Jim, 5 guten Resultate')
-            with six.assertRaisesRegex(self, KeyError, 'Your dictionary lacks key.*'):
+            with self.assertRaisesMessage(KeyError, 'Your dictionary lacks key'):
                 complex_deferred % {'name': 'Jim'}
             self.assertEqual(complex_str_nonlazy % {'num': 4, 'name': 'Jim'}, str('Hallo Jim, 4 guten Resultate'))
             self.assertEqual(complex_str_deferred % {'name': 'Jim', 'num': 1}, str('Hallo Jim, 1 gutes Resultat'))
             self.assertEqual(complex_str_deferred % {'name': 'Jim', 'num': 5}, str('Hallo Jim, 5 guten Resultate'))
-            with six.assertRaisesRegex(self, KeyError, 'Your dictionary lacks key.*'):
+            with self.assertRaisesMessage(KeyError, 'Your dictionary lacks key'):
                 complex_str_deferred % {'name': 'Jim'}
             self.assertEqual(complex_context_nonlazy % {'num': 4, 'name': 'Jim'}, 'Willkommen Jim, 4 guten Resultate')
             self.assertEqual(complex_context_deferred % {'name': 'Jim', 'num': 1}, 'Willkommen Jim, 1 gutes Resultat')
             self.assertEqual(complex_context_deferred % {'name': 'Jim', 'num': 5}, 'Willkommen Jim, 5 guten Resultate')
-            with six.assertRaisesRegex(self, KeyError, 'Your dictionary lacks key.*'):
+            with self.assertRaisesMessage(KeyError, 'Your dictionary lacks key'):
                 complex_context_deferred % {'name': 'Jim'}
 
     @skipUnless(six.PY2, "PY3 doesn't have distinct int and long types")
@@ -731,17 +731,16 @@ class FormattingTests(SimpleTestCase):
         even if they would be interpreted as False in a conditional test
         (e.g. 0 or empty string) (#16938).
         """
-        with patch_formats('fr', THOUSAND_SEPARATOR='', FIRST_DAY_OF_WEEK=0):
-            with translation.override('fr'):
-                with self.settings(USE_THOUSAND_SEPARATOR=True, THOUSAND_SEPARATOR='!'):
-                    self.assertEqual('', get_format('THOUSAND_SEPARATOR'))
-                    # Even a second time (after the format has been cached)...
-                    self.assertEqual('', get_format('THOUSAND_SEPARATOR'))
+        with translation.override('fr'):
+            with self.settings(USE_THOUSAND_SEPARATOR=True, THOUSAND_SEPARATOR='!'):
+                self.assertEqual('\xa0', get_format('THOUSAND_SEPARATOR'))
+                # Even a second time (after the format has been cached)...
+                self.assertEqual('\xa0', get_format('THOUSAND_SEPARATOR'))
 
-                with self.settings(FIRST_DAY_OF_WEEK=1):
-                    self.assertEqual(0, get_format('FIRST_DAY_OF_WEEK'))
-                    # Even a second time (after the format has been cached)...
-                    self.assertEqual(0, get_format('FIRST_DAY_OF_WEEK'))
+            with self.settings(FIRST_DAY_OF_WEEK=0):
+                self.assertEqual(1, get_format('FIRST_DAY_OF_WEEK'))
+                # Even a second time (after the format has been cached)...
+                self.assertEqual(1, get_format('FIRST_DAY_OF_WEEK'))
 
     def test_l10n_enabled(self):
         self.maxDiff = 3000
@@ -1161,8 +1160,8 @@ class FormattingTests(SimpleTestCase):
             with self.settings(USE_THOUSAND_SEPARATOR=True, USE_L10N=False):
                 self.assertEqual(sanitize_separators('12\xa0345'), '12\xa0345')
 
-        with patch_formats(get_language(), THOUSAND_SEPARATOR='.', DECIMAL_SEPARATOR=','):
-            with self.settings(USE_THOUSAND_SEPARATOR=True):
+        with self.settings(USE_THOUSAND_SEPARATOR=True):
+            with patch_formats(get_language(), THOUSAND_SEPARATOR='.', DECIMAL_SEPARATOR=','):
                 self.assertEqual(sanitize_separators('10.234'), '10234')
                 # Suspicion that user entered dot as decimal separator (#22171)
                 self.assertEqual(sanitize_separators('10.10'), '10.10')
@@ -1630,7 +1629,8 @@ class TestLanguageInfo(SimpleTestCase):
         self.assertIs(li['bidi'], False)
 
     def test_unknown_language_code(self):
-        six.assertRaisesRegex(self, KeyError, r"Unknown language code xx\.", get_language_info, 'xx')
+        with self.assertRaisesMessage(KeyError, "Unknown language code xx"):
+            get_language_info('xx')
         with translation.override('xx'):
             # A language with no translation catalogs should fallback to the
             # untranslated string.
@@ -1644,7 +1644,8 @@ class TestLanguageInfo(SimpleTestCase):
         self.assertIs(li['bidi'], False)
 
     def test_unknown_language_code_and_country_code(self):
-        six.assertRaisesRegex(self, KeyError, r"Unknown language code xx-xx and xx\.", get_language_info, 'xx-xx')
+        with self.assertRaisesMessage(KeyError, "Unknown language code xx-xx and xx"):
+            get_language_info('xx-xx')
 
     def test_fallback_language_code(self):
         """

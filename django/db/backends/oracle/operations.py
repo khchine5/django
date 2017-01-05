@@ -6,12 +6,12 @@ import uuid
 
 from django.conf import settings
 from django.db.backends.base.operations import BaseDatabaseOperations
-from django.db.backends.utils import truncate_name
+from django.db.backends.utils import strip_quotes, truncate_name
 from django.utils import six, timezone
 from django.utils.encoding import force_bytes, force_text
 
 from .base import Database
-from .utils import InsertIdVar, Oracle_datetime, convert_unicode
+from .utils import InsertIdVar, Oracle_datetime
 
 
 class DatabaseOperations(BaseDatabaseOperations):
@@ -310,10 +310,10 @@ WHEN (new.%(col_name)s IS NULL)
         return "RETURNING %s INTO %%s", (InsertIdVar(),)
 
     def savepoint_create_sql(self, sid):
-        return convert_unicode("SAVEPOINT " + self.quote_name(sid))
+        return "SAVEPOINT " + self.quote_name(sid)
 
     def savepoint_rollback_sql(self, sid):
-        return convert_unicode("ROLLBACK TO SAVEPOINT " + self.quote_name(sid))
+        return "ROLLBACK TO SAVEPOINT " + self.quote_name(sid)
 
     def sql_flush(self, style, tables, sequences, allow_cascade=False):
         # Return a list of 'TRUNCATE x;', 'TRUNCATE y;',
@@ -436,25 +436,30 @@ WHEN (new.%(col_name)s IS NULL)
                                value.second, value.microsecond)
 
     def combine_expression(self, connector, sub_expressions):
-        "Oracle requires special cases for %% and & operators in query expressions"
+        lhs, rhs = sub_expressions
         if connector == '%%':
             return 'MOD(%s)' % ','.join(sub_expressions)
         elif connector == '&':
             return 'BITAND(%s)' % ','.join(sub_expressions)
         elif connector == '|':
-            lhs, rhs = sub_expressions
             return 'BITAND(-%(lhs)s-1,%(rhs)s)+%(lhs)s' % {'lhs': lhs, 'rhs': rhs}
+        elif connector == '<<':
+            return '(%(lhs)s * POWER(2, %(rhs)s))' % {'lhs': lhs, 'rhs': rhs}
+        elif connector == '>>':
+            return 'FLOOR(%(lhs)s / POWER(2, %(rhs)s))' % {'lhs': lhs, 'rhs': rhs}
         elif connector == '^':
             return 'POWER(%s)' % ','.join(sub_expressions)
         return super(DatabaseOperations, self).combine_expression(connector, sub_expressions)
 
     def _get_sequence_name(self, table):
         name_length = self.max_name_length() - 3
-        return '%s_SQ' % truncate_name(table, name_length).upper()
+        sequence_name = '%s_SQ' % strip_quotes(table)
+        return truncate_name(sequence_name, name_length).upper()
 
     def _get_trigger_name(self, table):
         name_length = self.max_name_length() - 3
-        return '%s_TR' % truncate_name(table, name_length).upper()
+        trigger_name = '%s_TR' % strip_quotes(table)
+        return truncate_name(trigger_name, name_length).upper()
 
     def bulk_insert_sql(self, fields, placeholder_rows):
         return " UNION ALL ".join(

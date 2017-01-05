@@ -33,6 +33,7 @@ class GEOSGeometry(GEOSBase, ListMixin):
     _GEOS_CLASSES = None
 
     ptr_type = GEOM_PTR
+    destructor = capi.destroy_geom
     has_cs = False  # Only Point, LineString, LinearRing have coordinate sequences
 
     def __init__(self, geo_input, srid=None):
@@ -120,16 +121,6 @@ class GEOSGeometry(GEOSBase, ListMixin):
         # geometries that do not have coordinate sequences)
         self._set_cs()
 
-    def __del__(self):
-        """
-        Destroys this Geometry; in other words, frees the memory used by the
-        GEOS C++ object.
-        """
-        try:
-            capi.destroy_geom(self._ptr)
-        except (AttributeError, TypeError):
-            pass  # Some part might already have been garbage collected
-
     def __copy__(self):
         """
         Returns a clone because the copy of a GEOSGeometry may contain an
@@ -167,6 +158,10 @@ class GEOSGeometry(GEOSBase, ListMixin):
             raise GEOSException('Invalid Geometry loaded from pickled state.')
         self.ptr = ptr
         self._post_init(srid)
+
+    @classmethod
+    def _from_wkb(cls, wkb):
+        return wkb_r().read(wkb)
 
     @classmethod
     def from_gml(cls, gml_string):
@@ -479,15 +474,13 @@ class GEOSGeometry(GEOSBase, ListMixin):
         return PreparedGeometry(self)
 
     # #### GDAL-specific output routines ####
+    def _ogr_ptr(self):
+        return gdal.OGRGeometry._from_wkb(self.wkb)
+
     @property
     def ogr(self):
         "Returns the OGR Geometry for this Geometry."
-        if self.srid:
-            try:
-                return gdal.OGRGeometry(self.wkb, self.srid)
-            except gdal.SRSException:
-                pass
-        return gdal.OGRGeometry(self.wkb)
+        return gdal.OGRGeometry(self._ogr_ptr(), self.srs)
 
     @property
     def srs(self):
@@ -530,10 +523,10 @@ class GEOSGeometry(GEOSBase, ListMixin):
             raise GEOSException("Calling transform() with no SRID set is not supported")
 
         # Creating an OGR Geometry, which is then transformed.
-        g = gdal.OGRGeometry(self.wkb, srid)
+        g = gdal.OGRGeometry(self._ogr_ptr(), srid)
         g.transform(ct)
         # Getting a new GEOS pointer
-        ptr = wkb_r().read(g.wkb)
+        ptr = g._geos_ptr()
         if clone:
             # User wants a cloned transformed geometry returned.
             return GEOSGeometry(ptr, srid=g.srid)

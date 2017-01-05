@@ -252,7 +252,7 @@ class SQLCompiler(object):
             asc, desc = ORDER_DIR['DESC']
 
         order_by = []
-        for pos, field in enumerate(ordering):
+        for field in ordering:
             if hasattr(field, 'resolve_expression'):
                 if not isinstance(field, OrderBy):
                     field = field.asc()
@@ -713,7 +713,7 @@ class SQLCompiler(object):
 
                 _, _, _, joins, _ = self.query.setup_joins([related_field_name], opts, root_alias)
                 alias = joins[-1]
-                from_parent = issubclass(model, opts.model)
+                from_parent = issubclass(model, opts.model) and model is not opts.model
                 klass_info = {
                     'model': model,
                     'field': f,

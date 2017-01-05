@@ -1,3 +1,6 @@
+import json
+import re
+
 from django.contrib.gis import forms
 from django.contrib.gis.geos import GEOSGeometry
 from django.forms import ValidationError
@@ -109,11 +112,12 @@ class GeometryFieldTest(SimpleTestCase):
         with patch_logger('django.contrib.gis', 'error') as logger_calls:
             output = str(form)
 
-        self.assertInHTML(
-            '<textarea id="id_pt1" class="vSerializedField required" cols="150"'
-            ' rows="10" name="pt1">POINT (7.3 44)</textarea>',
-            output
-        )
+        # The first point can't use assertInHTML() due to non-deterministic
+        # ordering of the rendered dictionary.
+        pt1_serialized = re.search(r'<textarea [^>]*>({[^<]+})<', output).groups()[0]
+        pt1_json = json.loads(pt1_serialized.replace('&quot;', '"'))
+        self.assertEqual(pt1_json, {'coordinates': [7.3, 44.0], 'type': 'Point'})
+
         self.assertInHTML(
             '<textarea id="id_pt2" class="vSerializedField required" cols="150"'
             ' rows="10" name="pt2"></textarea>',
@@ -204,7 +208,7 @@ class SpecializedFieldTest(SimpleTestCase):
 
         self.assertIn('<textarea ', rendered)
         self.assertIn('required', rendered)
-        self.assertIn(geom.wkt, rendered)
+        self.assertIn(escape(geom.json), rendered)
 
     # map_srid in operlayers.html template must not be localized.
     @override_settings(USE_L10N=True, USE_THOUSAND_SEPARATOR=True)
@@ -318,7 +322,7 @@ class OSMWidgetTest(SimpleTestCase):
         form = PointForm(data={'p': geom})
         rendered = form.as_p()
 
-        self.assertIn("OpenStreetMap (Mapnik)", rendered)
+        self.assertIn("ol.source.OSM()", rendered)
         self.assertIn("id: 'id_p',", rendered)
 
     def test_default_lat_lon(self):

@@ -35,7 +35,7 @@ class BaseStaticFilesMixin(object):
     def render_template(self, template, **kwargs):
         if isinstance(template, six.string_types):
             template = Template(template)
-        return template.render(Context(kwargs)).strip()
+        return template.render(Context(**kwargs)).strip()
 
     def static_template_snippet(self, path, asvar=False):
         if asvar:
@@ -82,7 +82,8 @@ class CollectionTestCase(BaseStaticFilesMixin, SimpleTestCase):
         super(CollectionTestCase, self).tearDown()
 
     def run_collectstatic(self, **kwargs):
-        call_command('collectstatic', interactive=False, verbosity=0,
+        verbosity = kwargs.pop('verbosity', 0)
+        call_command('collectstatic', interactive=False, verbosity=verbosity,
                      ignore_patterns=['*.ignoreme'], **kwargs)
 
     def _get_file(self, filepath):

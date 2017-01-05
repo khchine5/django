@@ -20,8 +20,9 @@ for the previous LTS, Django 1.8, will end in April 2018.
 Python compatibility
 ====================
 
-Like Django 1.10, Django 1.11 requires Python 2.7, 3.4, or 3.5. We **highly
-recommend** and only officially support the latest release of each series.
+Django 1.11 requires Python 2.7, 3.4, 3.5, or 3.6. Django 1.11 is the first
+release to support Python 3.6. We **highly recommend** and only officially
+support the latest release of each series.
 
 The Django 1.11.x series is the last to support Python 2. The next major
 release, Django 2.0, will only support Python 3.5+.
@@ -60,6 +61,15 @@ It can be subclassed to support different index types, such as
 :class:`~django.contrib.postgres.indexes.GinIndex`. It also allows defining the
 order (ASC/DESC) for the columns of the index.
 
+Template-based widget rendering
+-------------------------------
+
+To ease customizing widgets, form widget rendering is now done using the
+template system rather than in Python. See :doc:`/ref/forms/renderers`.
+
+You may need to adjust any custom widgets that you've written for a few
+:ref:`backwards incompatible changes <template-widget-incompatibilities-1-11>`.
+
 Minor features
 --------------
 
@@ -71,6 +81,10 @@ Minor features
 * The new :meth:`ModelAdmin.get_exclude()
   <django.contrib.admin.ModelAdmin.get_exclude>` hook allows specifying the
   exclude fields based on the request or model instance.
+
+* The ``popup_response.html`` template can now be overridden per app, per
+  model, or by setting the :attr:`.ModelAdmin.popup_response_template`
+  attribute.
 
 :mod:`django.contrib.admindocs`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -145,9 +159,14 @@ Minor features
 
 * Added support for the :lookup:`dwithin` lookup on SpatiaLite.
 
+* The :class:`~django.contrib.gis.db.models.functions.Area` function,
+  :class:`~django.contrib.gis.db.models.functions.Distance` function, and
+  distance lookups now work with geodetic coordinates on SpatiaLite.
+
 * The OpenLayers-based form widgets now use ``OpenLayers.js`` from
   ``https://cdnjs.cloudflare.com`` which is more suitable for production use
-  than the the old ``http://openlayers.org`` source.
+  than the the old ``http://openlayers.org`` source. They are also updated to
+  use OpenLayers 3.
 
 * PostGIS migrations can now change field dimensions.
 
@@ -160,7 +179,9 @@ Minor features
   :lookup:`isvalid` lookup.
 
 * Added Oracle support for the
-  :class:`~django.contrib.gis.db.models.functions.IsValid` function and
+  :class:`~django.contrib.gis.db.models.functions.AsGML` function,
+  :class:`~django.contrib.gis.db.models.functions.BoundingCircle` function,
+  :class:`~django.contrib.gis.db.models.functions.IsValid` function, and
   :lookup:`isvalid` lookup.
 
 :mod:`django.contrib.messages`
@@ -189,6 +210,10 @@ Minor features
 
 * The new :class:`~django.contrib.postgres.aggregates.JSONBAgg` allows
   aggregating values as a JSON array.
+
+* :class:`~django.contrib.postgres.fields.HStoreField` and
+  :class:`~django.contrib.postgres.forms.HStoreField` allow storing null
+  values.
 
 :mod:`django.contrib.redirects`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -337,6 +362,14 @@ Models
 * You can now use the ``unique=True`` option with
   :class:`~django.db.models.FileField`.
 
+* Added the ``nulls_first`` and ``nulls_last`` parameters to
+  :class:`Expression.asc() <django.db.models.Expression.asc>` and
+  :meth:`~django.db.models.Expression.desc` to control
+  the ordering of null values.
+
+* The new ``F`` expression ``bitleftshift()`` and ``bitrightshift()`` methods
+  allow :ref:`bitwise shift operations <using-f-expressions-in-filters>`.
+
 Requests and Responses
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -386,6 +419,9 @@ Templates
 * Added a :ttag:`resetcycle` template tag to allow resetting the sequence of
   the :ttag:`cycle` template tag.
 
+* You can now specify specific directories for a particular
+  :class:`filesystem.Loader <django.template.loaders.filesystem.Loader>`.
+
 Tests
 ~~~~~
 
@@ -401,6 +437,10 @@ Tests
 
 * Added support for :meth:`python:unittest.TestCase.subTest`’s when using the
   :option:`test --parallel` option.
+
+* ``DiscoverRunner`` now runs the system checks at the start of a test run.
+  Override the :meth:`.DiscoverRunner.run_checks` method if you want to disable
+  that.
 
 URLs
 ~~~~
@@ -432,6 +472,11 @@ Backwards incompatible changes in 1.11
   us know <https://code.djangoproject.com/ticket/14284>`_.
 
 * The ``GEOSGeometry`` equality operator now also compares SRID.
+
+* The OpenLayers-based form widgets now use OpenLayers 3, and the
+  ``gis/openlayers.html`` and ``gis/openlayers-osm.html`` templates have been
+  updated. Check your project if you subclass these widgets or extend the
+  templates.
 
 Database backend API
 --------------------
@@ -527,6 +572,30 @@ inside help text.
 
 Read-only fields are wrapped in ``<div class="readonly">...</div>`` instead of
 ``<p>...</p>`` to allow any kind of HTML as the field's content.
+
+.. _template-widget-incompatibilities-1-11:
+
+Changes due to the introduction of template-based widget rendering
+------------------------------------------------------------------
+
+Some undocumented classes in ``django.forms.widgets`` are removed:
+
+* ``SubWidget``
+* ``RendererMixin``, ``ChoiceFieldRenderer``, ``RadioFieldRenderer``,
+  ``CheckboxFieldRenderer``
+* ``ChoiceInput``, ``RadioChoiceInput``, ``CheckboxChoiceInput``
+
+The ``Widget.format_output()`` method is removed. Use a custom widget template
+instead.
+
+``django.Template.render()`` prohibits non-dict context
+-------------------------------------------------------
+
+For compatibility with multiple template engines, ``django.Template.render()``
+must receive a dictionary of context rather than ``Context`` or
+``RequestContext``. If you were passing either of the two classes, pass a
+dictionary instead -- doing so is backwards-compatible with older versions of
+Django.
 
 Miscellaneous
 -------------
@@ -634,6 +703,12 @@ Miscellaneous
 
 * The undocumented ``django.utils.functional.lazy_property`` is removed.
 
+* For consistency with non-multipart requests, ``MultiPartParser.parse()`` now
+  leaves ``request.POST`` immutable. If you're modifying that ``QueryDict``,
+  you must now first copy it, e.g. ``request.POST.copy()``.
+
+* Support for ``cx_Oracle`` < 5.2 is removed.
+
 .. _deprecated-features-1.11:
 
 Features deprecated in 1.11
@@ -720,3 +795,14 @@ Miscellaneous
 
 * ``Model._meta.has_auto_field`` is deprecated in favor of checking if
   ``Model._meta.auto_field is not None``.
+
+* Using regular expression groups with ``iLmsu#`` in ``url()`` is deprecated.
+  The only group that's useful is ``(?i)`` for case-insensitive URLs, however,
+  case-insensitive URLs aren't a good practice because they create multiple
+  entries for search engines, for example. An alternative solution could be to
+  create a :data:`~django.conf.urls.handler404` that looks for uppercase
+  characters in the URL and redirects to a lowercase equivalent.
+
+* The ``renderer`` argument is added to the :meth:`Widget.render()
+  <django.forms.Widget.render>` method. Methods that don't accept that argument
+  will work through a deprecation period.
