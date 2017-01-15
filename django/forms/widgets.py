@@ -268,6 +268,7 @@ class Input(Widget):
 
     def __init__(self, attrs=None):
         if attrs is not None:
+            attrs = attrs.copy()
             self.input_type = attrs.pop('type', self.input_type)
         super(Input, self).__init__(attrs)
 
@@ -807,9 +808,12 @@ class MultiWidget(Widget):
             value = self.decompress(value)
 
         final_attrs = context['widget']['attrs']
+        input_type = final_attrs.pop('type', None)
         id_ = final_attrs.get('id')
         subwidgets = []
         for i, widget in enumerate(self.widgets):
+            if input_type is not None:
+                widget.input_type = input_type
             widget_name = '%s_%s' % (name, i)
             try:
                 widget_value = value[i]

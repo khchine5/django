@@ -34,8 +34,9 @@ EmptyResultSet = sql.EmptyResultSet
 
 
 class BaseIterable(object):
-    def __init__(self, queryset):
+    def __init__(self, queryset, chunked_fetch=False):
         self.queryset = queryset
+        self.chunked_fetch = chunked_fetch
 
 
 class ModelIterable(BaseIterable):
@@ -49,7 +50,7 @@ class ModelIterable(BaseIterable):
         compiler = queryset.query.get_compiler(using=db)
         # Execute the query. This will also fill compiler.select, klass_info,
         # and annotations.
-        results = compiler.execute_sql()
+        results = compiler.execute_sql(chunked_fetch=self.chunked_fetch)
         select, klass_info, annotation_col_map = (compiler.select, compiler.klass_info,
                                                   compiler.annotation_col_map)
         model_cls = klass_info['model']
@@ -318,7 +319,7 @@ class QuerySet(object):
         An iterator over the results from applying this QuerySet to the
         database.
         """
-        return iter(self._iterable_class(self))
+        return iter(self._iterable_class(self, chunked_fetch=True))
 
     def aggregate(self, *args, **kwargs):
         """
@@ -815,6 +816,33 @@ class QuerySet(object):
         else:
             return self._filter_or_exclude(None, **filter_obj)
 
+    def _combinator_query(self, combinator, *other_qs, **kwargs):
+        # Clone the query to inherit the select list and everything
+        clone = self._clone()
+        # Clear limits and ordering so they can be reapplied
+        clone.query.clear_ordering(True)
+        clone.query.clear_limits()
+        clone.query.combined_queries = (self.query,) + tuple(qs.query for qs in other_qs)
+        clone.query.combinator = combinator
+        clone.query.combinator_all = kwargs.pop('all', False)
+        return clone
+
+    def union(self, *other_qs, **kwargs):
+        if kwargs:
+            unexpected_kwarg = next((k for k in kwargs.keys() if k != 'all'), None)
+            if unexpected_kwarg:
+                raise TypeError(
+                    "union() received an unexpected keyword argument '%s'" %
+                    (unexpected_kwarg,)
+                )
+        return self._combinator_query('union', *other_qs, **kwargs)
+
+    def intersection(self, *other_qs):
+        return self._combinator_query('intersection', *other_qs)
+
+    def difference(self, *other_qs):
+        return self._combinator_query('difference', *other_qs)
+
     def select_for_update(self, nowait=False, skip_locked=False):
         """
         Returns a new QuerySet instance that will select objects with a
@@ -1071,7 +1099,7 @@ class QuerySet(object):
 
     def _fetch_all(self):
         if self._result_cache is None:
-            self._result_cache = list(self.iterator())
+            self._result_cache = list(self._iterable_class(self))
         if self._prefetch_related_lookups and not self._prefetch_done:
             self._prefetch_related_objects()
 

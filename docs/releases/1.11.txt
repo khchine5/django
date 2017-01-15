@@ -70,6 +70,14 @@ template system rather than in Python. See :doc:`/ref/forms/renderers`.
 You may need to adjust any custom widgets that you've written for a few
 :ref:`backwards incompatible changes <template-widget-incompatibilities-1-11>`.
 
+``Subquery`` expressions
+------------------------
+
+The new :class:`~django.db.models.Subquery` and
+:class:`~django.db.models.Exists` database expressions allow creating
+explicit subqueries. Subqueries may refer to fields from the outer queryset
+using the :class:`~django.db.models.OuterRef` class.
+
 Minor features
 --------------
 
@@ -115,6 +123,14 @@ Minor features
 * The new ``post_reset_login`` attribute for
   :class:`~django.contrib.auth.views.PasswordResetConfirmView` allows
   automatically logging in a user after a successful password reset.
+
+* To avoid the possibility of leaking a password reset token via the HTTP
+  Referer header (for example, if the reset page includes a reference to CSS or
+  JavaScript hosted on another domain), the
+  :class:`~django.contrib.auth.views.PasswordResetConfirmView` (but not the
+  deprecated ``password_reset_confirm()`` function-based view) stores the token
+  in a session and redirects to itself to present the password change form to
+  the user without the token in the URL.
 
 * :func:`~django.contrib.auth.update_session_auth_hash` now rotates the session
   key to allow a password change to invalidate stolen session cookies.
@@ -196,8 +212,9 @@ Minor features
   :class:`~django.contrib.postgres.aggregates.StringAgg` determines if
   concatenated values will be distinct.
 
-* The new :class:`~django.contrib.postgres.indexes.GinIndex` class allows
-  creating gin indexes in the database.
+* The new :class:`~django.contrib.postgres.indexes.GinIndex` and
+  :class:`~django.contrib.postgres.indexes.BrinIndex` classes allow
+  creating ``GIN`` and ``BRIN`` indexes in the database.
 
 * :class:`~django.contrib.postgres.fields.JSONField` accepts a new ``encoder``
   parameter to specify a custom class to encode data types not supported by the
@@ -273,6 +290,11 @@ Database backends
 * Added the :setting:`TEST['TEMPLATE'] <TEST_TEMPLATE>` setting to let
   PostgreSQL users specify a template for creating the test database.
 
+* :meth:`.QuerySet.iterator()` now uses :ref:`server-side cursors
+  <psycopg2:server-side-cursors>` on PostgreSQL. This feature transfers some of
+  the worker memory load (used to hold query results) to the database and might
+  increase database memory usage.
+
 Email
 ~~~~~
 
@@ -325,6 +347,9 @@ Management Commands
 * The new :option:`diffsettings --default` option allows specifying a settings
   module other than Django's default settings to compare against.
 
+* ``app_label``\s arguments now limit the :option:`showmigrations --plan`
+  output.
+
 Migrations
 ~~~~~~~~~~
 
@@ -369,6 +394,9 @@ Models
 
 * The new ``F`` expression ``bitleftshift()`` and ``bitrightshift()`` methods
   allow :ref:`bitwise shift operations <using-f-expressions-in-filters>`.
+
+* Added :meth:`.QuerySet.union`, :meth:`~.QuerySet.intersection`, and
+  :meth:`~.QuerySet.difference`.
 
 Requests and Responses
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -478,6 +506,21 @@ Backwards incompatible changes in 1.11
   updated. Check your project if you subclass these widgets or extend the
   templates.
 
+:mod:`django.contrib.staticfiles`
+---------------------------------
+
+* ``collectstatic`` may now fail during post-processing when using a hashed
+  static files storage if a reference loop exists (e.g. ``'foo.css'``
+  references ``'bar.css'`` which itself references ``'foo.css'``) or if the
+  chain of files referencing other files is too deep to resolve in several
+  passes. In the latter case, increase the number of passes using
+  :attr:`.ManifestStaticFilesStorage.max_post_process_passes`.
+
+* When using ``ManifestStaticFilesStorage``, static files not found in the
+  manifest at runtime now raise a ``ValueError`` instead of returning an
+  unchanged path. You can revert to the old behavior by setting
+  :attr:`.ManifestStaticFilesStorage.manifest_strict` to ``False``.
+
 Database backend API
 --------------------
 
@@ -508,6 +551,10 @@ Database backend API
 
 * Renamed the ``ignores_quoted_identifier_case`` feature to
   ``ignores_table_name_case`` to more accurately reflect how it is used.
+
+* The ``name`` keyword argument is added to the
+  ``DatabaseWrapper.create_cursor(self, name=None)`` method to allow usage of
+  server-side cursors on backends that support it.
 
 Dropped support for PostgreSQL 9.2 and PostGIS 2.0
 --------------------------------------------------
@@ -708,6 +755,8 @@ Miscellaneous
   you must now first copy it, e.g. ``request.POST.copy()``.
 
 * Support for ``cx_Oracle`` < 5.2 is removed.
+
+* Support for IPython < 1.0 is removed from the ``shell`` command.
 
 .. _deprecated-features-1.11:
 
