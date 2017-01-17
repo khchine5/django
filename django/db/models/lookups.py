@@ -56,6 +56,17 @@ class Lookup(object):
             sqls, sqls_params = ['%s'] * len(params), params
         return sqls, sqls_params
 
+    def get_source_expressions(self):
+        if self.rhs_is_direct_value():
+            return [self.lhs]
+        return [self.lhs, self.rhs]
+
+    def set_source_expressions(self, new_exprs):
+        if len(new_exprs) == 1:
+            self.lhs = new_exprs[0]
+        else:
+            self.lhs, self.rhs = new_exprs
+
     def get_prep_lookup(self):
         if hasattr(self.rhs, '_prepare'):
             return self.rhs._prepare(self.lhs.output_field)
@@ -115,6 +126,10 @@ class Lookup(object):
     @cached_property
     def contains_aggregate(self):
         return self.lhs.contains_aggregate or getattr(self.rhs, 'contains_aggregate', False)
+
+    @property
+    def is_summary(self):
+        return self.lhs.is_summary or getattr(self.rhs, 'is_summary', False)
 
 
 class Transform(RegisterLookupMixin, Func):
@@ -235,13 +250,12 @@ class FieldGetDbPrepValueIterableMixin(FieldGetDbPrepValueMixin):
         return sql, tuple(params)
 
 
+@Field.register_lookup
 class Exact(FieldGetDbPrepValueMixin, BuiltinLookup):
     lookup_name = 'exact'
 
 
-Field.register_lookup(Exact)
-
-
+@Field.register_lookup
 class IExact(BuiltinLookup):
     lookup_name = 'iexact'
     prepare_rhs = False
@@ -253,35 +267,24 @@ class IExact(BuiltinLookup):
         return rhs, params
 
 
-Field.register_lookup(IExact)
-
-
+@Field.register_lookup
 class GreaterThan(FieldGetDbPrepValueMixin, BuiltinLookup):
     lookup_name = 'gt'
 
 
-Field.register_lookup(GreaterThan)
-
-
+@Field.register_lookup
 class GreaterThanOrEqual(FieldGetDbPrepValueMixin, BuiltinLookup):
     lookup_name = 'gte'
 
 
-Field.register_lookup(GreaterThanOrEqual)
-
-
+@Field.register_lookup
 class LessThan(FieldGetDbPrepValueMixin, BuiltinLookup):
     lookup_name = 'lt'
 
 
-Field.register_lookup(LessThan)
-
-
+@Field.register_lookup
 class LessThanOrEqual(FieldGetDbPrepValueMixin, BuiltinLookup):
     lookup_name = 'lte'
-
-
-Field.register_lookup(LessThanOrEqual)
 
 
 class IntegerFieldFloatRounding(object):
@@ -295,18 +298,14 @@ class IntegerFieldFloatRounding(object):
         return super(IntegerFieldFloatRounding, self).get_prep_lookup()
 
 
+@IntegerField.register_lookup
 class IntegerGreaterThanOrEqual(IntegerFieldFloatRounding, GreaterThanOrEqual):
     pass
 
 
-IntegerField.register_lookup(IntegerGreaterThanOrEqual)
-
-
+@IntegerField.register_lookup
 class IntegerLessThan(IntegerFieldFloatRounding, LessThan):
     pass
-
-
-IntegerField.register_lookup(IntegerLessThan)
 
 
 class DecimalComparisonLookup(object):
@@ -343,6 +342,7 @@ class DecimalLessThanOrEqual(DecimalComparisonLookup, LessThanOrEqual):
     pass
 
 
+@Field.register_lookup
 class In(FieldGetDbPrepValueIterableMixin, BuiltinLookup):
     lookup_name = 'in'
 
@@ -403,9 +403,6 @@ class In(FieldGetDbPrepValueIterableMixin, BuiltinLookup):
         return ''.join(in_clause_elements), params
 
 
-Field.register_lookup(In)
-
-
 class PatternLookup(BuiltinLookup):
 
     def get_rhs_op(self, connection, rhs):
@@ -425,6 +422,7 @@ class PatternLookup(BuiltinLookup):
             return super(PatternLookup, self).get_rhs_op(connection, rhs)
 
 
+@Field.register_lookup
 class Contains(PatternLookup):
     lookup_name = 'contains'
     prepare_rhs = False
@@ -436,17 +434,13 @@ class Contains(PatternLookup):
         return rhs, params
 
 
-Field.register_lookup(Contains)
-
-
+@Field.register_lookup
 class IContains(Contains):
     lookup_name = 'icontains'
     prepare_rhs = False
 
 
-Field.register_lookup(IContains)
-
-
+@Field.register_lookup
 class StartsWith(PatternLookup):
     lookup_name = 'startswith'
     prepare_rhs = False
@@ -458,9 +452,7 @@ class StartsWith(PatternLookup):
         return rhs, params
 
 
-Field.register_lookup(StartsWith)
-
-
+@Field.register_lookup
 class IStartsWith(PatternLookup):
     lookup_name = 'istartswith'
     prepare_rhs = False
@@ -472,9 +464,7 @@ class IStartsWith(PatternLookup):
         return rhs, params
 
 
-Field.register_lookup(IStartsWith)
-
-
+@Field.register_lookup
 class EndsWith(PatternLookup):
     lookup_name = 'endswith'
     prepare_rhs = False
@@ -486,9 +476,7 @@ class EndsWith(PatternLookup):
         return rhs, params
 
 
-Field.register_lookup(EndsWith)
-
-
+@Field.register_lookup
 class IEndsWith(PatternLookup):
     lookup_name = 'iendswith'
     prepare_rhs = False
@@ -500,9 +488,7 @@ class IEndsWith(PatternLookup):
         return rhs, params
 
 
-Field.register_lookup(IEndsWith)
-
-
+@Field.register_lookup
 class Range(FieldGetDbPrepValueIterableMixin, BuiltinLookup):
     lookup_name = 'range'
 
@@ -510,9 +496,7 @@ class Range(FieldGetDbPrepValueIterableMixin, BuiltinLookup):
         return "BETWEEN %s AND %s" % (rhs[0], rhs[1])
 
 
-Field.register_lookup(Range)
-
-
+@Field.register_lookup
 class IsNull(BuiltinLookup):
     lookup_name = 'isnull'
     prepare_rhs = False
@@ -525,9 +509,7 @@ class IsNull(BuiltinLookup):
             return "%s IS NOT NULL" % sql, params
 
 
-Field.register_lookup(IsNull)
-
-
+@Field.register_lookup
 class Search(BuiltinLookup):
     lookup_name = 'search'
     prepare_rhs = False
@@ -543,9 +525,7 @@ class Search(BuiltinLookup):
         return sql_template, lhs_params + rhs_params
 
 
-Field.register_lookup(Search)
-
-
+@Field.register_lookup
 class Regex(BuiltinLookup):
     lookup_name = 'regex'
     prepare_rhs = False
@@ -560,14 +540,9 @@ class Regex(BuiltinLookup):
             return sql_template % (lhs, rhs), lhs_params + rhs_params
 
 
-Field.register_lookup(Regex)
-
-
+@Field.register_lookup
 class IRegex(Regex):
     lookup_name = 'iregex'
-
-
-Field.register_lookup(IRegex)
 
 
 class YearLookup(Lookup):
