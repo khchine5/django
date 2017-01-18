@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 from django.contrib import auth
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.signals import user_logged_in
@@ -8,12 +6,10 @@ from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
 from django.db import models
 from django.db.models.manager import EmptyManager
-from django.utils import six, timezone
-from django.utils.deprecation import CallableFalse, CallableTrue
-from django.utils.encoding import python_2_unicode_compatible
+from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 
-from .validators import ASCIIUsernameValidator, UnicodeUsernameValidator
+from .validators import UnicodeUsernameValidator
 
 
 def update_last_login(sender, user, **kwargs):
@@ -38,7 +34,6 @@ class PermissionManager(models.Manager):
         )
 
 
-@python_2_unicode_compatible
 class Permission(models.Model):
     """
     The permissions system provides a way to assign permissions to specific
@@ -80,9 +75,10 @@ class Permission(models.Model):
 
     def __str__(self):
         return "%s | %s | %s" % (
-            six.text_type(self.content_type.app_label),
-            six.text_type(self.content_type),
-            six.text_type(self.name))
+            self.content_type.app_label,
+            self.content_type,
+            self.name,
+        )
 
     def natural_key(self):
         return (self.codename,) + self.content_type.natural_key()
@@ -99,7 +95,6 @@ class GroupManager(models.Manager):
         return self.get(name=name)
 
 
-@python_2_unicode_compatible
 class Group(models.Model):
     """
     Groups are a generic way of categorizing users to apply permissions, or
@@ -303,7 +298,7 @@ class AbstractUser(AbstractBaseUser, PermissionsMixin):
 
     Username and password are required. Other fields are optional.
     """
-    username_validator = UnicodeUsernameValidator() if six.PY3 else ASCIIUsernameValidator()
+    username_validator = UnicodeUsernameValidator()
 
     username = models.CharField(
         _('username'),
@@ -377,7 +372,6 @@ class User(AbstractUser):
         swappable = 'AUTH_USER_MODEL'
 
 
-@python_2_unicode_compatible
 class AnonymousUser(object):
     id = None
     pk = None
@@ -443,11 +437,11 @@ class AnonymousUser(object):
 
     @property
     def is_anonymous(self):
-        return CallableTrue
+        return True
 
     @property
     def is_authenticated(self):
-        return CallableFalse
+        return False
 
     def get_username(self):
         return self.username

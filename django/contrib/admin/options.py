@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import copy
 import json
 import operator
@@ -40,7 +38,7 @@ from django.template.response import SimpleTemplateResponse, TemplateResponse
 from django.urls import reverse
 from django.utils import six
 from django.utils.decorators import method_decorator
-from django.utils.encoding import force_text, python_2_unicode_compatible
+from django.utils.encoding import force_text
 from django.utils.html import format_html
 from django.utils.http import urlencode, urlquote
 from django.utils.safestring import mark_safe
@@ -482,7 +480,6 @@ class BaseModelAdmin(six.with_metaclass(forms.MediaDefiningClass)):
         return request.user.has_module_perms(self.opts.app_label)
 
 
-@python_2_unicode_compatible
 class ModelAdmin(BaseModelAdmin):
     "Encapsulates all admin options and functionality for a given model."
 
@@ -1071,8 +1068,8 @@ class ModelAdmin(BaseModelAdmin):
                 attr = obj._meta.pk.attname
             value = obj.serializable_value(attr)
             popup_response_data = json.dumps({
-                'value': six.text_type(value),
-                'obj': six.text_type(obj),
+                'value': str(value),
+                'obj': str(obj),
             })
             return TemplateResponse(request, self.popup_response_template or [
                 'admin/%s/%s/popup_response.html' % (opts.app_label, opts.model_name),
@@ -1132,9 +1129,9 @@ class ModelAdmin(BaseModelAdmin):
             new_value = obj.serializable_value(attr)
             popup_response_data = json.dumps({
                 'action': 'change',
-                'value': six.text_type(value),
-                'obj': six.text_type(obj),
-                'new_value': six.text_type(new_value),
+                'value': str(value),
+                'obj': str(obj),
+                'new_value': str(new_value),
             })
             return TemplateResponse(request, self.popup_response_template or [
                 'admin/%s/%s/popup_response.html' % (opts.app_label, opts.model_name),

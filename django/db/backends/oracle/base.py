@@ -3,21 +3,17 @@ Oracle database backend for Django.
 
 Requires cx_Oracle: http://cx-oracle.sourceforge.net/
 """
-from __future__ import unicode_literals
-
 import datetime
 import decimal
 import os
 import platform
 import sys
-import warnings
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db import utils
 from django.db.backends.base.base import BaseDatabaseWrapper
-from django.utils import six, timezone
-from django.utils.deprecation import RemovedInDjango20Warning
+from django.utils import six
 from django.utils.encoding import force_bytes, force_text
 from django.utils.functional import cached_property
 
@@ -91,7 +87,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'BinaryField': 'BLOB',
         'BooleanField': 'NUMBER(1)',
         'CharField': 'NVARCHAR2(%(max_length)s)',
-        'CommaSeparatedIntegerField': 'VARCHAR2(%(max_length)s)',
         'DateField': 'DATE',
         'DateTimeField': 'TIMESTAMP',
         'DecimalField': 'NUMBER(%(max_digits)s, %(decimal_places)s)',
@@ -326,13 +321,6 @@ class OracleParam(object):
         # without being converted by DateTimeField.get_db_prep_value.
         if settings.USE_TZ and (isinstance(param, datetime.datetime) and
                                 not isinstance(param, Oracle_datetime)):
-            if timezone.is_aware(param):
-                warnings.warn(
-                    "The Oracle database adapter received an aware datetime (%s), "
-                    "probably from cursor.execute(). Update your code to pass a "
-                    "naive datetime in the database connection's time zone (UTC by "
-                    "default).", RemovedInDjango20Warning)
-                param = param.astimezone(timezone.utc).replace(tzinfo=None)
             param = Oracle_datetime.from_datetime(param)
 
         string_size = 0
@@ -350,7 +338,7 @@ class OracleParam(object):
             # To transmit to the database, we need Unicode if supported
             # To get size right, we must consider bytes.
             self.force_bytes = force_text(param, cursor.charset, strings_only)
-            if isinstance(self.force_bytes, six.string_types):
+            if isinstance(self.force_bytes, str):
                 # We could optimize by only converting up to 4000 bytes here
                 string_size = len(force_bytes(param, cursor.charset, strings_only))
         if hasattr(param, 'input_size'):
@@ -578,18 +566,5 @@ def _rowfactory(row, cursor):
                 value = decimal.Decimal(value)
             else:
                 value = int(value)
-        elif desc[1] in (Database.STRING, Database.FIXED_CHAR,
-                         Database.LONG_STRING):
-            value = to_unicode(value)
         casted.append(value)
     return tuple(casted)
-
-
-def to_unicode(s):
-    """
-    Convert strings to Unicode objects (and return all other data types
-    unchanged).
-    """
-    if isinstance(s, six.string_types):
-        return force_text(s)
-    return s

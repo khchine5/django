@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import datetime
 import os
 from decimal import Decimal
@@ -24,12 +22,12 @@ from django.utils._os import upath
 
 from .models import (
     Article, ArticleStatus, Author, Author1, Award, BetterWriter, BigInt, Book,
-    Category, Character, Colour, ColourfulItem, CommaSeparatedInteger,
-    CustomErrorMessage, CustomFF, CustomFieldForExclusionModel, DateTimePost,
-    DerivedBook, DerivedPost, Document, ExplicitPK, FilePathModel,
-    FlexibleDatePost, Homepage, ImprovedArticle, ImprovedArticleWithParentLink,
-    Inventory, NullableUniqueCharFieldModel, Person, Photo, Post, Price,
-    Product, Publication, PublicationDefaults, StrictAssignmentAll,
+    Category, Character, Colour, ColourfulItem, CustomErrorMessage, CustomFF,
+    CustomFieldForExclusionModel, DateTimePost, DerivedBook, DerivedPost,
+    Document, ExplicitPK, FilePathModel, FlexibleDatePost, Homepage,
+    ImprovedArticle, ImprovedArticleWithParentLink, Inventory,
+    NullableUniqueCharFieldModel, Person, Photo, Post, Price, Product,
+    Publication, PublicationDefaults, StrictAssignmentAll,
     StrictAssignmentFieldSpecific, Student, StumpJoke, TextFile, Triple,
     Writer, WriterProfile, test_images,
 )
@@ -1164,7 +1162,7 @@ class ModelFormBasicTests(TestCase):
         # inserted as 'initial' data in each Field.
         f = RoykoForm(auto_id=False, instance=self.w_royko)
         self.assertHTMLEqual(
-            six.text_type(f),
+            str(f),
             '''<tr><th>Name:</th><td><input type="text" name="name" value="Mike Royko" maxlength="50" required /><br />
             <span class="helptext">Use both first and last names.</span></td></tr>'''
         )
@@ -1206,7 +1204,7 @@ class ModelFormBasicTests(TestCase):
             'headline': 'Test headline',
             'slug': 'test-headline',
             'pub_date': '1984-02-06',
-            'writer': six.text_type(self.w_royko.pk),
+            'writer': str(self.w_royko.pk),
             'article': 'Hello.'
         }, instance=art)
         self.assertEqual(f.errors, {})
@@ -1296,7 +1294,7 @@ class ModelFormBasicTests(TestCase):
         # fields with the 'choices' attribute are represented by a ChoiceField.
         f = ArticleForm(auto_id=False)
         self.assertHTMLEqual(
-            six.text_type(f),
+            str(f),
             '''<tr><th>Headline:</th><td><input type="text" name="headline" maxlength="50" required /></td></tr>
 <tr><th>Slug:</th><td><input type="text" name="slug" maxlength="50" required /></td></tr>
 <tr><th>Pub date:</th><td><input type="text" name="pub_date" required /></td></tr>
@@ -1362,7 +1360,7 @@ class ModelFormBasicTests(TestCase):
 
         f = PartialArticleForm(auto_id=False)
         self.assertHTMLEqual(
-            six.text_type(f),
+            str(f),
             '''<tr><th>Headline:</th><td><input type="text" name="headline" maxlength="50" required /></td></tr>
 <tr><th>Pub date:</th><td><input type="text" name="pub_date" required /></td></tr>''')
 
@@ -1400,9 +1398,9 @@ class ModelFormBasicTests(TestCase):
             'headline': 'New headline',
             'slug': 'new-headline',
             'pub_date': '1988-01-04',
-            'writer': six.text_type(self.w_royko.pk),
+            'writer': str(self.w_royko.pk),
             'article': 'Hello.',
-            'categories': [six.text_type(self.c1.id), six.text_type(self.c2.id)]
+            'categories': [str(self.c1.id), str(self.c2.id)]
         }
         # Create a new article, with categories, via the form.
         f = ArticleForm(form_data)
@@ -1429,7 +1427,7 @@ class ModelFormBasicTests(TestCase):
 
         # Create a new article, with categories, via the form, but use commit=False.
         # The m2m data won't be saved until save_m2m() is invoked on the form.
-        form_data['categories'] = [six.text_type(self.c1.id), six.text_type(self.c2.id)]
+        form_data['categories'] = [str(self.c1.id), str(self.c2.id)]
         f = ArticleForm(form_data)
         new_art = f.save(commit=False)
 
@@ -1981,12 +1979,12 @@ class ModelOneToOneFieldTests(TestCase):
         )
 
         data = {
-            'writer': six.text_type(self.w_woodward.pk),
+            'writer': str(self.w_woodward.pk),
             'age': '65',
         }
         form = WriterProfileForm(data)
         instance = form.save()
-        self.assertEqual(six.text_type(instance), 'Bob Woodward is 65')
+        self.assertEqual(str(instance), 'Bob Woodward is 65')
 
         form = WriterProfileForm(instance=instance)
         self.assertHTMLEqual(
@@ -2064,14 +2062,14 @@ class FileAndImageFieldTests(TestCase):
                 fields = '__all__'
 
         form = DocumentForm()
-        self.assertIn('name="myfile"', six.text_type(form))
-        self.assertNotIn('myfile-clear', six.text_type(form))
+        self.assertIn('name="myfile"', str(form))
+        self.assertNotIn('myfile-clear', str(form))
         form = DocumentForm(files={'myfile': SimpleUploadedFile('something.txt', b'content')})
         self.assertTrue(form.is_valid())
         doc = form.save(commit=False)
         self.assertEqual(doc.myfile.name, 'something.txt')
         form = DocumentForm(instance=doc)
-        self.assertIn('myfile-clear', six.text_type(form))
+        self.assertIn('myfile-clear', str(form))
         form = DocumentForm(instance=doc, data={'myfile-clear': 'true'})
         doc = form.save(commit=False)
         self.assertFalse(doc.myfile)
@@ -2096,7 +2094,7 @@ class FileAndImageFieldTests(TestCase):
         self.assertTrue(not form.is_valid())
         self.assertEqual(form.errors['myfile'],
                          ['Please either submit a file or check the clear checkbox, not both.'])
-        rendered = six.text_type(form)
+        rendered = str(form)
         self.assertIn('something.txt', rendered)
         self.assertIn('myfile-clear', rendered)
 
@@ -2411,35 +2409,6 @@ class ModelOtherFieldTests(SimpleTestCase):
         self.assertFalse(bif.is_valid())
         self.assertEqual(bif.errors, {'biggie': ['Ensure this value is less than or equal to 9223372036854775807.']})
 
-    def test_comma_separated_integer_field(self):
-        class CommaSeparatedIntegerForm(forms.ModelForm):
-            class Meta:
-                model = CommaSeparatedInteger
-                fields = '__all__'
-
-        f = CommaSeparatedIntegerForm({'field': '1'})
-        self.assertTrue(f.is_valid())
-        self.assertEqual(f.cleaned_data, {'field': '1'})
-        f = CommaSeparatedIntegerForm({'field': '12'})
-        self.assertTrue(f.is_valid())
-        self.assertEqual(f.cleaned_data, {'field': '12'})
-        f = CommaSeparatedIntegerForm({'field': '1,2,3'})
-        self.assertTrue(f.is_valid())
-        self.assertEqual(f.cleaned_data, {'field': '1,2,3'})
-        f = CommaSeparatedIntegerForm({'field': '10,32'})
-        self.assertTrue(f.is_valid())
-        self.assertEqual(f.cleaned_data, {'field': '10,32'})
-        f = CommaSeparatedIntegerForm({'field': '1a,2'})
-        self.assertEqual(f.errors, {'field': ['Enter only digits separated by commas.']})
-        f = CommaSeparatedIntegerForm({'field': ',,,,'})
-        self.assertEqual(f.errors, {'field': ['Enter only digits separated by commas.']})
-        f = CommaSeparatedIntegerForm({'field': '1.2'})
-        self.assertEqual(f.errors, {'field': ['Enter only digits separated by commas.']})
-        f = CommaSeparatedIntegerForm({'field': '1,a,2'})
-        self.assertEqual(f.errors, {'field': ['Enter only digits separated by commas.']})
-        f = CommaSeparatedIntegerForm({'field': '1,,2'})
-        self.assertEqual(f.errors, {'field': ['Enter only digits separated by commas.']})
-
     def test_url_on_modelform(self):
         "Check basic URL field validation on model forms"
         class HomepageForm(forms.ModelForm):
@@ -2500,7 +2469,7 @@ class OtherModelFormTests(TestCase):
         # the ModelForm.
         f = ModelFormWithMedia()
         self.assertHTMLEqual(
-            six.text_type(f.media),
+            str(f.media),
             '''<link href="/some/form/css" type="text/css" media="all" rel="stylesheet" />
 <script type="text/javascript" src="/some/form/javascript"></script>'''
         )
@@ -2551,7 +2520,7 @@ class OtherModelFormTests(TestCase):
             (22, 'Pear')))
 
         form = InventoryForm(instance=core)
-        self.assertHTMLEqual(six.text_type(form['parent']), '''<select name="parent" id="id_parent">
+        self.assertHTMLEqual(str(form['parent']), '''<select name="parent" id="id_parent">
 <option value="">---------</option>
 <option value="86" selected>Apple</option>
 <option value="87">Core</option>
@@ -2574,7 +2543,7 @@ class OtherModelFormTests(TestCase):
                          ['description', 'url'])
 
         self.assertHTMLEqual(
-            six.text_type(CategoryForm()),
+            str(CategoryForm()),
             '''<tr><th><label for="id_description">Description:</label></th>
 <td><input type="text" name="description" id="id_description" required /></td></tr>
 <tr><th><label for="id_url">The URL:</label></th>
@@ -2595,7 +2564,7 @@ class OtherModelFormTests(TestCase):
         self.assertEqual(list(CustomFieldForExclusionForm.base_fields),
                          ['name'])
         self.assertHTMLEqual(
-            six.text_type(CustomFieldForExclusionForm()),
+            str(CustomFieldForExclusionForm()),
             '''<tr><th><label for="id_name">Name:</label></th>
 <td><input id="id_name" type="text" name="name" maxlength="10" required /></td></tr>'''
         )

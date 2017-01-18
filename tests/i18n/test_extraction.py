@@ -1,6 +1,3 @@
-# -*- encoding: utf-8 -*-
-from __future__ import unicode_literals
-
 import io
 import os
 import re
@@ -19,7 +16,6 @@ from django.core.management.commands.makemessages import \
 from django.core.management.utils import find_command
 from django.test import SimpleTestCase, mock, override_settings
 from django.test.utils import captured_stderr, captured_stdout
-from django.utils import six
 from django.utils.encoding import force_text
 from django.utils.six import StringIO
 from django.utils.translation import TranslatorCommentWarning
@@ -72,7 +68,7 @@ class ExtractorTests(POFileAssertionMixin, RunInTmpDirMixin, SimpleTestCase):
         path = os.path.join(cwd_prefix, *comment_parts)
         parts = [path]
 
-        if isinstance(line_number, six.string_types):
+        if isinstance(line_number, str):
             line_number = self._get_token_line_number(path, line_number)
         if line_number is not None:
             parts.append(':%d' % line_number)

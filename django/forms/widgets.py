@@ -2,8 +2,6 @@
 HTML Widget classes
 """
 
-from __future__ import unicode_literals
-
 import copy
 import datetime
 import re
@@ -15,12 +13,7 @@ from django.forms.utils import to_current_timezone
 from django.templatetags.static import static
 from django.utils import datetime_safe, formats, six
 from django.utils.dates import MONTHS
-from django.utils.deprecation import (
-    RemovedInDjango20Warning, RenameMethodsBase,
-)
-from django.utils.encoding import (
-    force_str, force_text, python_2_unicode_compatible,
-)
+from django.utils.encoding import force_str, force_text
 from django.utils.formats import get_format
 from django.utils.html import format_html, html_safe
 from django.utils.safestring import mark_safe
@@ -43,7 +36,6 @@ MEDIA_TYPES = ('css', 'js')
 
 
 @html_safe
-@python_2_unicode_compatible
 class Media(object):
     def __init__(self, media=None, **kwargs):
         if media:
@@ -160,13 +152,7 @@ class MediaDefiningClass(type):
         return new_class
 
 
-class RenameWidgetMethods(MediaDefiningClass, RenameMethodsBase):
-    renamed_methods = (
-        ('_format_value', 'format_value', RemovedInDjango20Warning),
-    )
-
-
-class Widget(six.with_metaclass(RenameWidgetMethods)):
+class Widget(six.with_metaclass(MediaDefiningClass)):
     needs_multipart_form = False  # Determines does this widget need multipart form
     is_localized = False
     is_required = False
@@ -512,7 +498,7 @@ class CheckboxInput(Input):
         value = data.get(name)
         # Translate true and false strings to boolean values.
         values = {'true': True, 'false': False}
-        if isinstance(value, six.string_types):
+        if isinstance(value, str):
             value = values.get(value.lower(), value)
         return bool(value)
 
@@ -685,10 +671,7 @@ class Select(ChoiceWidget):
     def _choice_has_empty_value(choice):
         """Return True if the choice's value is empty string or None."""
         value, _ = choice
-        return (
-            (isinstance(value, six.string_types) and not bool(value)) or
-            value is None
-        )
+        return (isinstance(value, str) and not bool(value)) or value is None
 
     def use_required_attribute(self, initial):
         """
@@ -1000,7 +983,7 @@ class SelectDateWidget(Widget):
         year, month, day = None, None, None
         if isinstance(value, (datetime.date, datetime.datetime)):
             year, month, day = value.year, value.month, value.day
-        elif isinstance(value, six.string_types):
+        elif isinstance(value, str):
             if settings.USE_L10N:
                 try:
                     input_format = get_format('DATE_INPUT_FORMATS')[0]

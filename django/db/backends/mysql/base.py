@@ -4,20 +4,14 @@ MySQL database backend for Django.
 Requires mysqlclient: https://pypi.python.org/pypi/mysqlclient/
 MySQLdb is supported for Python 2 only: http://sourceforge.net/projects/mysql-python
 """
-from __future__ import unicode_literals
-
-import datetime
 import re
 import sys
-import warnings
 
-from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db import utils
 from django.db.backends import utils as backend_utils
 from django.db.backends.base.base import BaseDatabaseWrapper
-from django.utils import six, timezone
-from django.utils.deprecation import RemovedInDjango20Warning
+from django.utils import six
 from django.utils.encoding import force_str
 from django.utils.functional import cached_property
 from django.utils.safestring import SafeBytes, SafeText
@@ -31,7 +25,7 @@ except ImportError as e:
     )
 
 from MySQLdb.constants import CLIENT, FIELD_TYPE                # isort:skip
-from MySQLdb.converters import Thing2Literal, conversions       # isort:skip
+from MySQLdb.converters import conversions                      # isort:skip
 
 # Some of these import MySQLdb, so import them after checking if it's installed.
 from .client import DatabaseClient                          # isort:skip
@@ -51,20 +45,6 @@ if (version < (1, 2, 1) or (
     raise ImproperlyConfigured("MySQLdb-1.2.1p2 or newer is required; you have %s" % Database.__version__)
 
 
-def adapt_datetime_warn_on_aware_datetime(value, conv):
-    # Remove this function and rely on the default adapter in Django 2.0.
-    if settings.USE_TZ and timezone.is_aware(value):
-        warnings.warn(
-            "The MySQL database adapter received an aware datetime (%s), "
-            "probably from cursor.execute(). Update your code to pass a "
-            "naive datetime in the database connection's time zone (UTC by "
-            "default).", RemovedInDjango20Warning)
-        # This doesn't account for the database connection's timezone,
-        # which isn't known. (That's why this adapter is deprecated.)
-        value = value.astimezone(timezone.utc).replace(tzinfo=None)
-    return Thing2Literal(value.strftime("%Y-%m-%d %H:%M:%S.%f"), conv)
-
-
 # MySQLdb-1.2.1 returns TIME columns as timedelta -- they are more like
 # timedelta in terms of actual behavior as they are signed and include days --
 # and Django expects time, so we still need to override that. We also need to
@@ -75,7 +55,6 @@ django_conversions.update({
     FIELD_TYPE.TIME: backend_utils.typecast_time,
     FIELD_TYPE.DECIMAL: backend_utils.typecast_decimal,
     FIELD_TYPE.NEWDECIMAL: backend_utils.typecast_decimal,
-    datetime.datetime: adapt_datetime_warn_on_aware_datetime,
 })
 
 # This should match the numerical portion of the version numbers (we can treat
@@ -154,7 +133,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'BinaryField': 'longblob',
         'BooleanField': 'bool',
         'CharField': 'varchar(%(max_length)s)',
-        'CommaSeparatedIntegerField': 'varchar(%(max_length)s)',
         'DateField': 'date',
         'DateTimeField': 'datetime',
         'DecimalField': 'numeric(%(max_digits)s, %(decimal_places)s)',
@@ -219,6 +197,13 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'iendswith': "LIKE CONCAT('%%', {})",
     }
 
+    isolation_levels = {
+        'read uncommitted',
+        'read committed',
+        'repeatable read',
+        'serializable',
+    }
+
     Database = Database
     SchemaEditorClass = DatabaseSchemaEditor
     # Classes instantiated in __init__().
@@ -234,8 +219,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             'conv': django_conversions,
             'charset': 'utf8',
         }
-        if six.PY2:
-            kwargs['use_unicode'] = True
         settings_dict = self.settings_dict
         if settings_dict['USER']:
             kwargs['user'] = settings_dict['USER']
@@ -252,23 +235,46 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         # We need the number of potentially affected rows after an
         # "UPDATE", not the number of changed rows.
         kwargs['client_flag'] = CLIENT.FOUND_ROWS
-        kwargs.update(settings_dict['OPTIONS'])
+        # Validate the transaction isolation level, if specified.
+        options = settings_dict['OPTIONS'].copy()
+        isolation_level = options.pop('isolation_level', None)
+        if isolation_level:
+            isolation_level = isolation_level.lower()
+            if isolation_level not in self.isolation_levels:
+                raise ImproperlyConfigured(
+                    "Invalid transaction isolation level '%s' specified.\n"
+                    "Use one of %s, or None." % (
+                        isolation_level,
+                        ', '.join("'%s'" % s for s in sorted(self.isolation_levels))
+                    ))
+            # The variable assignment form of setting transaction isolation
+            # levels will be used, e.g. "set tx_isolation='repeatable-read'".
+            isolation_level = isolation_level.replace(' ', '-')
+        self.isolation_level = isolation_level
+        kwargs.update(options)
         return kwargs
 
     def get_new_connection(self, conn_params):
         conn = Database.connect(**conn_params)
-        conn.encoders[SafeText] = conn.encoders[six.text_type]
+        conn.encoders[SafeText] = conn.encoders[str]
         conn.encoders[SafeBytes] = conn.encoders[bytes]
         return conn
 
     def init_connection_state(self):
+        assignments = []
         if self.features.is_sql_auto_is_null_enabled:
+            # SQL_AUTO_IS_NULL controls whether an AUTO_INCREMENT column on
+            # a recently inserted row will return when the field is tested
+            # for NULL. Disabling this brings this aspect of MySQL in line
+            # with SQL standards.
+            assignments.append('SQL_AUTO_IS_NULL = 0')
+
+        if self.isolation_level:
+            assignments.append("TX_ISOLATION = '%s'" % self.isolation_level)
+
+        if assignments:
             with self.cursor() as cursor:
-                # SQL_AUTO_IS_NULL controls whether an AUTO_INCREMENT column on
-                # a recently inserted row will return when the field is tested
-                # for NULL. Disabling this brings this aspect of MySQL in line
-                # with SQL standards.
-                cursor.execute('SET SQL_AUTO_IS_NULL = 0')
+                cursor.execute('SET ' + ', '.join(assignments))
 
     def create_cursor(self, name=None):
         cursor = self.connection.cursor()

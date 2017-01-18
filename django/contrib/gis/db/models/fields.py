@@ -10,7 +10,6 @@ from django.contrib.gis.geometry.backend import Geometry, GeometryException
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models.expressions import Expression
 from django.db.models.fields import Field
-from django.utils import six
 from django.utils.translation import ugettext_lazy as _
 
 # Local cache of the spatial_ref_sys table, which holds SRID data for each
@@ -226,7 +225,7 @@ class BaseSpatialField(Field):
             pass
         else:
             # Check if input is a candidate for conversion to raster or geometry.
-            is_candidate = isinstance(obj, (bytes, six.string_types)) or hasattr(obj, '__geo_interface__')
+            is_candidate = isinstance(obj, (bytes, str)) or hasattr(obj, '__geo_interface__')
             # Try to convert the input to raster.
             raster = self.get_raster_prep_value(obj, is_candidate)
 
@@ -345,27 +344,6 @@ class GeometryField(GeoSelectFormatMixin, BaseSpatialField):
                 not getattr(defaults['form_class'].widget, 'supports_3d', False)):
             defaults['widget'] = forms.Textarea
         return super(GeometryField, self).formfield(**defaults)
-
-    def _get_db_prep_lookup(self, lookup_type, value, connection):
-        """
-        Prepare for the database lookup, and return any spatial parameters
-        necessary for the query.  This includes wrapping any geometry
-        parameters with a backend-specific adapter and formatting any distance
-        parameters into the correct units for the coordinate system of the
-        field.
-
-        Only used by the deprecated GeoQuerySet and to be
-        RemovedInDjango20Warning.
-        """
-        # Populating the parameters list, and wrapping the Geometry
-        # with the Adapter of the spatial backend.
-        if isinstance(value, (tuple, list)):
-            params = [connection.ops.Adapter(value[0])]
-            # Getting the distance parameter in the units of the field.
-            params += self.get_distance(value[1:], lookup_type, connection)
-        else:
-            params = [connection.ops.Adapter(value)]
-        return params
 
 
 # The OpenGIS Geometry Type Fields

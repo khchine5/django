@@ -1,7 +1,5 @@
 import datetime
-import os
 import posixpath
-import warnings
 
 from django import forms
 from django.core import checks
@@ -11,8 +9,6 @@ from django.core.files.storage import default_storage
 from django.core.validators import validate_image_file_extension
 from django.db.models import signals
 from django.db.models.fields import Field
-from django.utils import six
-from django.utils.deprecation import RemovedInDjango20Warning
 from django.utils.encoding import force_str, force_text
 from django.utils.translation import ugettext_lazy as _
 
@@ -184,7 +180,7 @@ class FileDescriptor(object):
         # subclasses might also want to subclass the attribute class]. This
         # object understands how to convert a path to a file, and also how to
         # handle None.
-        if isinstance(file, six.string_types) or file is None:
+        if isinstance(file, str) or file is None:
             attr = self.field.attr_class(instance, self.field, file)
             instance.__dict__[self.field.name] = attr
 
@@ -256,7 +252,7 @@ class FileField(Field):
             return []
 
     def _check_upload_to(self):
-        if isinstance(self.upload_to, six.string_types) and self.upload_to.startswith('/'):
+        if isinstance(self.upload_to, str) and self.upload_to.startswith('/'):
             return [
                 checks.Error(
                     "%s's 'upload_to' argument must be a relative path, not an "
@@ -287,7 +283,7 @@ class FileField(Field):
         # Need to convert File objects provided via a form to unicode for database insertion
         if value is None:
             return None
-        return six.text_type(value)
+        return str(value)
 
     def pre_save(self, model_instance, add):
         "Returns field's value just before saving."
@@ -300,22 +296,6 @@ class FileField(Field):
     def contribute_to_class(self, cls, name, **kwargs):
         super(FileField, self).contribute_to_class(cls, name, **kwargs)
         setattr(cls, self.name, self.descriptor_class(self))
-
-    def get_directory_name(self):
-        warnings.warn(
-            'FileField now delegates file name and folder processing to the '
-            'storage. get_directory_name() will be removed in Django 2.0.',
-            RemovedInDjango20Warning, stacklevel=2
-        )
-        return os.path.normpath(force_text(datetime.datetime.now().strftime(force_str(self.upload_to))))
-
-    def get_filename(self, filename):
-        warnings.warn(
-            'FileField now delegates file name and folder processing to the '
-            'storage. get_filename() will be removed in Django 2.0.',
-            RemovedInDjango20Warning, stacklevel=2
-        )
-        return os.path.normpath(self.storage.get_valid_name(os.path.basename(filename)))
 
     def generate_filename(self, instance, filename):
         """

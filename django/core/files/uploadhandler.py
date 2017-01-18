@@ -2,15 +2,12 @@
 Base file upload handler classes, and the built-in concrete subclasses
 """
 
-from __future__ import unicode_literals
-
 from io import BytesIO
 
 from django.conf import settings
 from django.core.files.uploadedfile import (
     InMemoryUploadedFile, TemporaryUploadedFile,
 )
-from django.utils.encoding import python_2_unicode_compatible
 from django.utils.module_loading import import_string
 
 __all__ = [
@@ -27,7 +24,6 @@ class UploadFileException(Exception):
     pass
 
 
-@python_2_unicode_compatible
 class StopUpload(UploadFileException):
     """
     This exception is raised when an upload must abort.

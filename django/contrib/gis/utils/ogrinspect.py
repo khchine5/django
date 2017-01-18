@@ -8,7 +8,6 @@ from django.contrib.gis.gdal.field import (
     OFTDate, OFTDateTime, OFTInteger, OFTInteger64, OFTReal, OFTString,
     OFTTime,
 )
-from django.utils import six
 from django.utils.six.moves import zip
 
 
@@ -26,7 +25,7 @@ def mapping(data_source, geom_name='geom', layer_key=0, multi_geom=False):
 
      `multi_geom` => Boolean (default: False) - specify as multigeometry.
     """
-    if isinstance(data_source, six.string_types):
+    if isinstance(data_source, str):
         # Instantiating the DataSource from the string.
         data_source = DataSource(data_source)
     elif isinstance(data_source, DataSource):
@@ -129,7 +128,7 @@ def _ogrinspect(data_source, model_name, geom_name='geom', layer_key=0, srid=Non
     to the given data source.  See the `ogrinspect` docstring for more details.
     """
     # Getting the DataSource
-    if isinstance(data_source, six.string_types):
+    if isinstance(data_source, str):
         data_source = DataSource(data_source)
     elif isinstance(data_source, DataSource):
         pass
@@ -235,5 +234,4 @@ def _ogrinspect(data_source, model_name, geom_name='geom', layer_key=0, srid=Non
 
     if name_field:
         yield ''
-        yield '    def __%s__(self): return self.%s' % (
-            'str' if six.PY3 else 'unicode', name_field)
+        yield '    def __str__(self): return self.%s' % name_field

@@ -4,27 +4,21 @@ SQLite3 backend for django.
 Works with either the pysqlite2 module or the sqlite3 module in the
 standard library.
 """
-from __future__ import unicode_literals
-
-import datetime
 import decimal
 import re
 import warnings
 
 import pytz
 
-from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db import utils
 from django.db.backends import utils as backend_utils
 from django.db.backends.base.base import BaseDatabaseWrapper
-from django.utils import six, timezone
+from django.utils import timezone
 from django.utils.dateparse import (
     parse_date, parse_datetime, parse_duration, parse_time,
 )
-from django.utils.deprecation import RemovedInDjango20Warning
 from django.utils.encoding import force_text
-from django.utils.safestring import SafeBytes
 
 try:
     try:
@@ -43,20 +37,6 @@ from .operations import DatabaseOperations                  # isort:skip
 from .schema import DatabaseSchemaEditor                    # isort:skip
 
 
-def adapt_datetime_warn_on_aware_datetime(value):
-    # Remove this function and rely on the default adapter in Django 2.0.
-    if settings.USE_TZ and timezone.is_aware(value):
-        warnings.warn(
-            "The SQLite database adapter received an aware datetime (%s), "
-            "probably from cursor.execute(). Update your code to pass a "
-            "naive datetime in the database connection's time zone (UTC by "
-            "default).", RemovedInDjango20Warning)
-        # This doesn't account for the database connection's timezone,
-        # which isn't known. (That's why this adapter is deprecated.)
-        value = value.astimezone(timezone.utc).replace(tzinfo=None)
-    return value.isoformat(str(" "))
-
-
 def decoder(conv_func):
     """ The Python sqlite3 interface returns always byte strings.
         This function converts the received value to a regular string before
@@ -73,11 +53,7 @@ Database.register_converter(str("timestamp"), decoder(parse_datetime))
 Database.register_converter(str("TIMESTAMP"), decoder(parse_datetime))
 Database.register_converter(str("decimal"), decoder(backend_utils.typecast_decimal))
 
-Database.register_adapter(datetime.datetime, adapt_datetime_warn_on_aware_datetime)
 Database.register_adapter(decimal.Decimal, backend_utils.rev_typecast_decimal)
-if six.PY2:
-    Database.register_adapter(str, lambda s: s.decode('utf-8'))
-    Database.register_adapter(SafeBytes, lambda s: s.decode('utf-8'))
 
 
 class DatabaseWrapper(BaseDatabaseWrapper):
@@ -91,7 +67,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'BinaryField': 'BLOB',
         'BooleanField': 'bool',
         'CharField': 'varchar(%(max_length)s)',
-        'CommaSeparatedIntegerField': 'varchar(%(max_length)s)',
         'DateField': 'date',
         'DateTimeField': 'datetime',
         'DecimalField': 'decimal',
@@ -450,12 +425,12 @@ def _sqlite_format_dtdelta(conn, lhs, rhs):
         - A string representing a datetime
     """
     try:
-        if isinstance(lhs, six.integer_types):
+        if isinstance(lhs, int):
             lhs = str(decimal.Decimal(lhs) / decimal.Decimal(1000000))
         real_lhs = parse_duration(lhs)
         if real_lhs is None:
             real_lhs = backend_utils.typecast_timestamp(lhs)
-        if isinstance(rhs, six.integer_types):
+        if isinstance(rhs, int):
             rhs = str(decimal.Decimal(rhs) / decimal.Decimal(1000000))
         real_rhs = parse_duration(rhs)
         if real_rhs is None:

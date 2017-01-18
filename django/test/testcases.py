@@ -1,12 +1,9 @@
-from __future__ import unicode_literals
-
 import difflib
 import json
 import posixpath
 import sys
 import threading
 import unittest
-import warnings
 from collections import Counter
 from contextlib import contextmanager
 from copy import copy
@@ -36,10 +33,9 @@ from django.test.utils import (
 )
 from django.utils import six
 from django.utils.decorators import classproperty
-from django.utils.deprecation import RemovedInDjango20Warning
 from django.utils.encoding import force_text
 from django.utils.six.moves.urllib.parse import (
-    unquote, urljoin, urlparse, urlsplit, urlunsplit,
+    unquote, urljoin, urlparse, urlsplit,
 )
 from django.utils.six.moves.urllib.request import url2pathname
 from django.views.static import serve
@@ -245,7 +241,7 @@ class SimpleTestCase(unittest.TestCase):
         return modify_settings(**kwargs)
 
     def assertRedirects(self, response, expected_url, status_code=302,
-                        target_status_code=200, host=None, msg_prefix='',
+                        target_status_code=200, msg_prefix='',
                         fetch_redirect_response=True):
         """Asserts that a response redirected to a specific URL, and that the
         redirect URL can be loaded.
@@ -254,12 +250,6 @@ class SimpleTestCase(unittest.TestCase):
         TestClient to do a request (use fetch_redirect_response=False to check
         such links without fetching them).
         """
-        if host is not None:
-            warnings.warn(
-                "The host argument is deprecated and no longer used by assertRedirects",
-                RemovedInDjango20Warning, stacklevel=2
-            )
-
         if msg_prefix:
             msg_prefix += ": "
 
@@ -323,19 +313,6 @@ class SimpleTestCase(unittest.TestCase):
                     msg_prefix + "Couldn't retrieve redirection page '%s': response code was %d (expected %d)"
                     % (path, redirect_response.status_code, target_status_code)
                 )
-
-        if url != expected_url:
-            # For temporary backwards compatibility, try to compare with a relative url
-            e_scheme, e_netloc, e_path, e_query, e_fragment = urlsplit(expected_url)
-            relative_url = urlunsplit(('', '', e_path, e_query, e_fragment))
-            if url == relative_url:
-                warnings.warn(
-                    "assertRedirects had to strip the scheme and domain from the "
-                    "expected URL, as it was always added automatically to URLs "
-                    "before Django 1.9. Please update your expected URLs by "
-                    "removing the scheme and domain.",
-                    RemovedInDjango20Warning, stacklevel=2)
-                expected_url = relative_url
 
         self.assertEqual(
             url, expected_url,
@@ -625,14 +602,8 @@ class SimpleTestCase(unittest.TestCase):
             args: Function to be called and extra positional args.
             kwargs: Extra kwargs.
         """
-        # callable_obj was a documented kwarg in Django 1.8 and older.
-        callable_obj = kwargs.pop('callable_obj', None)
-        if callable_obj:
-            warnings.warn(
-                'The callable_obj kwarg is deprecated. Pass the callable '
-                'as a positional argument instead.', RemovedInDjango20Warning
-            )
-        elif len(args):
+        callable_obj = None
+        if len(args):
             callable_obj = args[0]
             args = args[1:]
 
@@ -703,8 +674,7 @@ class SimpleTestCase(unittest.TestCase):
             standardMsg = '%s != %s' % (
                 safe_repr(dom1, True), safe_repr(dom2, True))
             diff = ('\n' + '\n'.join(difflib.ndiff(
-                six.text_type(dom1).splitlines(),
-                six.text_type(dom2).splitlines(),
+                str(dom1).splitlines(), str(dom2).splitlines(),
             )))
             standardMsg = self._truncateMessage(standardMsg, diff)
             self.fail(self._formatMessage(msg, standardMsg))
@@ -741,7 +711,7 @@ class SimpleTestCase(unittest.TestCase):
             data = json.loads(raw)
         except ValueError:
             self.fail("First argument is not valid JSON: %r" % raw)
-        if isinstance(expected_data, six.string_types):
+        if isinstance(expected_data, str):
             try:
                 expected_data = json.loads(expected_data)
             except ValueError:
@@ -758,7 +728,7 @@ class SimpleTestCase(unittest.TestCase):
             data = json.loads(raw)
         except ValueError:
             self.fail("First argument is not valid JSON: %r" % raw)
-        if isinstance(expected_data, six.string_types):
+        if isinstance(expected_data, str):
             try:
                 expected_data = json.loads(expected_data)
             except ValueError:
@@ -780,10 +750,7 @@ class SimpleTestCase(unittest.TestCase):
             if not result:
                 standardMsg = '%s != %s' % (safe_repr(xml1, True), safe_repr(xml2, True))
                 diff = ('\n' + '\n'.join(
-                    difflib.ndiff(
-                        six.text_type(xml1).splitlines(),
-                        six.text_type(xml2).splitlines(),
-                    )
+                    difflib.ndiff(xml1.splitlines(), xml2.splitlines())
                 ))
                 standardMsg = self._truncateMessage(standardMsg, diff)
                 self.fail(self._formatMessage(msg, standardMsg))
@@ -803,12 +770,6 @@ class SimpleTestCase(unittest.TestCase):
             if result:
                 standardMsg = '%s == %s' % (safe_repr(xml1, True), safe_repr(xml2, True))
                 self.fail(self._formatMessage(msg, standardMsg))
-
-    if six.PY2:
-        assertCountEqual = unittest.TestCase.assertItemsEqual
-        assertNotRegex = unittest.TestCase.assertNotRegexpMatches
-        assertRaisesRegex = unittest.TestCase.assertRaisesRegexp
-        assertRegex = unittest.TestCase.assertRegexpMatches
 
 
 class TransactionTestCase(SimpleTestCase):

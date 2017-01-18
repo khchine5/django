@@ -1,17 +1,12 @@
-# -*- encoding: utf-8 -*-
-from __future__ import unicode_literals
-
 import codecs
 import datetime
 import locale
 from decimal import Decimal
+from urllib.parse import unquote_to_bytes
 
 from django.utils import six
 from django.utils.functional import Promise
-from django.utils.six.moves.urllib.parse import quote, unquote
-
-if six.PY3:
-    from urllib.parse import unquote_to_bytes
+from django.utils.six.moves.urllib.parse import quote
 
 
 class DjangoUnicodeDecodeError(UnicodeDecodeError):
@@ -41,8 +36,8 @@ def smart_text(s, encoding='utf-8', strings_only=False, errors='strict'):
     return force_text(s, encoding, strings_only, errors)
 
 
-_PROTECTED_TYPES = six.integer_types + (
-    type(None), float, Decimal, datetime.datetime, datetime.date, datetime.time
+_PROTECTED_TYPES = (
+    type(None), int, float, Decimal, datetime.datetime, datetime.date, datetime.time,
 )
 
 
@@ -63,23 +58,18 @@ def force_text(s, encoding='utf-8', strings_only=False, errors='strict'):
     If strings_only is True, don't convert (some) non-string-like objects.
     """
     # Handle the common case first for performance reasons.
-    if issubclass(type(s), six.text_type):
+    if issubclass(type(s), str):
         return s
     if strings_only and is_protected_type(s):
         return s
     try:
-        if not issubclass(type(s), six.string_types):
-            if six.PY3:
-                if isinstance(s, bytes):
-                    s = six.text_type(s, encoding, errors)
-                else:
-                    s = six.text_type(s)
-            elif hasattr(s, '__unicode__'):
-                s = six.text_type(s)
+        if not issubclass(type(s), str):
+            if isinstance(s, bytes):
+                s = str(s, encoding, errors)
             else:
-                s = six.text_type(bytes(s), encoding, errors)
+                s = str(s)
         else:
-            # Note: We use .decode() here, instead of six.text_type(s, encoding,
+            # Note: We use .decode() here, instead of str(s, encoding,
             # errors), so that if s is a SafeBytes, it ends up being a
             # SafeText at the end.
             s = s.decode(encoding, errors)
@@ -124,16 +114,13 @@ def force_bytes(s, encoding='utf-8', strings_only=False, errors='strict'):
             return s.decode('utf-8', errors).encode(encoding, errors)
     if strings_only and is_protected_type(s):
         return s
-    if isinstance(s, six.memoryview):
+    if isinstance(s, memoryview):
         return bytes(s)
     if isinstance(s, Promise):
-        return six.text_type(s).encode(encoding, errors)
-    if not isinstance(s, six.string_types):
+        return str(s).encode(encoding, errors)
+    if not isinstance(s, str):
         try:
-            if six.PY3:
-                return six.text_type(s).encode(encoding)
-            else:
-                return bytes(s)
+            return str(s).encode(encoding)
         except UnicodeEncodeError:
             if isinstance(s, Exception):
                 # An Exception subclass containing non-ASCII data that doesn't
@@ -141,20 +128,13 @@ def force_bytes(s, encoding='utf-8', strings_only=False, errors='strict'):
                 # further exception.
                 return b' '.join(force_bytes(arg, encoding, strings_only, errors)
                                  for arg in s)
-            return six.text_type(s).encode(encoding, errors)
+            return str(s).encode(encoding, errors)
     else:
         return s.encode(encoding, errors)
 
 
-if six.PY3:
-    smart_str = smart_text
-    force_str = force_text
-else:
-    smart_str = smart_bytes
-    force_str = force_bytes
-    # backwards compatibility for Python 2
-    smart_unicode = smart_text
-    force_unicode = force_text
+smart_str = smart_text
+force_str = force_text
 
 smart_str.__doc__ = """
 Apply smart_text in Python 3 and smart_bytes in Python 2.
@@ -210,7 +190,7 @@ def uri_to_iri(uri):
     if uri is None:
         return uri
     uri = force_bytes(uri)
-    iri = unquote_to_bytes(uri) if six.PY3 else unquote(uri)
+    iri = unquote_to_bytes(uri)
     return repercent_broken_unicode(iri).decode('utf-8')
 
 

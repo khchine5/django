@@ -4,8 +4,6 @@ Multi-part parsing for file uploads.
 Exposes one class, ``MultiPartParser``, which feeds chunks of uploaded data to
 file upload handlers for processing.
 """
-from __future__ import unicode_literals
-
 import base64
 import binascii
 import cgi
@@ -41,8 +39,6 @@ class InputStreamExhausted(Exception):
 RAW = "raw"
 FILE = "file"
 FIELD = "field"
-
-_BASE64_DECODE_ERROR = TypeError if six.PY2 else binascii.Error
 
 
 class MultiPartParser(object):
@@ -88,7 +84,7 @@ class MultiPartParser(object):
             # This means we shouldn't continue...raise an error.
             raise MultiPartParserError("Invalid content length: %r" % content_length)
 
-        if isinstance(boundary, six.text_type):
+        if isinstance(boundary, str):
             boundary = boundary.encode('ascii')
         self._boundary = boundary
         self._input_data = input_data
@@ -192,7 +188,7 @@ class MultiPartParser(object):
                         num_bytes_read += len(raw_data)
                         try:
                             data = base64.b64decode(raw_data)
-                        except _BASE64_DECODE_ERROR:
+                        except binascii.Error:
                             data = raw_data
                     else:
                         data = field_stream.read(size=read_size)
@@ -686,10 +682,7 @@ def parse_header(line):
             value = p[i + 1:].strip()
             if has_encoding:
                 encoding, lang, value = value.split(b"'")
-                if six.PY3:
-                    value = unquote(value.decode(), encoding=encoding.decode())
-                else:
-                    value = unquote(value).decode(encoding)
+                value = unquote(value.decode(), encoding=encoding.decode())
             if len(value) >= 2 and value[:1] == value[-1:] == b'"':
                 value = value[1:-1]
                 value = value.replace(b'\\\\', b'\\').replace(b'\\"', b'"')

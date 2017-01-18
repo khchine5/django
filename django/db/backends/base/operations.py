@@ -1,14 +1,12 @@
 import datetime
 import decimal
-import warnings
 from importlib import import_module
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db.backends import utils
-from django.utils import six, timezone
+from django.utils import timezone
 from django.utils.dateparse import parse_duration
-from django.utils.deprecation import RemovedInDjango20Warning
 from django.utils.encoding import force_text
 
 
@@ -193,15 +191,6 @@ class BaseDatabaseOperations(object):
         else:
             return 'FOR UPDATE'
 
-    def fulltext_search_sql(self, field_name):
-        """
-        Returns the SQL WHERE clause to use in order to perform a full-text
-        search of the given field_name. Note that the resulting string should
-        contain a '%s' placeholder for the value being searched against.
-        """
-        # RemovedInDjango20Warning
-        raise NotImplementedError('Full-text search is not implemented for this database backend')
-
     def last_executed_query(self, cursor, sql, params):
         """
         Returns a string of the query last executed by the given cursor, with
@@ -212,17 +201,17 @@ class BaseDatabaseOperations(object):
         exists for database backends to provide a better implementation
         according to their own quoting schemes.
         """
-        # Convert params to contain Unicode values.
-        def to_unicode(s):
+        # Convert params to contain string values.
+        def to_string(s):
             return force_text(s, strings_only=True, errors='replace')
         if isinstance(params, (list, tuple)):
-            u_params = tuple(to_unicode(val) for val in params)
+            u_params = tuple(to_string(val) for val in params)
         elif params is None:
             u_params = ()
         else:
-            u_params = {to_unicode(k): to_unicode(v) for k, v in params.items()}
+            u_params = {to_string(k): to_string(v) for k, v in params.items()}
 
-        return six.text_type("QUERY = %r - PARAMS = %r") % (sql, u_params)
+        return "QUERY = %r - PARAMS = %r" % (sql, u_params)
 
     def last_insert_id(self, cursor, table_name, pk_name):
         """
@@ -473,7 +462,7 @@ class BaseDatabaseOperations(object):
         """
         if value is None:
             return None
-        return six.text_type(value)
+        return str(value)
 
     def adapt_datetimefield_value(self, value):
         """
@@ -482,7 +471,7 @@ class BaseDatabaseOperations(object):
         """
         if value is None:
             return None
-        return six.text_type(value)
+        return str(value)
 
     def adapt_timefield_value(self, value):
         """
@@ -493,7 +482,7 @@ class BaseDatabaseOperations(object):
             return None
         if timezone.is_aware(value):
             raise ValueError("Django does not support timezone-aware times.")
-        return six.text_type(value)
+        return str(value)
 
     def adapt_decimalfield_value(self, value, max_digits=None, decimal_places=None):
         """
@@ -555,13 +544,6 @@ class BaseDatabaseOperations(object):
             value = str(decimal.Decimal(value) / decimal.Decimal(1000000))
             value = parse_duration(value)
         return value
-
-    def check_aggregate_support(self, aggregate_func):
-        warnings.warn(
-            "check_aggregate_support has been deprecated. Use "
-            "check_expression_support instead.",
-            RemovedInDjango20Warning, stacklevel=2)
-        return self.check_expression_support(aggregate_func)
 
     def check_expression_support(self, expression):
         """

@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import re
 import unicodedata
 from gzip import GzipFile
@@ -13,11 +11,6 @@ from django.utils.functional import (
 from django.utils.safestring import SafeText, mark_safe
 from django.utils.six.moves import html_entities
 from django.utils.translation import pgettext, ugettext as _, ugettext_lazy
-
-if six.PY2:
-    # Import force_unicode even though this module doesn't use it, because some
-    # people rely on it being here.
-    from django.utils.encoding import force_unicode  # NOQA
 
 
 @keep_lazy_text
@@ -415,7 +408,7 @@ def unescape_string_literal(s):
     return s[1:-1].replace(r'\%s' % quote, quote).replace(r'\\', '\\')
 
 
-@keep_lazy(six.text_type, SafeText)
+@keep_lazy(str, SafeText)
 def slugify(value, allow_unicode=False):
     """
     Convert to ASCII if 'allow_unicode' is False. Convert spaces to hyphens.
@@ -448,4 +441,4 @@ def _format_lazy(format_string, *args, **kwargs):
     return format_string.format(*args, **kwargs)
 
 
-format_lazy = lazy(_format_lazy, six.text_type)
+format_lazy = lazy(_format_lazy, str)

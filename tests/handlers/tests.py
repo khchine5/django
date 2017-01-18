@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-
-from __future__ import unicode_literals
-
 import unittest
 
 from django.core.exceptions import ImproperlyConfigured
@@ -11,7 +7,6 @@ from django.db import close_old_connections, connection
 from django.test import (
     RequestFactory, SimpleTestCase, TransactionTestCase, override_settings,
 )
-from django.utils import six
 from django.utils.encoding import force_str
 
 try:
@@ -38,7 +33,7 @@ class HandlerTests(SimpleTestCase):
         produces a 404.
         """
         environ = RequestFactory().get('/').environ
-        environ['PATH_INFO'] = b'\xed' if six.PY2 else '\xed'
+        environ['PATH_INFO'] = '\xed'
         handler = WSGIHandler()
         response = handler(environ, lambda *a, **k: None)
         # The path of the request will be encoded to '/%ED'.
@@ -57,25 +52,17 @@ class HandlerTests(SimpleTestCase):
         ]
         got = []
         for raw_query_string in raw_query_strings:
-            if six.PY3:
-                # Simulate http.server.BaseHTTPRequestHandler.parse_request handling of raw request
-                environ['QUERY_STRING'] = str(raw_query_string, 'iso-8859-1')
-            else:
-                environ['QUERY_STRING'] = raw_query_string
+            # Simulate http.server.BaseHTTPRequestHandler.parse_request handling of raw request
+            environ['QUERY_STRING'] = str(raw_query_string, 'iso-8859-1')
             request = WSGIRequest(environ)
             got.append(request.GET['want'])
-        if six.PY2:
-            self.assertListEqual(got, ['café', 'café', 'café', 'café'])
-        else:
-            # On Python 3, %E9 is converted to the unicode replacement character by parse_qsl
-            self.assertListEqual(got, ['café', 'café', 'caf\ufffd', 'café'])
+        # %E9 is converted to the unicode replacement character by parse_qsl
+        self.assertListEqual(got, ['café', 'café', 'caf\ufffd', 'café'])
 
     def test_non_ascii_cookie(self):
         """Non-ASCII cookies set in JavaScript are properly decoded (#20557)."""
         environ = RequestFactory().get('/').environ
-        raw_cookie = 'want="café"'
-        if six.PY3:
-            raw_cookie = raw_cookie.encode('utf-8').decode('iso-8859-1')
+        raw_cookie = 'want="café"'.encode('utf-8').decode('iso-8859-1')
         environ['HTTP_COOKIE'] = raw_cookie
         request = WSGIRequest(environ)
         # If would be nicer if request.COOKIES returned unicode values.
@@ -197,7 +184,7 @@ class HandlerRequestTests(SimpleTestCase):
 
     def test_environ_path_info_type(self):
         environ = RequestFactory().get('/%E2%A8%87%87%A5%E2%A8%A0').environ
-        self.assertIsInstance(environ['PATH_INFO'], six.text_type)
+        self.assertIsInstance(environ['PATH_INFO'], str)
 
     @unittest.skipIf(HTTPStatus is None, 'HTTPStatus only exists on Python 3.5+')
     def test_handle_accepts_httpstatus_enum_value(self):

@@ -1,17 +1,9 @@
 import sys
 import threading
-import warnings
 import weakref
 
-from django.utils import six
-from django.utils.deprecation import RemovedInDjango20Warning
 from django.utils.inspect import func_accepts_kwargs
 from django.utils.six.moves import range
-
-if six.PY2:
-    from .weakref_backports import WeakMethod
-else:
-    from weakref import WeakMethod
 
 
 def _make_id(target):
@@ -109,13 +101,10 @@ class Signal(object):
             receiver_object = receiver
             # Check for bound methods
             if hasattr(receiver, '__self__') and hasattr(receiver, '__func__'):
-                ref = WeakMethod
+                ref = weakref.WeakMethod
                 receiver_object = receiver.__self__
-            if six.PY3:
-                receiver = ref(receiver)
-                weakref.finalize(receiver_object, self._remove_receiver)
-            else:
-                receiver = ref(receiver, self._remove_receiver)
+            receiver = ref(receiver)
+            weakref.finalize(receiver_object, self._remove_receiver)
 
         with self.lock:
             self._clear_dead_receivers()
@@ -126,7 +115,7 @@ class Signal(object):
                 self.receivers.append((lookup_key, receiver))
             self.sender_receivers_cache.clear()
 
-    def disconnect(self, receiver=None, sender=None, weak=None, dispatch_uid=None):
+    def disconnect(self, receiver=None, sender=None, dispatch_uid=None):
         """
         Disconnect receiver from sender for signal.
 
@@ -145,8 +134,6 @@ class Signal(object):
             dispatch_uid
                 the unique identifier of the receiver to disconnect
         """
-        if weak is not None:
-            warnings.warn("Passing `weak` to disconnect has no effect.", RemovedInDjango20Warning, stacklevel=2)
         if dispatch_uid:
             lookup_key = (dispatch_uid, _make_id(sender))
         else:

@@ -1,7 +1,4 @@
-from __future__ import unicode_literals
-
 import json
-import warnings
 
 from django import forms
 from django.conf import settings
@@ -13,8 +10,6 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models.fields.related import ManyToManyRel
 from django.forms.utils import flatatt
 from django.template.defaultfilters import capfirst, linebreaksbr
-from django.utils import six
-from django.utils.deprecation import RemovedInDjango20Warning
 from django.utils.encoding import force_text
 from django.utils.html import conditional_escape, format_html
 from django.utils.safestring import mark_safe
@@ -103,7 +98,7 @@ class Fieldset(object):
 class Fieldline(object):
     def __init__(self, form, field, readonly_fields=None, model_admin=None):
         self.form = form  # A django.forms.Form instance
-        if not hasattr(field, "__iter__") or isinstance(field, six.text_type):
+        if not hasattr(field, "__iter__") or isinstance(field, str):
             self.fields = [field]
         else:
             self.fields = field
@@ -218,20 +213,10 @@ class AdminReadonlyField(object):
                     if hasattr(value, "__html__"):
                         result_repr = value
                     else:
-                        result_repr = force_text(value)
-                        if getattr(attr, "allow_tags", False):
-                            warnings.warn(
-                                "Deprecated allow_tags attribute used on %s. "
-                                "Use django.utils.html.format_html(), format_html_join(), "
-                                "or django.utils.safestring.mark_safe() instead." % attr,
-                                RemovedInDjango20Warning
-                            )
-                            result_repr = mark_safe(value)
-                        else:
-                            result_repr = linebreaksbr(result_repr)
+                        result_repr = linebreaksbr(force_text(value))
             else:
                 if isinstance(f.remote_field, ManyToManyRel) and value is not None:
-                    result_repr = ", ".join(map(six.text_type, value.all()))
+                    result_repr = ", ".join(map(str, value.all()))
                 else:
                     result_repr = display_for_field(value, f, self.empty_value_display)
                 result_repr = linebreaksbr(result_repr)

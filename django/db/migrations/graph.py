@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import sys
 import warnings
 from collections import deque
@@ -8,7 +6,6 @@ from functools import total_ordering
 from django.db.migrations.state import ProjectState
 from django.utils import six
 from django.utils.datastructures import OrderedSet
-from django.utils.encoding import python_2_unicode_compatible
 
 from .exceptions import CircularDependencyError, NodeNotFoundError
 
@@ -20,7 +17,6 @@ RECURSION_DEPTH_WARNING = (
 )
 
 
-@python_2_unicode_compatible
 @total_ordering
 class Node(object):
     """
@@ -104,7 +100,6 @@ class DummyNode(Node):
         raise NodeNotFoundError(self.error_message, self.key, origin=self.origin)
 
 
-@python_2_unicode_compatible
 class MigrationGraph(object):
     """
     Represents the digraph of all migrations in a project.

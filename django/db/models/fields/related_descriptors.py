@@ -63,15 +63,11 @@ and two directions (forward and reverse) for a total of six combinations.
    ``ReverseManyToManyDescriptor``, use ``ManyToManyDescriptor`` instead.
 """
 
-from __future__ import unicode_literals
-
-import warnings
 from operator import attrgetter
 
 from django.db import connections, router, transaction
 from django.db.models import Q, signals
 from django.db.models.query import QuerySet
-from django.utils.deprecation import RemovedInDjango20Warning
 from django.utils.functional import cached_property
 
 
@@ -107,20 +103,7 @@ class ForwardManyToOneDescriptor(object):
         return hasattr(instance, self.cache_name)
 
     def get_queryset(self, **hints):
-        related_model = self.field.remote_field.model
-
-        if getattr(related_model._default_manager, 'use_for_related_fields', False):
-            if not getattr(related_model._default_manager, 'silence_use_for_related_fields_deprecation', False):
-                warnings.warn(
-                    "use_for_related_fields is deprecated, instead "
-                    "set Meta.base_manager_name on '{}'.".format(related_model._meta.label),
-                    RemovedInDjango20Warning, 2
-                )
-            manager = related_model._default_manager
-        else:
-            manager = related_model._base_manager
-
-        return manager.db_manager(hints=hints).all()
+        return self.field.remote_field.model._base_manager.db_manager(hints=hints).all()
 
     def get_prefetch_queryset(self, instances, queryset=None):
         if queryset is None:
@@ -323,20 +306,7 @@ class ReverseOneToOneDescriptor(object):
         return hasattr(instance, self.cache_name)
 
     def get_queryset(self, **hints):
-        related_model = self.related.related_model
-
-        if getattr(related_model._default_manager, 'use_for_related_fields', False):
-            if not getattr(related_model._default_manager, 'silence_use_for_related_fields_deprecation', False):
-                warnings.warn(
-                    "use_for_related_fields is deprecated, instead "
-                    "set Meta.base_manager_name on '{}'.".format(related_model._meta.label),
-                    RemovedInDjango20Warning, 2
-                )
-            manager = related_model._default_manager
-        else:
-            manager = related_model._base_manager
-
-        return manager.db_manager(hints=hints).all()
+        return self.related.related_model._base_manager.db_manager(hints=hints).all()
 
     def get_prefetch_queryset(self, instances, queryset=None):
         if queryset is None:
@@ -510,28 +480,16 @@ class ReverseManyToOneDescriptor(object):
         return self.related_manager_cls(instance)
 
     def _get_set_deprecation_msg_params(self):
-        return (  # RemovedInDjango20Warning
+        return (
             'reverse side of a related set',
             self.rel.get_accessor_name(),
         )
 
     def __set__(self, instance, value):
-        """
-        Set the related objects through the reverse relation.
-
-        With the example above, when setting ``parent.children = children``:
-
-        - ``self`` is the descriptor managing the ``children`` attribute
-        - ``instance`` is the ``parent`` instance
-        - ``value`` is the ``children`` sequence on the right of the equal sign
-        """
-        warnings.warn(
-            'Direct assignment to the %s is deprecated due to the implicit '
-            'save() that happens. Use %s.set() instead.' % self._get_set_deprecation_msg_params(),
-            RemovedInDjango20Warning, stacklevel=2,
+        raise TypeError(
+            'Direct assignment to the %s is prohibited. Use %s.set() instead.'
+            % self._get_set_deprecation_msg_params(),
         )
-        manager = self.__get__(instance)
-        manager.set(value)
 
 
 def create_reverse_many_to_one_manager(superclass, rel):
@@ -772,7 +730,7 @@ class ManyToManyDescriptor(ReverseManyToOneDescriptor):
         )
 
     def _get_set_deprecation_msg_params(self):
-        return (  # RemovedInDjango20Warning
+        return (
             '%s side of a many-to-many set' % ('reverse' if self.reverse else 'forward'),
             self.rel.get_accessor_name() if self.reverse else self.field.name,
         )

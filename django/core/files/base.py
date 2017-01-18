@@ -1,16 +1,10 @@
-from __future__ import unicode_literals
-
 import os
 from io import BytesIO, StringIO, UnsupportedOperation
 
 from django.core.files.utils import FileProxyMixin
-from django.utils import six
-from django.utils.encoding import (
-    force_bytes, force_str, force_text, python_2_unicode_compatible,
-)
+from django.utils.encoding import force_str, force_text
 
 
-@python_2_unicode_compatible
 class File(FileProxyMixin):
     DEFAULT_CHUNK_SIZE = 64 * 2 ** 10
 
@@ -140,17 +134,12 @@ class File(FileProxyMixin):
         self.file.close()
 
 
-@python_2_unicode_compatible
 class ContentFile(File):
     """
     A File-like object that takes just raw content, rather than an actual file.
     """
     def __init__(self, content, name=None):
-        if six.PY3:
-            stream_class = StringIO if isinstance(content, six.text_type) else BytesIO
-        else:
-            stream_class = BytesIO
-            content = force_bytes(content)
+        stream_class = StringIO if isinstance(content, str) else BytesIO
         super(ContentFile, self).__init__(stream_class(content), name=name)
         self.size = len(content)
 
@@ -174,18 +163,18 @@ def endswith_cr(line):
     """
     Return True if line (a text or byte string) ends with '\r'.
     """
-    return line.endswith('\r' if isinstance(line, six.text_type) else b'\r')
+    return line.endswith('\r' if isinstance(line, str) else b'\r')
 
 
 def endswith_lf(line):
     """
     Return True if line (a text or byte string) ends with '\n'.
     """
-    return line.endswith('\n' if isinstance(line, six.text_type) else b'\n')
+    return line.endswith('\n' if isinstance(line, str) else b'\n')
 
 
 def equals_lf(line):
     """
     Return True if line (a text or byte string) equals '\n'.
     """
-    return line == ('\n' if isinstance(line, six.text_type) else b'\n')
+    return line == ('\n' if isinstance(line, str) else b'\n')

@@ -1,6 +1,3 @@
-# -*- encoding: utf-8 -*-
-from __future__ import unicode_literals
-
 import re
 from unittest import skipUnless
 
@@ -8,7 +5,7 @@ from django.core.management import call_command
 from django.db import connection
 from django.test import TestCase, mock, skipUnlessDBFeature
 from django.utils.encoding import force_text
-from django.utils.six import PY3, StringIO
+from django.utils.six import StringIO
 
 from .models import ColumnTypes
 
@@ -60,7 +57,6 @@ class InspectDBTestCase(TestCase):
         if not connection.features.interprets_empty_strings_as_nulls:
             assertFieldType('char_field', "models.CharField(max_length=10)")
             assertFieldType('null_char_field', "models.CharField(max_length=10, blank=True, null=True)")
-            assertFieldType('comma_separated_int_field', "models.CharField(max_length=99)")
             assertFieldType('email_field', "models.CharField(max_length=254)")
             assertFieldType('file_field', "models.CharField(max_length=100)")
             assertFieldType('file_path_field', "models.CharField(max_length=100)")
@@ -200,11 +196,7 @@ class InspectDBTestCase(TestCase):
         self.assertIn("field_field_0 = models.IntegerField(db_column='%s__')" % base_name, output)
         self.assertIn("field_field_1 = models.IntegerField(db_column='__field')", output)
         self.assertIn("prc_x = models.IntegerField(db_column='prc(%) x')", output)
-        if PY3:
-            # Python 3 allows non-ASCII identifiers
-            self.assertIn("tamaño = models.IntegerField()", output)
-        else:
-            self.assertIn("tama_o = models.IntegerField(db_column='tama\\xf1o')", output)
+        self.assertIn("tamaño = models.IntegerField()", output)
 
     def test_table_name_introspection(self):
         """

@@ -1,11 +1,8 @@
-from __future__ import unicode_literals
-
 import datetime
 
 from django.core import signing
 from django.test import SimpleTestCase
 from django.test.utils import freeze_time
-from django.utils import six
 from django.utils.encoding import force_str
 
 
@@ -47,8 +44,6 @@ class TestSigner(SimpleTestCase):
             'jkw osanteuh ,rcuh nthu aou oauh ,ud du',
             '\u2019',
         ]
-        if six.PY2:
-            examples.append(b'a byte string')
         for example in examples:
             signed = signer.sign(example)
             self.assertIsInstance(signed, str)
@@ -78,8 +73,6 @@ class TestSigner(SimpleTestCase):
             'a unicode string \u2019',
             {'a': 'dictionary'},
         ]
-        if six.PY2:
-            objects.append(b'a byte string')
         for o in objects:
             self.assertNotEqual(o, signing.dumps(o))
             self.assertEqual(o, signing.loads(signing.dumps(o)))

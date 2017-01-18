@@ -2,11 +2,8 @@ import random
 import string
 
 from django.db import models
-from django.utils import six
-from django.utils.encoding import python_2_unicode_compatible
 
 
-@python_2_unicode_compatible
 class MyWrapper(object):
     def __init__(self, value):
         self.value = value
@@ -52,12 +49,12 @@ class MyAutoField(models.CharField):
         if not value:
             return
         if isinstance(value, MyWrapper):
-            return six.text_type(value)
+            return str(value)
         return value
 
     def get_db_prep_value(self, value, connection, prepared=False):
         if not value:
             return
         if isinstance(value, MyWrapper):
-            return six.text_type(value)
+            return str(value)
         return value

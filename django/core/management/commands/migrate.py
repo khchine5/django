@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 import time
 from collections import OrderedDict
 from importlib import import_module
@@ -203,6 +200,9 @@ class Command(BaseCommand):
             targets, plan=plan, state=pre_migrate_state.clone(), fake=fake,
             fake_initial=fake_initial,
         )
+        # post_migrate signals have access to all models. Ensure that all models
+        # are reloaded in case any are delayed.
+        post_migrate_state.clear_delayed_apps_cache()
         post_migrate_apps = post_migrate_state.apps
 
         # Re-render models of real apps to include relationships now that

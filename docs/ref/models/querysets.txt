@@ -149,11 +149,10 @@ Here's the formal declaration of a ``QuerySet``:
     .. note::
 
         The ``query`` parameter to :class:`QuerySet` exists so that specialized
-        query subclasses such as
-        :class:`~django.contrib.gis.db.models.GeoQuerySet` can reconstruct
-        internal query state. The value of the parameter is an opaque
-        representation of that query state and is not part of a public API.
-        To put it simply: if you need to ask, you don't need to use it.
+        query subclasses can reconstruct internal query state. The value of the
+        parameter is an opaque representation of that query state and is not
+        part of a public API. To put it simply: if you need to ask, you don't
+        need to use it.
 
 .. currentmodule:: django.db.models.query.QuerySet
 
@@ -1003,7 +1002,7 @@ For example, suppose you have these models::
         name = models.CharField(max_length=50)
         toppings = models.ManyToManyField(Topping)
 
-        def __str__(self):              # __unicode__ on Python 2
+        def __str__(self):
             return "%s (%s)" % (
                 self.name,
                 ", ".join(topping.name for topping in self.toppings.all()),
@@ -1950,11 +1949,6 @@ This has a number of caveats though:
   unless the database backend supports it (currently PostgreSQL).
 * It does not work with many-to-many relationships.
 
-.. versionchanged:: 1.10
-
-    Support for setting primary keys on objects created using ``bulk_create()``
-    when using PostgreSQL was added.
-
 The ``batch_size`` parameter controls how many objects are created in single
 query. The default is to create all objects in one batch, except for SQLite
 where the default is such that at most 999 variables per query are used.
@@ -2011,10 +2005,6 @@ Example::
     {1: <Blog: Beatles Blog>, 2: <Blog: Cheddar Talk>, 3: <Blog: Django Weblog>}
 
 If you pass ``in_bulk()`` an empty list, you'll get an empty dictionary.
-
-.. versionchanged:: 1.10
-
-    In older versions, ``id_list`` was a required argument.
 
 ``iterator()``
 ~~~~~~~~~~~~~~
@@ -2919,33 +2909,6 @@ SQL equivalent::
 
     SELECT ... WHERE pub_date IS NULL;
 
-.. fieldlookup:: search
-
-``search``
-~~~~~~~~~~
-
-.. deprecated:: 1.10
-
-    See :ref:`the 1.10 release notes <search-lookup-replacement>` for how to
-    replace it.
-
-A boolean full-text search, taking advantage of full-text indexing. This is
-like :lookup:`contains` but is significantly faster due to full-text indexing.
-
-Example::
-
-    Entry.objects.filter(headline__search="+Django -jazz Python")
-
-SQL equivalent::
-
-    SELECT ... WHERE MATCH(tablename, headline) AGAINST (+Django -jazz Python IN BOOLEAN MODE);
-
-Note this is only available in MySQL and requires direct manipulation of the
-database to add the full-text index. By default Django uses BOOLEAN MODE for
-full text searches. See the `MySQL documentation`_ for additional details.
-
-.. _MySQL documentation: https://dev.mysql.com/doc/refman/en/fulltext-boolean.html
-
 .. fieldlookup:: regex
 
 ``regex``
@@ -3233,8 +3196,6 @@ attribute:
 ------------------------------
 
 .. function:: prefetch_related_objects(model_instances, *related_lookups)
-
-.. versionadded:: 1.10
 
 Prefetches the given lookups on an iterable of model instances. This is useful
 in code that receives a list of model instances as opposed to a ``QuerySet``;

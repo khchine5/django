@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import codecs
 import datetime
 import os
@@ -168,7 +166,7 @@ class TestCollectionClear(CollectionTestCase):
         self.assertFileNotFound('cleared.txt')
 
     def test_dir_not_exists(self, **kwargs):
-        shutil.rmtree(six.text_type(settings.STATIC_ROOT))
+        shutil.rmtree(settings.STATIC_ROOT)
         super(TestCollectionClear, self).run_collectstatic(clear=True)
 
     @override_settings(STATICFILES_STORAGE='staticfiles_tests.storage.PathNotImplementedStorage')
@@ -185,8 +183,7 @@ class TestInteractiveMessages(CollectionTestCase):
     @staticmethod
     def mock_input(stdout):
         def _input(msg):
-            # Python 2 reads bytes from the console output, use bytes for the StringIO
-            stdout.write(msg.encode('utf-8') if six.PY2 else msg)
+            stdout.write(msg)
             return 'yes'
         return _input
 
@@ -213,7 +210,7 @@ class TestInteractiveMessages(CollectionTestCase):
 
     def test_no_warning_when_staticdir_does_not_exist(self):
         stdout = six.StringIO()
-        shutil.rmtree(six.text_type(settings.STATIC_ROOT))
+        shutil.rmtree(settings.STATIC_ROOT)
         call_command('collectstatic', interactive=True, stdout=stdout)
         output = force_text(stdout.getvalue())
         self.assertNotIn(self.overwrite_warning_msg, output)
@@ -225,7 +222,7 @@ class TestInteractiveMessages(CollectionTestCase):
         static_dir = tempfile.mkdtemp(prefix='collectstatic_empty_staticdir_test')
         with override_settings(STATIC_ROOT=static_dir):
             call_command('collectstatic', interactive=True, stdout=stdout)
-        shutil.rmtree(six.text_type(static_dir))
+        shutil.rmtree(static_dir)
         output = force_text(stdout.getvalue())
         self.assertNotIn(self.overwrite_warning_msg, output)
         self.assertNotIn(self.delete_warning_msg, output)

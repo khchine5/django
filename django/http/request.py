@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import copy
 import re
 import sys
@@ -16,7 +14,7 @@ from django.http.multipartparser import MultiPartParser, MultiPartParserError
 from django.utils import six
 from django.utils.datastructures import ImmutableList, MultiValueDict
 from django.utils.encoding import (
-    escape_uri_path, force_bytes, force_str, force_text, iri_to_uri,
+    escape_uri_path, force_bytes, force_str, iri_to_uri,
 )
 from django.utils.http import is_same_domain, limited_parse_qsl
 from django.utils.six.moves.urllib.parse import (
@@ -383,24 +381,15 @@ class QueryDict(MultiValueDict):
             'fields_limit': settings.DATA_UPLOAD_MAX_NUMBER_FIELDS,
             'encoding': encoding,
         }
-        if six.PY3:
-            if isinstance(query_string, bytes):
-                # query_string normally contains URL-encoded data, a subset of ASCII.
-                try:
-                    query_string = query_string.decode(encoding)
-                except UnicodeDecodeError:
-                    # ... but some user agents are misbehaving :-(
-                    query_string = query_string.decode('iso-8859-1')
-            for key, value in limited_parse_qsl(query_string, **parse_qsl_kwargs):
-                self.appendlist(key, value)
-        else:
-            for key, value in limited_parse_qsl(query_string, **parse_qsl_kwargs):
-                try:
-                    value = value.decode(encoding)
-                except UnicodeDecodeError:
-                    value = value.decode('iso-8859-1')
-                self.appendlist(force_text(key, encoding, errors='replace'),
-                                value)
+        if isinstance(query_string, bytes):
+            # query_string normally contains URL-encoded data, a subset of ASCII.
+            try:
+                query_string = query_string.decode(encoding)
+            except UnicodeDecodeError:
+                # ... but some user agents are misbehaving :-(
+                query_string = query_string.decode('iso-8859-1')
+        for key, value in limited_parse_qsl(query_string, **parse_qsl_kwargs):
+            self.appendlist(key, value)
         self._mutable = mutable
 
     @classmethod
@@ -533,7 +522,7 @@ def bytes_to_text(s, encoding):
     Returns any non-basestring objects without change.
     """
     if isinstance(s, bytes):
-        return six.text_type(s, encoding, 'replace')
+        return str(s, encoding, 'replace')
     else:
         return s
 

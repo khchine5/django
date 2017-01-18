@@ -1,12 +1,9 @@
-from __future__ import unicode_literals
-
 from django.apps.registry import Apps
 from django.db import models
 from django.db.models import signals
 from django.dispatch import receiver
 from django.test import TestCase, mock
 from django.test.utils import isolate_apps
-from django.utils import six
 
 from .models import Author, Book, Car, Person
 
@@ -162,7 +159,7 @@ class SignalTests(BaseSignalTest):
                 Person.objects.all(), [
                     "James Jones",
                 ],
-                six.text_type
+                str
             )
         finally:
             signals.pre_delete.disconnect(pre_delete_handler)

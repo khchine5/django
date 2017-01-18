@@ -1,9 +1,6 @@
 from django.contrib.gis import gdal
-from django.utils import six
-from django.utils.encoding import python_2_unicode_compatible
 
 
-@python_2_unicode_compatible
 class SpatialRefSysMixin(object):
     """
     The SpatialRefSysMixin is a class used by the database-dependent
@@ -136,4 +133,4 @@ class SpatialRefSysMixin(object):
         """
         Returns the string representation, a 'pretty' OGC WKT.
         """
-        return six.text_type(self.srs)
+        return str(self.srs)

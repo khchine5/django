@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import unittest
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
@@ -11,7 +9,6 @@ from django.db import connection, models
 from django.db.models import F, Max, Min, Q, Sum, Value
 from django.db.models.expressions import Case, When
 from django.test import TestCase
-from django.utils import six
 
 from .models import CaseTestModel, Client, FKCaseTestModel, O2OCaseTestModel
 
@@ -650,7 +647,7 @@ class CaseExpressionTests(TestCase):
         self.assertQuerysetEqual(
             CaseTestModel.objects.all().order_by('pk'),
             [(1, b'one'), (2, b'two'), (3, b''), (2, b'two'), (3, b''), (3, b''), (4, b'')],
-            transform=lambda o: (o.integer, six.binary_type(o.binary))
+            transform=lambda o: (o.integer, bytes(o.binary))
         )
 
     def test_update_boolean(self):
@@ -665,20 +662,6 @@ class CaseExpressionTests(TestCase):
             CaseTestModel.objects.all().order_by('pk'),
             [(1, True), (2, True), (3, False), (2, True), (3, False), (3, False), (4, False)],
             transform=attrgetter('integer', 'boolean')
-        )
-
-    def test_update_comma_separated_integer(self):
-        CaseTestModel.objects.update(
-            comma_separated_integer=Case(
-                When(integer=1, then=Value('1')),
-                When(integer=2, then=Value('2,2')),
-                default=Value(''),
-            ),
-        )
-        self.assertQuerysetEqual(
-            CaseTestModel.objects.all().order_by('pk'),
-            [(1, '1'), (2, '2,2'), (3, ''), (2, '2,2'), (3, ''), (3, ''), (4, '')],
-            transform=attrgetter('integer', 'comma_separated_integer')
         )
 
     def test_update_date(self):
@@ -773,7 +756,7 @@ class CaseExpressionTests(TestCase):
         self.assertQuerysetEqual(
             CaseTestModel.objects.all().order_by('pk'),
             [(1, '~/1'), (2, '~/2'), (3, ''), (2, '~/2'), (3, ''), (3, ''), (4, '')],
-            transform=lambda o: (o.integer, six.text_type(o.file))
+            transform=lambda o: (o.integer, str(o.file))
         )
 
     def test_update_file_path(self):
@@ -814,7 +797,7 @@ class CaseExpressionTests(TestCase):
         self.assertQuerysetEqual(
             CaseTestModel.objects.all().order_by('pk'),
             [(1, '~/1'), (2, '~/2'), (3, ''), (2, '~/2'), (3, ''), (3, ''), (4, '')],
-            transform=lambda o: (o.integer, six.text_type(o.image))
+            transform=lambda o: (o.integer, str(o.image))
         )
 
     def test_update_generic_ip_address(self):

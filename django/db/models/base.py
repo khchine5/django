@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import copy
 import inspect
 import warnings
@@ -29,10 +27,7 @@ from django.db.models.signals import (
 )
 from django.db.models.utils import make_model_tuple
 from django.utils import six
-from django.utils.deprecation import RemovedInDjango20Warning
-from django.utils.encoding import (
-    force_str, force_text, python_2_unicode_compatible,
-)
+from django.utils.encoding import force_str, force_text
 from django.utils.functional import curry
 from django.utils.six.moves import zip
 from django.utils.text import capfirst, get_text_list
@@ -40,7 +35,6 @@ from django.utils.translation import ugettext_lazy as _
 from django.utils.version import get_version
 
 
-@python_2_unicode_compatible
 class Deferred(object):
     def __repr__(self):
         return str('<Deferred field>')
@@ -358,7 +352,7 @@ class ModelBase(type):
         if get_absolute_url_override:
             setattr(cls, 'get_absolute_url', get_absolute_url_override)
 
-        if not opts.managers or cls._requires_legacy_default_manager():
+        if not opts.managers:
             if any(f.name == 'objects' for f in opts.fields):
                 raise ValueError(
                     "Model %s must specify a custom Manager, because it has a "
@@ -369,79 +363,6 @@ class ModelBase(type):
             cls.add_to_class('objects', manager)
 
         class_prepared.send(sender=cls)
-
-    def _requires_legacy_default_manager(cls):  # RemovedInDjango20Warning
-        opts = cls._meta
-
-        if opts.manager_inheritance_from_future:
-            return False
-
-        future_default_manager = opts.default_manager
-
-        # Step 1: Locate a manager that would have been promoted
-        # to default manager with the legacy system.
-        for manager in opts.managers:
-            originating_model = manager._originating_model
-            if (cls is originating_model or cls._meta.proxy or
-                    originating_model._meta.abstract):
-
-                if manager is not cls._default_manager and not opts.default_manager_name:
-                    warnings.warn(
-                        "Managers from concrete parents will soon qualify as default "
-                        "managers if they appear before any other managers in the "
-                        "MRO. As a result, '{legacy_default_manager}' declared on "
-                        "'{legacy_default_manager_model}' will no longer be the "
-                        "default manager for '{model}' in favor of "
-                        "'{future_default_manager}' declared on "
-                        "'{future_default_manager_model}'. "
-                        "You can redeclare '{legacy_default_manager}' on '{cls}' "
-                        "to keep things the way they are or you can switch to the new "
-                        "behavior right away by setting "
-                        "`Meta.manager_inheritance_from_future` to `True`.".format(
-                            cls=cls.__name__,
-                            model=opts.label,
-                            legacy_default_manager=manager.name,
-                            legacy_default_manager_model=manager._originating_model._meta.label,
-                            future_default_manager=future_default_manager.name,
-                            future_default_manager_model=future_default_manager._originating_model._meta.label,
-                        ),
-                        RemovedInDjango20Warning, 2
-                    )
-
-                    opts.default_manager_name = manager.name
-                    opts._expire_cache()
-
-                break
-
-        # Step 2: Since there are managers but none of them qualified as
-        # default managers under the legacy system (meaning that there are
-        # managers from concrete parents that would be promoted under the
-        # new system), we need to create a new Manager instance for the
-        # 'objects' attribute as a deprecation shim.
-        else:
-            # If the "future" default manager was auto created there is no
-            # point warning the user since it's basically the same manager.
-            if not future_default_manager.auto_created:
-                warnings.warn(
-                    "Managers from concrete parents will soon qualify as "
-                    "default managers. As a result, the 'objects' manager "
-                    "won't be created (or recreated) automatically "
-                    "anymore on '{model}' and '{future_default_manager}' "
-                    "declared on '{future_default_manager_model}' will be "
-                    "promoted to default manager. You can declare "
-                    "explicitly `objects = models.Manager()` on '{cls}' "
-                    "to keep things the way they are or you can switch "
-                    "to the new behavior right away by setting "
-                    "`Meta.manager_inheritance_from_future` to `True`.".format(
-                        cls=cls.__name__,
-                        model=opts.label,
-                        future_default_manager=future_default_manager.name,
-                        future_default_manager_model=future_default_manager._originating_model._meta.label,
-                    ),
-                    RemovedInDjango20Warning, 2
-                )
-
-            return True
 
     @property
     def _base_manager(cls):
@@ -583,15 +504,13 @@ class Model(six.with_metaclass(ModelBase)):
 
     def __repr__(self):
         try:
-            u = six.text_type(self)
+            u = str(self)
         except (UnicodeEncodeError, UnicodeDecodeError):
             u = '[Bad Unicode data]'
         return force_str('<%s: %s>' % (self.__class__.__name__, u))
 
     def __str__(self):
-        if six.PY2 and hasattr(self, '__unicode__'):
-            return force_text(self).encode('utf-8')
-        return str('%s object' % self.__class__.__name__)
+        return '%s object' % self.__class__.__name__
 
     def __eq__(self, other):
         if not isinstance(other, Model):
@@ -1170,12 +1089,12 @@ class Model(six.with_metaclass(ModelBase)):
             code='unique_for_date',
             params={
                 'model': self,
-                'model_name': six.text_type(capfirst(opts.verbose_name)),
+                'model_name': capfirst(opts.verbose_name),
                 'lookup_type': lookup_type,
                 'field': field_name,
-                'field_label': six.text_type(capfirst(field.verbose_name)),
+                'field_label': capfirst(field.verbose_name),
                 'date_field': unique_for,
-                'date_field_label': six.text_type(capfirst(opts.get_field(unique_for).verbose_name)),
+                'date_field_label': capfirst(opts.get_field(unique_for).verbose_name),
             }
         )
 
@@ -1185,14 +1104,14 @@ class Model(six.with_metaclass(ModelBase)):
         params = {
             'model': self,
             'model_class': model_class,
-            'model_name': six.text_type(capfirst(opts.verbose_name)),
+            'model_name': capfirst(opts.verbose_name),
             'unique_check': unique_check,
         }
 
         # A unique field
         if len(unique_check) == 1:
             field = opts.get_field(unique_check[0])
-            params['field_label'] = six.text_type(capfirst(field.verbose_name))
+            params['field_label'] = capfirst(field.verbose_name)
             return ValidationError(
                 message=field.error_messages['unique'],
                 code='unique',
@@ -1202,7 +1121,7 @@ class Model(six.with_metaclass(ModelBase)):
         # unique_together
         else:
             field_labels = [capfirst(opts.get_field(f).verbose_name) for f in unique_check]
-            params['field_labels'] = six.text_type(get_text_list(field_labels, _('and')))
+            params['field_labels'] = get_text_list(field_labels, _('and'))
             return ValidationError(
                 message=_("%(model_name)s with this %(field_labels)s already exists."),
                 code='unique_together',
@@ -1728,7 +1647,7 @@ class Model(six.with_metaclass(ModelBase)):
 
         for f in cls._meta.local_many_to_many:
             # Skip nonexistent models.
-            if isinstance(f.remote_field.through, six.string_types):
+            if isinstance(f.remote_field.through, str):
                 continue
 
             # Check if auto-generated name for the M2M field is too long

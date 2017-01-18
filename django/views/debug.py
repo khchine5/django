@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import re
 import sys
 import types
@@ -9,7 +7,7 @@ from django.http import HttpResponse, HttpResponseNotFound
 from django.template import Context, Engine, TemplateDoesNotExist
 from django.template.defaultfilters import force_escape, pprint
 from django.urls import Resolver404, resolve
-from django.utils import lru_cache, six, timezone
+from django.utils import lru_cache, timezone
 from django.utils.datastructures import MultiValueDict
 from django.utils.encoding import force_bytes, force_text
 from django.utils.module_loading import import_string
@@ -248,7 +246,7 @@ class ExceptionReporter(object):
         self.postmortem = None
 
         # Handle deprecated string exceptions
-        if isinstance(self.exc_type, six.string_types):
+        if isinstance(self.exc_type, str):
             self.exc_value = Exception('Deprecated String Exception: %r' % self.exc_type)
             self.exc_type = type(self.exc_value)
 
@@ -265,7 +263,7 @@ class ExceptionReporter(object):
                 for k, v in frame['vars']:
                     v = pprint(v)
                     # The force_escape filter assume unicode, make sure that works
-                    if isinstance(v, six.binary_type):
+                    if isinstance(v, bytes):
                         v = v.decode('utf-8', 'replace')  # don't choke on non-utf-8 input
                     # Trim large blobs of data
                     if len(v) > 4096:
@@ -363,7 +361,7 @@ class ExceptionReporter(object):
         # If we just read the source from a file, or if the loader did not
         # apply tokenize.detect_encoding to decode the source into a Unicode
         # string, then we should do that ourselves.
-        if isinstance(source[0], six.binary_type):
+        if isinstance(source[0], bytes):
             encoding = 'ascii'
             for line in source[:2]:
                 # File coding may be specified. Match pattern from PEP-263
@@ -372,7 +370,7 @@ class ExceptionReporter(object):
                 if match:
                     encoding = match.group(1).decode('ascii')
                     break
-            source = [six.text_type(sline, encoding, 'replace') for sline in source]
+            source = [str(sline, encoding, 'replace') for sline in source]
 
         lower_bound = max(0, lineno - context_lines)
         upper_bound = lineno + context_lines
@@ -401,11 +399,9 @@ class ExceptionReporter(object):
         if not exceptions:
             return frames
 
-        # In case there's just one exception (always in Python 2,
-        # sometimes in Python 3), take the traceback from self.tb (Python 2
-        # doesn't have a __traceback__ attribute on Exception)
+        # In case there's just one exception, take the traceback from self.tb
         exc_value = exceptions.pop()
-        tb = self.tb if six.PY2 or not exceptions else exc_value.__traceback__
+        tb = self.tb if not exceptions else exc_value.__traceback__
 
         while tb is not None:
             # Support for __traceback_hide__ which is used by a few libraries
@@ -440,9 +436,7 @@ class ExceptionReporter(object):
 
             # If the traceback for current exception is consumed, try the
             # other exception.
-            if six.PY2:
-                tb = tb.tb_next
-            elif not tb.tb_next and exceptions:
+            if not tb.tb_next and exceptions:
                 exc_value = exceptions.pop()
                 tb = exc_value.__traceback__
             else:
@@ -867,8 +861,8 @@ Python Version: {{ sys_version_info }}
 Installed Applications:
 {{ settings.INSTALLED_APPS|pprint }}
 Installed Middleware:
-{% if settings.MIDDLEWARE is not None %}{{ settings.MIDDLEWARE|pprint }}"""
-"""{% else %}{{ settings.MIDDLEWARE_CLASSES|pprint }}{% endif %}
+{{ settings.MIDDLEWARE|pprint }}"""
+"""
 
 {% if template_does_not_exist %}Template loader postmortem
 {% if postmortem %}Django tried loading these templates, in this order:
@@ -1075,8 +1069,8 @@ Server time: {{server_time|date:"r"}}
 Installed Applications:
 {{ settings.INSTALLED_APPS|pprint }}
 Installed Middleware:
-{% if settings.MIDDLEWARE is not None %}{{ settings.MIDDLEWARE|pprint }}"""
-"""{% else %}{{ settings.MIDDLEWARE_CLASSES|pprint }}{% endif %}
+{{ settings.MIDDLEWARE|pprint }}"""
+"""
 {% if template_does_not_exist %}Template loader postmortem
 {% if postmortem %}Django tried loading these templates, in this order:
 {% for entry in postmortem %}

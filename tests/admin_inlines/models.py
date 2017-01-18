@@ -1,18 +1,13 @@
 """
 Testing of admin inline formsets.
-
 """
-from __future__ import unicode_literals
-
 import random
 
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
-from django.utils.encoding import python_2_unicode_compatible
 
 
-@python_2_unicode_compatible
 class Parent(models.Model):
     name = models.CharField(max_length=50)
 
@@ -20,7 +15,6 @@ class Parent(models.Model):
         return self.name
 
 
-@python_2_unicode_compatible
 class Teacher(models.Model):
     name = models.CharField(max_length=50)
 
@@ -28,7 +22,6 @@ class Teacher(models.Model):
         return self.name
 
 
-@python_2_unicode_compatible
 class Child(models.Model):
     name = models.CharField(max_length=50)
     teacher = models.ForeignKey(Teacher, models.CASCADE)

@@ -1,8 +1,6 @@
 """
 Django's standard crypto functions and utilities.
 """
-from __future__ import unicode_literals
-
 import binascii
 import hashlib
 import hmac
@@ -11,7 +9,6 @@ import struct
 import time
 
 from django.conf import settings
-from django.utils import six
 from django.utils.encoding import force_bytes
 from django.utils.six.moves import range
 
@@ -96,7 +93,7 @@ else:
         if len(val1) != len(val2):
             return False
         result = 0
-        if six.PY3 and isinstance(val1, bytes) and isinstance(val2, bytes):
+        if isinstance(val1, bytes) and isinstance(val2, bytes):
             for x, y in zip(val1, val2):
                 result |= x ^ y
         else:

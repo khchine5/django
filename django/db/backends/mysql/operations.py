@@ -1,10 +1,8 @@
-from __future__ import unicode_literals
-
 import uuid
 
 from django.conf import settings
 from django.db.backends.base.operations import BaseDatabaseOperations
-from django.utils import six, timezone
+from django.utils import timezone
 from django.utils.encoding import force_text
 
 
@@ -110,10 +108,6 @@ class DatabaseOperations(BaseDatabaseOperations):
         """
         return [(None, ("NULL", [], False))]
 
-    def fulltext_search_sql(self, field_name):
-        # RemovedInDjango20Warning
-        return 'MATCH (%s) AGAINST (%%s IN BOOLEAN MODE)' % field_name
-
     def last_executed_query(self, cursor, sql, params):
         # With MySQLdb, cursor objects have an (undocumented) "_last_executed"
         # attribute where the exact query sent to the database is saved.
@@ -174,7 +168,7 @@ class DatabaseOperations(BaseDatabaseOperations):
         if not self.connection.features.supports_microsecond_precision:
             value = value.replace(microsecond=0)
 
-        return six.text_type(value)
+        return str(value)
 
     def adapt_timefield_value(self, value):
         if value is None:
@@ -188,7 +182,7 @@ class DatabaseOperations(BaseDatabaseOperations):
         if timezone.is_aware(value):
             raise ValueError("MySQL backend does not support timezone-aware times.")
 
-        return six.text_type(value)
+        return str(value)
 
     def max_name_length(self):
         return 64

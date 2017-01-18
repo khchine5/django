@@ -1,11 +1,7 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 from unittest import TestCase
 
 from django.template import Context, Engine
 from django.template.base import TemplateEncodingError
-from django.utils import six
 from django.utils.safestring import SafeData
 
 
@@ -31,5 +27,5 @@ class UnicodeTests(TestCase):
         # they all render the same (and are returned as unicode objects and
         # "safe" objects as well, for auto-escaping purposes).
         self.assertEqual(t1.render(c3), t2.render(c3))
-        self.assertIsInstance(t1.render(c3), six.text_type)
+        self.assertIsInstance(t1.render(c3), str)
         self.assertIsInstance(t1.render(c3), SafeData)

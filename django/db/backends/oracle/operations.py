@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import datetime
 import re
 import uuid
@@ -7,7 +5,7 @@ import uuid
 from django.conf import settings
 from django.db.backends.base.operations import BaseDatabaseOperations
 from django.db.backends.utils import strip_quotes, truncate_name
-from django.utils import six, timezone
+from django.utils import timezone
 from django.utils.encoding import force_bytes, force_text
 
 from .base import Database
@@ -254,8 +252,6 @@ WHEN (new.%(col_name)s IS NULL)
         # https://cx-oracle.readthedocs.io/en/latest/cursor.html#Cursor.statement
         # The DB API definition does not define this attribute.
         statement = cursor.statement
-        if statement and six.PY2 and not isinstance(statement, unicode):  # NOQA: unicode undefined on PY3
-            statement = statement.decode('utf-8')
         # Unlike Psycopg's `query` and MySQLdb`'s `_last_executed`, CxOracle's
         # `statement` doesn't contain the query parameters. refs #20010.
         return super(DatabaseOperations, self).last_executed_query(cursor, statement, params)
@@ -494,7 +490,7 @@ WHEN (new.%(col_name)s IS NULL)
         if hasattr(value, 'resolve_expression'):
             return value
 
-        if isinstance(value, six.string_types):
+        if isinstance(value, str):
             return datetime.datetime.strptime(value, '%H:%M:%S')
 
         # Oracle doesn't support tz-aware times

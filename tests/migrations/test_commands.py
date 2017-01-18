@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 import datetime
 import importlib
 import io
@@ -17,9 +14,8 @@ from django.db.migrations.exceptions import (
     InconsistentMigrationHistory, MigrationSchemaMissing,
 )
 from django.db.migrations.recorder import MigrationRecorder
-from django.test import ignore_warnings, mock, override_settings
+from django.test import mock, override_settings
 from django.utils import six
-from django.utils.deprecation import RemovedInDjango20Warning
 from django.utils.encoding import force_text
 
 from .models import UnicodeModel, UnserializableModel
@@ -662,22 +658,13 @@ class MakeMigrationsTests(MigrationTestBase):
 
             with io.open(initial_file, 'r', encoding='utf-8') as fp:
                 content = fp.read()
-                self.assertIn('# -*- coding: utf-8 -*-', content)
                 self.assertIn('migrations.CreateModel', content)
                 self.assertIn('initial = True', content)
 
-                if six.PY3:
-                    self.assertIn('úñí©óðé µóðéø', content)  # Meta.verbose_name
-                    self.assertIn('úñí©óðé µóðéøß', content)  # Meta.verbose_name_plural
-                    self.assertIn('ÚÑÍ¢ÓÐÉ', content)  # title.verbose_name
-                    self.assertIn('“Ðjáñgó”', content)  # title.default
-                else:
-                    # Meta.verbose_name
-                    self.assertIn('\\xfa\\xf1\\xed\\xa9\\xf3\\xf0\\xe9 \\xb5\\xf3\\xf0\\xe9\\xf8', content)
-                    # Meta.verbose_name_plural
-                    self.assertIn('\\xfa\\xf1\\xed\\xa9\\xf3\\xf0\\xe9 \\xb5\\xf3\\xf0\\xe9\\xf8\\xdf', content)
-                    self.assertIn('\\xda\\xd1\\xcd\\xa2\\xd3\\xd0\\xc9', content)  # title.verbose_name
-                    self.assertIn('\\u201c\\xd0j\\xe1\\xf1g\\xf3\\u201d', content)  # title.default
+                self.assertIn('úñí©óðé µóðéø', content)  # Meta.verbose_name
+                self.assertIn('úñí©óðé µóðéøß', content)  # Meta.verbose_name_plural
+                self.assertIn('ÚÑÍ¢ÓÐÉ', content)  # title.verbose_name
+                self.assertIn('“Ðjáñgó”', content)  # title.default
 
     def test_makemigrations_order(self):
         """
@@ -814,7 +801,6 @@ class MakeMigrationsTests(MigrationTestBase):
 
             with io.open(initial_file, 'r', encoding='utf-8') as fp:
                 content = fp.read()
-                self.assertIn('# -*- coding: utf-8 -*-', content)
 
                 # Remove all whitespace to check for empty dependencies and operations
                 content = content.replace(' ', '')
@@ -1041,8 +1027,6 @@ class MakeMigrationsTests(MigrationTestBase):
 
         # Additional output caused by verbosity 3
         # The complete merge migration file that would be written
-        # '\n#' is to verify no bytestring prefix before #
-        self.assertIn("\n# -*- coding: utf-8 -*-", output)
         self.assertIn("class Migration(migrations.Migration):", output)
         self.assertIn("dependencies = [", output)
         self.assertIn("('migrations', '0002_second')", output)
@@ -1088,7 +1072,6 @@ class MakeMigrationsTests(MigrationTestBase):
 
         # Additional output caused by verbosity 3
         # The complete migrations file that would be written
-        self.assertIn("# -*- coding: utf-8 -*-", out.getvalue())
         self.assertIn("class Migration(migrations.Migration):", out.getvalue())
         self.assertIn("dependencies = [", out.getvalue())
         self.assertIn("('migrations', '0001_initial'),", out.getvalue())
@@ -1212,7 +1195,6 @@ class MakeMigrationsTests(MigrationTestBase):
                 self.assertTrue(os.path.exists(migration_file))
                 with io.open(migration_file, "r", encoding="utf-8") as fp:
                     content = fp.read()
-                    self.assertIn("# -*- coding: utf-8 -*-", content)
                     content = content.replace(" ", "")
                 return content
 
@@ -1231,19 +1213,6 @@ class MakeMigrationsTests(MigrationTestBase):
             content = cmd("0002", migration_name_0002, "--empty")
             self.assertIn("dependencies=[\n('migrations','0001_%s'),\n]" % migration_name_0001, content)
             self.assertIn("operations=[\n]", content)
-
-    @ignore_warnings(category=RemovedInDjango20Warning)
-    def test_makemigrations_exit(self):
-        """
-        makemigrations --exit should exit with sys.exit(1) when there are no
-        changes to an app.
-        """
-        with self.temporary_migration_module():
-            call_command("makemigrations", "--exit", "migrations", verbosity=0)
-
-        with self.temporary_migration_module(module="migrations.test_migrations_no_changes"):
-            with self.assertRaises(SystemExit):
-                call_command("makemigrations", "--exit", "migrations", verbosity=0)
 
     def test_makemigrations_check(self):
         """

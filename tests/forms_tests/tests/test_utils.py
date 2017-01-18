@@ -1,13 +1,9 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 import copy
 
 from django.core.exceptions import ValidationError
 from django.forms.utils import ErrorDict, ErrorList, flatatt
 from django.test import SimpleTestCase
-from django.utils import six
-from django.utils.encoding import force_text, python_2_unicode_compatible
+from django.utils.encoding import force_text
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy
 
@@ -66,7 +62,7 @@ class FormsUtilsTestCase(SimpleTestCase):
         )
         # Can take a unicode string.
         self.assertHTMLEqual(
-            six.text_type(ErrorList(ValidationError("Not \u03C0.").messages)),
+            str(ErrorList(ValidationError("Not \u03C0.").messages)),
             '<ul class="errorlist"><li>Not π.</li></ul>'
         )
         # Can take a lazy string.
@@ -104,7 +100,6 @@ class FormsUtilsTestCase(SimpleTestCase):
             '</ul>'
         )
 
-        @python_2_unicode_compatible
         class VeryBadError:
             def __str__(self):
                 return "A very bad error."

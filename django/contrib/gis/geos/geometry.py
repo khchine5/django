@@ -2,10 +2,7 @@
  This module contains the 'base' GEOSGeometry object -- all GEOS Geometries
  inherit from this object.
 """
-from __future__ import unicode_literals
-
 import json
-import warnings
 from ctypes import addressof, byref, c_double
 
 from django.contrib.gis import gdal
@@ -22,7 +19,6 @@ from django.contrib.gis.geos.prototypes.io import (
 )
 from django.utils import six
 from django.utils.deconstruct import deconstructible
-from django.utils.deprecation import RemovedInDjango20Warning
 from django.utils.encoding import force_bytes, force_text
 
 
@@ -53,7 +49,7 @@ class GEOSGeometry(GEOSBase, ListMixin):
         """
         if isinstance(geo_input, bytes):
             geo_input = force_text(geo_input)
-        if isinstance(geo_input, six.string_types):
+        if isinstance(geo_input, str):
             wkt_m = wkt_regex.match(geo_input)
             if wkt_m:
                 # Handling WKT input.
@@ -67,7 +63,7 @@ class GEOSGeometry(GEOSBase, ListMixin):
                 # Handling GeoJSON input.
                 g = wkb_r().read(gdal.OGRGeometry(geo_input).wkb)
             else:
-                raise ValueError('String or unicode input unrecognized as WKT EWKT, and HEXEWKB.')
+                raise ValueError('String input unrecognized as WKT EWKT, and HEXEWKB.')
         elif isinstance(geo_input, GEOM_PTR):
             # When the input is a pointer to a geometry (GEOM_PTR).
             g = geo_input
@@ -173,7 +169,7 @@ class GEOSGeometry(GEOSBase, ListMixin):
         Equivalence testing, a Geometry may be compared with another Geometry
         or an EWKT representation.
         """
-        if isinstance(other, six.string_types):
+        if isinstance(other, str):
             if other.startswith('SRID=0;'):
                 return self.ewkt == other[7:]  # Test only WKT part of other
             return self.ewkt == other
@@ -352,7 +348,7 @@ class GEOSGeometry(GEOSBase, ListMixin):
         Returns true if the elements in the DE-9IM intersection matrix for the
         two Geometries match the elements in pattern.
         """
-        if not isinstance(pattern, six.string_types) or len(pattern) > 9:
+        if not isinstance(pattern, str) or len(pattern) > 9:
             raise GEOSException('invalid intersection matrix pattern')
         return capi.geos_relatepattern(self.ptr, other.ptr, force_bytes(pattern))
 
@@ -384,20 +380,6 @@ class GEOSGeometry(GEOSBase, ListMixin):
     def srid(self, srid):
         "Sets the SRID for the geometry."
         capi.geos_set_srid(self.ptr, 0 if srid is None else srid)
-
-    def get_srid(self):
-        warnings.warn(
-            "`get_srid()` is deprecated, use the `srid` property instead.",
-            RemovedInDjango20Warning, 2
-        )
-        return self.srid
-
-    def set_srid(self, srid):
-        warnings.warn(
-            "`set_srid()` is deprecated, use the `srid` property instead.",
-            RemovedInDjango20Warning, 2
-        )
-        self.srid = srid
 
     # #### Output Routines ####
     @property

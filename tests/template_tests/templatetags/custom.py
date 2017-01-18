@@ -1,5 +1,4 @@
 import operator
-import warnings
 
 from django import template
 from django.template.defaultfilters import stringfilter
@@ -95,7 +94,7 @@ simple_one_default.anything = "Expected simple_one_default __dict__"
 def simple_unlimited_args(one, two='hi', *args):
     """Expected simple_unlimited_args __doc__"""
     return "simple_unlimited_args - Expected result: %s" % (
-        ', '.join(six.text_type(arg) for arg in [one, two] + list(args))
+        ', '.join(str(arg) for arg in [one, two] + list(args))
     )
 
 
@@ -105,7 +104,7 @@ simple_unlimited_args.anything = "Expected simple_unlimited_args __dict__"
 @register.simple_tag
 def simple_only_unlimited_args(*args):
     """Expected simple_only_unlimited_args __doc__"""
-    return "simple_only_unlimited_args - Expected result: %s" % ', '.join(six.text_type(arg) for arg in args)
+    return "simple_only_unlimited_args - Expected result: %s" % ', '.join(str(arg) for arg in args)
 
 
 simple_only_unlimited_args.anything = "Expected simple_only_unlimited_args __dict__"
@@ -117,7 +116,7 @@ def simple_unlimited_args_kwargs(one, two='hi', *args, **kwargs):
     # Sort the dictionary by key to guarantee the order for testing.
     sorted_kwarg = sorted(six.iteritems(kwargs), key=operator.itemgetter(0))
     return "simple_unlimited_args_kwargs - Expected result: %s / %s" % (
-        ', '.join(six.text_type(arg) for arg in [one, two] + list(args)),
+        ', '.join(str(arg) for arg in [one, two] + list(args)),
         ', '.join('%s=%s' % (k, v) for (k, v) in sorted_kwarg)
     )
 
@@ -168,19 +167,3 @@ def minustwo_overridden_name(value):
 
 
 register.simple_tag(lambda x: x - 1, name='minusone')
-
-
-with warnings.catch_warnings():
-    warnings.simplefilter('ignore')
-
-    @register.assignment_tag
-    def assignment_no_params():
-        """Expected assignment_no_params __doc__"""
-        return "assignment_no_params - Expected result"
-    assignment_no_params.anything = "Expected assignment_no_params __dict__"
-
-    @register.assignment_tag(takes_context=True)
-    def assignment_tag_without_context_parameter(arg):
-        """Expected assignment_tag_without_context_parameter __doc__"""
-        return "Expected result"
-    assignment_tag_without_context_parameter.anything = "Expected assignment_tag_without_context_parameter __dict__"

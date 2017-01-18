@@ -1,10 +1,6 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 from django.apps.registry import Apps
 from django.db import models
 from django.utils import six
-from django.utils.encoding import python_2_unicode_compatible
 
 
 class CustomModelBase(models.base.ModelBase):
@@ -15,7 +11,6 @@ class ModelWithCustomBase(six.with_metaclass(CustomModelBase, models.Model)):
     pass
 
 
-@python_2_unicode_compatible
 class UnicodeModel(models.Model):
     title = models.CharField('ÚÑÍ¢ÓÐÉ', max_length=20, default='“Ðjáñgó”')
 

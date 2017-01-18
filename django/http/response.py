@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import datetime
 import json
 import re
@@ -102,10 +100,7 @@ class HttpResponseBase(six.Iterator):
         ]
         return b'\r\n'.join(headers)
 
-    if six.PY3:
-        __bytes__ = serialize_headers
-    else:
-        __str__ = serialize_headers
+    __bytes__ = serialize_headers
 
     @property
     def _content_type_for_repr(self):
@@ -118,26 +113,18 @@ class HttpResponseBase(six.Iterator):
         `value` can't be represented in the given charset, MIME-encoding
         is applied.
         """
-        if not isinstance(value, (bytes, six.text_type)):
+        if not isinstance(value, (bytes, str)):
             value = str(value)
         if ((isinstance(value, bytes) and (b'\n' in value or b'\r' in value)) or
-                isinstance(value, six.text_type) and ('\n' in value or '\r' in value)):
+                isinstance(value, str) and ('\n' in value or '\r' in value)):
             raise BadHeaderError("Header values can't contain newlines (got %r)" % value)
         try:
-            if six.PY3:
-                if isinstance(value, str):
-                    # Ensure string is valid in given charset
-                    value.encode(charset)
-                else:
-                    # Convert bytestring using given charset
-                    value = value.decode(charset)
+            if isinstance(value, str):
+                # Ensure string is valid in given charset
+                value.encode(charset)
             else:
-                if isinstance(value, str):
-                    # Ensure string is valid in given charset
-                    value.decode(charset)
-                else:
-                    # Convert unicode string to given charset
-                    value = value.encode(charset)
+                # Convert bytestring using given charset
+                value = value.decode(charset)
         except UnicodeError as e:
             if mime_encode:
                 # Wrapping in str() is a workaround for #12422 under Python 2.
@@ -239,11 +226,11 @@ class HttpResponseBase(six.Iterator):
         # This doesn't make a copy when `value` already contains bytes.
 
         # Handle string types -- we can't rely on force_bytes here because:
-        # - under Python 3 it attempts str conversion first
+        # - Python attempts str conversion first
         # - when self._charset != 'utf-8' it re-encodes the content
         if isinstance(value, bytes):
             return bytes(value)
-        if isinstance(value, six.text_type):
+        if isinstance(value, str):
             return bytes(value.encode(self.charset))
 
         # Handle non-string types (#16494)
@@ -313,10 +300,7 @@ class HttpResponse(HttpResponseBase):
         """Full HTTP message, including headers, as a bytestring."""
         return self.serialize_headers() + b'\r\n\r\n' + self.content
 
-    if six.PY3:
-        __bytes__ = serialize
-    else:
-        __str__ = serialize
+    __bytes__ = serialize
 
     @property
     def content(self):
@@ -325,7 +309,7 @@ class HttpResponse(HttpResponseBase):
     @content.setter
     def content(self, value):
         # Consume iterators upon assignment to allow repeated iteration.
-        if hasattr(value, '__iter__') and not isinstance(value, (bytes, six.string_types)):
+        if hasattr(value, '__iter__') and not isinstance(value, (bytes, str)):
             content = b''.join(self.make_bytes(chunk) for chunk in value)
             if hasattr(value, 'close'):
                 try:

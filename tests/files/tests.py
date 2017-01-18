@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
-
 import gzip
 import os
 import struct
@@ -14,7 +11,6 @@ from django.core.files.move import file_move_safe
 from django.core.files.temp import NamedTemporaryFile
 from django.core.files.uploadedfile import SimpleUploadedFile, UploadedFile
 from django.test import mock
-from django.utils import six
 from django.utils._os import upath
 
 try:
@@ -180,14 +176,11 @@ class ContentFileTestCase(unittest.TestCase):
 
     def test_content_file_input_type(self):
         """
-        ContentFile can accept both bytes and unicode and that the
-        retrieved content is of the same type.
+        ContentFile can accept both bytes and strings and the retrieved content
+        is of the same type.
         """
         self.assertIsInstance(ContentFile(b"content").read(), bytes)
-        if six.PY3:
-            self.assertIsInstance(ContentFile("español").read(), six.text_type)
-        else:
-            self.assertIsInstance(ContentFile("español").read(), bytes)
+        self.assertIsInstance(ContentFile("español").read(), str)
 
 
 class DimensionClosingBug(unittest.TestCase):

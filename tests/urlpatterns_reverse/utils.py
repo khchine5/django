@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 from django.conf.urls import url
 
 from . import views
@@ -18,7 +16,7 @@ class URLObject(object):
 
     @property
     def urls(self):
-        return self.urlpatterns, self.app_name, self.namespace
+        return (self.urlpatterns, self.app_name), self.namespace
 
     @property
     def app_urls(self):

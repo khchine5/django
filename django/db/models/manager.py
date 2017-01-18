@@ -4,11 +4,8 @@ from importlib import import_module
 
 from django.db import router
 from django.db.models.query import QuerySet
-from django.utils import six
-from django.utils.encoding import python_2_unicode_compatible
 
 
-@python_2_unicode_compatible
 class BaseManager(object):
     # Tracks each time a Manager instance is created. Used to retain order.
     creation_counter = 0
@@ -88,9 +85,7 @@ class BaseManager(object):
             return manager_method
 
         new_methods = {}
-        # Refs http://bugs.python.org/issue1785.
-        predicate = inspect.isfunction if six.PY3 else inspect.ismethod
-        for name, method in inspect.getmembers(queryset_class, predicate=predicate):
+        for name, method in inspect.getmembers(queryset_class, predicate=inspect.isfunction):
             # Only copy missing methods.
             if hasattr(cls, name):
                 continue

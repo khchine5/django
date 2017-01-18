@@ -255,6 +255,11 @@ Database backends
   the worker memory load (used to hold query results) to the database and might
   increase database memory usage.
 
+* Added MySQL support for the ``'isolation_level'`` option in
+  :setting:`OPTIONS` to allow specifying the :ref:`transaction isolation level
+  <mysql-isolation-level>`. To avoid possible data loss, it's recommended to
+  switch from MySQL's default level, repeatable read, to read committed.
+
 Email
 ~~~~~
 
@@ -592,6 +597,17 @@ must receive a dictionary of context rather than ``Context`` or
 ``RequestContext``. If you were passing either of the two classes, pass a
 dictionary instead -- doing so is backwards-compatible with older versions of
 Django.
+
+Model state changes in migration operations
+-------------------------------------------
+
+To improve the speed of applying migrations, rendering of related models is
+delayed until an operation that needs them (e.g. ``RunPython``). If you have a
+custom operation that works with model classes or model instances from the
+``from_state`` argument in ``database_forwards()`` or ``database_backwards()``,
+you must render model states using the ``clear_delayed_apps_cache()`` method as
+described in :ref:`writing your own migration operation
+<writing-your-own-migration-operation>`.
 
 Miscellaneous
 -------------

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from functools import partial
 from os import path
 
@@ -71,19 +70,6 @@ urlpatterns = [
 
     url(r'technical404/$', views.technical404, name="my404"),
     url(r'classbased404/$', views.Http404View.as_view()),
-
-    # deprecated i18n views
-    url(r'^old_jsi18n/$', i18n.javascript_catalog, js_info_dict),
-    url(r'^old_jsi18n/app1/$', i18n.javascript_catalog, js_info_dict_app1),
-    url(r'^old_jsi18n/app2/$', i18n.javascript_catalog, js_info_dict_app2),
-    url(r'^old_jsi18n/app5/$', i18n.javascript_catalog, js_info_dict_app5),
-    url(r'^old_jsi18n_english_translation/$', i18n.javascript_catalog, js_info_dict_english_translation),
-    url(r'^old_jsi18n_multi_packages1/$', i18n.javascript_catalog, js_info_dict_multi_packages1),
-    url(r'^old_jsi18n_multi_packages2/$', i18n.javascript_catalog, js_info_dict_multi_packages2),
-    url(r'^old_jsi18n_admin/$', i18n.javascript_catalog, js_info_dict_admin),
-    url(r'^old_jsi18n_template/$', views.old_jsi18n),
-    url(r'^old_jsi18n_multi_catalogs/$', views.old_jsi18n_multi_catalogs),
-    url(r'^old_jsoni18n/$', i18n.json_catalog, js_info_dict),
 
     # i18n views
     url(r'^i18n/', include('django.conf.urls.i18n')),

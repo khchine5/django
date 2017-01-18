@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import sys
 from datetime import date
 
@@ -34,9 +32,6 @@ def mock_inputs(inputs):
             class mock_getpass:
                 @staticmethod
                 def getpass(prompt=b'Password: ', stream=None):
-                    if six.PY2:
-                        # getpass on Windows only supports prompt as bytestring (#19807)
-                        assert isinstance(prompt, six.binary_type)
                     if callable(inputs['password']):
                         return inputs['password']()
                     return inputs['password']
@@ -84,7 +79,7 @@ class GetDefaultUsernameTestCase(TestCase):
         management.get_system_username = self.old_get_system_username
 
     def test_actual_implementation(self):
-        self.assertIsInstance(management.get_system_username(), six.text_type)
+        self.assertIsInstance(management.get_system_username(), str)
 
     def test_simple(self):
         management.get_system_username = lambda: 'joe'

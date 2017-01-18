@@ -1,15 +1,12 @@
-from __future__ import unicode_literals
-
 import os.path
 
 from django.forms import FilePathField, ValidationError, forms
 from django.test import SimpleTestCase
-from django.utils import six
 from django.utils._os import upath
 
 
 def fix_os_paths(x):
-    if isinstance(x, six.string_types):
+    if isinstance(x, str):
         return x.replace('\\', '/')
     elif isinstance(x, tuple):
         return tuple(fix_os_paths(list(x)))
@@ -79,8 +76,6 @@ class FilePathFieldTest(SimpleTestCase):
         expected = [
             ('/django/forms/__init__.py', '__init__.py'),
             ('/django/forms/boundfield.py', 'boundfield.py'),
-            ('/django/forms/extras/__init__.py', 'extras/__init__.py'),
-            ('/django/forms/extras/widgets.py', 'extras/widgets.py'),
             ('/django/forms/fields.py', 'fields.py'),
             ('/django/forms/forms.py', 'forms.py'),
             ('/django/forms/formsets.py', 'formsets.py'),

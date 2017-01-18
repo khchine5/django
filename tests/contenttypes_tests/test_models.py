@@ -1,11 +1,8 @@
-from __future__ import unicode_literals
-
 from django.contrib.contenttypes.models import ContentType, ContentTypeManager
 from django.contrib.contenttypes.views import shortcut
 from django.contrib.sites.shortcuts import get_current_site
 from django.http import Http404, HttpRequest
 from django.test import TestCase, override_settings
-from django.utils import six
 
 from .models import (
     ConcreteModel, FooWithBrokenAbsoluteUrl, FooWithoutUrl, FooWithUrl,
@@ -244,7 +241,7 @@ class ContentTypesTests(TestCase):
             app_label='contenttypes',
             model='OldModel',
         )
-        self.assertEqual(six.text_type(ct), 'OldModel')
+        self.assertEqual(str(ct), 'OldModel')
         self.assertIsNone(ct.model_class())
 
         # Make sure stale ContentTypes can be fetched like any other object.

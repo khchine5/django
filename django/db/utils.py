@@ -14,7 +14,7 @@ DEFAULT_DB_ALIAS = 'default'
 DJANGO_VERSION_PICKLE_KEY = '_django_version'
 
 
-class Error(Exception if six.PY3 else StandardError):  # NOQA: StandardError undefined on PY3
+class Error(Exception):
     pass
 
 
@@ -247,7 +247,7 @@ class ConnectionRouter(object):
             self._routers = settings.DATABASE_ROUTERS
         routers = []
         for r in self._routers:
-            if isinstance(r, six.string_types):
+            if isinstance(r, str):
                 router = import_string(r)()
             else:
                 router = r

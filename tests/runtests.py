@@ -17,15 +17,14 @@ from django.test import TestCase, TransactionTestCase
 from django.test.runner import default_test_processes
 from django.test.selenium import SeleniumTestCaseBase
 from django.test.utils import get_runner
-from django.utils import six
 from django.utils._os import upath
 from django.utils.deprecation import (
-    RemovedInDjango20Warning, RemovedInDjango21Warning,
+    RemovedInDjango21Warning, RemovedInDjango30Warning,
 )
 from django.utils.log import DEFAULT_LOGGING
 
 # Make deprecation warnings errors to ensure no usage of deprecated features.
-warnings.simplefilter("error", RemovedInDjango20Warning)
+warnings.simplefilter("error", RemovedInDjango30Warning)
 warnings.simplefilter("error", RemovedInDjango21Warning)
 # Make runtime warning errors to ensure no usage of error prone patterns.
 warnings.simplefilter("error", RuntimeWarning)
@@ -42,10 +41,8 @@ TMPDIR = tempfile.mkdtemp(prefix='django_')
 # so that children processes inherit it.
 tempfile.tempdir = os.environ['TMPDIR'] = TMPDIR
 
-# Removing the temporary TMPDIR. Ensure we pass in unicode so that it will
-# successfully remove temp trees containing non-ASCII filenames on Windows.
-# (We're assuming the temp dir name itself only contains ASCII characters.)
-atexit.register(shutil.rmtree, six.text_type(TMPDIR))
+# Removing the temporary TMPDIR.
+atexit.register(shutil.rmtree, TMPDIR)
 
 
 SUBDIRS_TO_SKIP = [
@@ -165,19 +162,7 @@ def setup(verbosity, test_labels, parallel):
     settings.LOGGING = log_config
     settings.SILENCED_SYSTEM_CHECKS = [
         'fields.W342',  # ForeignKey(unique=True) -> OneToOneField
-        'fields.W901',  # CommaSeparatedIntegerField deprecated
     ]
-
-    warnings.filterwarnings(
-        'ignore',
-        'The GeoManager class is deprecated.',
-        RemovedInDjango20Warning
-    )
-    warnings.filterwarnings(
-        'ignore',
-        'django.forms.extras is deprecated.',
-        RemovedInDjango20Warning
-    )
 
     # Load all the ALWAYS_INSTALLED_APPS.
     django.setup()

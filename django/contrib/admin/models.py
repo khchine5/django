@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import json
 
 from django.conf import settings
@@ -8,7 +6,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
-from django.utils.encoding import force_text, python_2_unicode_compatible
+from django.utils.encoding import force_text
 from django.utils.text import get_text_list
 from django.utils.translation import ugettext, ugettext_lazy as _
 
@@ -33,7 +31,6 @@ class LogEntryManager(models.Manager):
         )
 
 
-@python_2_unicode_compatible
 class LogEntry(models.Model):
     action_time = models.DateTimeField(
         _('action time'),

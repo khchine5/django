@@ -1,10 +1,6 @@
-# -*- encoding: utf-8 -*-
-from __future__ import unicode_literals
-
 import datetime
 import unittest
 
-from django.utils import six
 from django.utils.encoding import (
     escape_uri_path, filepath_to_uri, force_bytes, force_text, iri_to_uri,
     smart_text, uri_to_iri,
@@ -24,15 +20,13 @@ class TestEncodingUtils(unittest.TestCase):
 
             __unicode__ = __str__
 
-        # str(s) raises a TypeError on python 3 if the result is not a text type.
-        # python 2 fails when it tries converting from str to unicode (via ASCII).
-        exception = TypeError if six.PY3 else UnicodeError
-        with self.assertRaises(exception):
+        # str(s) raises a TypeError if the result is not a text type.
+        with self.assertRaises(TypeError):
             force_text(MyString())
 
     def test_force_text_lazy(self):
         s = SimpleLazyObject(lambda: 'x')
-        self.assertTrue(issubclass(type(force_text(s)), six.text_type))
+        self.assertTrue(issubclass(type(force_text(s)), str))
 
     def test_force_bytes_exception(self):
         """
@@ -50,26 +44,15 @@ class TestEncodingUtils(unittest.TestCase):
 
     def test_smart_text(self):
         class Test:
-            if six.PY3:
-                def __str__(self):
-                    return 'ŠĐĆŽćžšđ'
-            else:
-                def __str__(self):
-                    return 'ŠĐĆŽćžšđ'.encode('utf-8')
+            def __str__(self):
+                return 'ŠĐĆŽćžšđ'
 
         class TestU:
-            if six.PY3:
-                def __str__(self):
-                    return 'ŠĐĆŽćžšđ'
+            def __str__(self):
+                return 'ŠĐĆŽćžšđ'
 
-                def __bytes__(self):
-                    return b'Foo'
-            else:
-                def __str__(self):
-                    return b'Foo'
-
-                def __unicode__(self):
-                    return '\u0160\u0110\u0106\u017d\u0107\u017e\u0161\u0111'
+            def __bytes__(self):
+                return b'Foo'
 
         self.assertEqual(smart_text(Test()), '\u0160\u0110\u0106\u017d\u0107\u017e\u0161\u0111')
         self.assertEqual(smart_text(TestU()), '\u0160\u0110\u0106\u017d\u0107\u017e\u0161\u0111')

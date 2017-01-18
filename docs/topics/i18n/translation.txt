@@ -431,9 +431,6 @@ strings before passing them to non-Django code::
 
     requests.post('https://example.com/send', data={'body': str(body)})
 
-Use ``unicode`` in place of ``str`` on Python 2, or :data:`six.text_type` to
-support Python 2 and 3.
-
 If you try to use a ``ugettext_lazy()`` result where a bytestring (a
 :class:`bytes` object) is expected, things won't work as expected since a
 ``ugettext_lazy()`` object doesn't know how to convert itself to a bytestring.
@@ -534,12 +531,11 @@ For any other case where you would like to delay the translation, but have to
 pass the translatable string as argument to another function, you can wrap
 this function inside a lazy call yourself. For example::
 
-    from django.utils import six  # Python 3 compatibility
     from django.utils.functional import lazy
     from django.utils.safestring import mark_safe
     from django.utils.translation import ugettext_lazy as _
 
-    mark_safe_lazy = lazy(mark_safe, six.text_type)
+    mark_safe_lazy = lazy(mark_safe, str)
 
 And then later::
 
@@ -988,8 +984,6 @@ The ``JavaScriptCatalog`` view
 
 .. module:: django.views.i18n
 
-.. versionadded:: 1.10
-
 .. class:: JavaScriptCatalog
 
     A view that produces a JavaScript code library with functions that mimic
@@ -1048,88 +1042,6 @@ literal.
 If you use more than one ``JavaScriptCatalog`` view on a site and some of them
 define the same strings, the strings in the catalog that was loaded last take
 precedence.
-
-The ``javascript_catalog`` view
--------------------------------
-
-.. function:: javascript_catalog(request, domain='djangojs', packages=None)
-
-.. deprecated:: 1.10
-
-    ``javascript_catalog()`` is deprecated in favor of
-    :class:`JavaScriptCatalog` and will be removed in Django 2.0.
-
-The main solution to these problems is the
-:meth:`django.views.i18n.javascript_catalog` view, which sends out a JavaScript
-code library with functions that mimic the ``gettext`` interface, plus an array
-of translation strings. Those translation strings are taken from applications or
-Django core, according to what you specify in either the ``info_dict`` or the
-URL. Paths listed in :setting:`LOCALE_PATHS` are also included.
-
-You hook it up like this::
-
-    from django.views.i18n import javascript_catalog
-
-    js_info_dict = {
-        'packages': ('your.app.package',),
-    }
-
-    urlpatterns = [
-        url(r'^jsi18n/$', javascript_catalog, js_info_dict, name='javascript-catalog'),
-    ]
-
-Each string in ``packages`` should be in Python dotted-package syntax (the
-same format as the strings in :setting:`INSTALLED_APPS`) and should refer to a
-package that contains a ``locale`` directory. If you specify multiple packages,
-all those catalogs are merged into one catalog. This is useful if you have
-JavaScript that uses strings from different applications.
-
-The precedence of translations is such that the packages appearing later in the
-``packages`` argument have higher precedence than the ones appearing at the
-beginning, this is important in the case of clashing translations for the same
-literal.
-
-By default, the view uses the ``djangojs`` gettext domain. This can be
-changed by altering the ``domain`` argument.
-
-You can make the view dynamic by putting the packages into the URL pattern::
-
-    urlpatterns = [
-        url(r'^jsi18n/(?P<packages>\S+?)/$', javascript_catalog, name='javascript-catalog'),
-    ]
-
-With this, you specify the packages as a list of package names delimited by '+'
-signs in the URL. This is especially useful if your pages use code from
-different apps and this changes often and you don't want to pull in one big
-catalog file. As a security measure, these values can only be either
-``django.conf`` or any package from the :setting:`INSTALLED_APPS` setting.
-
-You can also split the catalogs in multiple URLs and load them as you need in
-your sites::
-
-    js_info_dict_app = {
-        'packages': ('your.app.package',),
-    }
-
-    js_info_dict_other_app = {
-        'packages': ('your.other.app.package',),
-    }
-
-    urlpatterns = [
-        url(r'^jsi18n/app/$', javascript_catalog, js_info_dict_app),
-        url(r'^jsi18n/other_app/$', javascript_catalog, js_info_dict_other_app),
-    ]
-
-If you use more than one ``javascript_catalog`` on a site and some of them
-define the same strings, the strings in the catalog that was loaded last take
-precedence.
-
-The JavaScript translations found in the paths listed in the
-:setting:`LOCALE_PATHS` setting are also always included. To keep consistency
-with the translations lookup order algorithm used for Python and templates, the
-directories listed in :setting:`LOCALE_PATHS` have the highest precedence with
-the ones appearing first having higher precedence than the ones appearing
-later.
 
 Using the JavaScript translation catalog
 ----------------------------------------
@@ -1298,8 +1210,6 @@ will render a conditional expression. This will evaluate to either a ``true``
 The ``JSONCatalog`` view
 ------------------------
 
-.. versionadded:: 1.10
-
 .. class:: JSONCatalog
 
     In order to use another client-side library to handle translations, you may
@@ -1325,57 +1235,6 @@ The ``JSONCatalog`` view
         }
 
     .. JSON doesn't allow comments so highlighting as JSON won't work here.
-
-The ``json_catalog`` view
--------------------------
-
-.. function:: json_catalog(request, domain='djangojs', packages=None)
-
-.. deprecated:: 1.10
-
-    ``json_catalog()`` is deprecated in favor of :class:`JSONCatalog` and will
-    be removed in Django 2.0.
-
-In order to use another client-side library to handle translations, you may
-want to take advantage of the ``json_catalog()`` view. It's similar to
-:meth:`~django.views.i18n.javascript_catalog` but returns a JSON response.
-
-The JSON object contains i18n formatting settings (those available for
-`get_format`_), a plural rule (as a ``plural`` part of a GNU gettext
-``Plural-Forms`` expression), and translation strings. The translation strings
-are taken from applications or Django's own translations, according to what is
-specified either via ``urlpatterns`` arguments or as request parameters. Paths
-listed in :setting:`LOCALE_PATHS` are also included.
-
-The view is hooked up to your application and configured in the same fashion as
-:meth:`~django.views.i18n.javascript_catalog` (namely, the ``domain`` and
-``packages`` arguments behave identically)::
-
-    from django.views.i18n import json_catalog
-
-    js_info_dict = {
-        'packages': ('your.app.package',),
-    }
-
-    urlpatterns = [
-        url(r'^jsoni18n/$', json_catalog, js_info_dict),
-    ]
-
-The response format is as follows:
-
-.. code-block:: text
-
-    {
-        "catalog": {
-            # Translations catalog
-        },
-        "formats": {
-            # Language formats for date, time, etc.
-        },
-        "plural": "..."  # Expression for plural forms, or null.
-    }
-
-.. JSON doesn't allow comments so highlighting as JSON won't work here.
 
 Note on performance
 -------------------
@@ -1512,21 +1371,11 @@ will be::
     >>> reverse('news:index')
     '/nl/news/'
 
-.. versionadded:: 1.10
-
-    The ``prefix_default_language`` parameter was added.
-
 .. warning::
 
     :func:`~django.conf.urls.i18n.i18n_patterns` is only allowed in a root
     URLconf. Using it within an included URLconf will throw an
     :exc:`~django.core.exceptions.ImproperlyConfigured` exception.
-
-.. versionchanged:: 1.10
-
-    In older version, using ``i18n_patterns`` in a root URLconf different from
-    :setting:`ROOT_URLCONF` by setting :attr:`request.urlconf
-    <django.http.HttpRequest.urlconf>` wasn't supported.
 
 .. warning::
 
@@ -1946,11 +1795,6 @@ set, to ``/``, depending on the nature of the request:
 * For AJAX requests, the fallback will be performed only if the ``next``
   parameter was set. Otherwise a 204 status code (No Content) will be returned.
 * For non-AJAX requests, the fallback will always be performed.
-
-.. versionchanged:: 1.10
-
-    Returning a 204 status code for AJAX requests when no redirect is specified
-    is new.
 
 Here's example HTML template code:
 

@@ -1,9 +1,3 @@
-from __future__ import unicode_literals
-
-from django.utils.encoding import python_2_unicode_compatible
-
-
-@python_2_unicode_compatible
 class RequestSite(object):
     """
     A class that shares the primary interface of Site (i.e., it has

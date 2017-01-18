@@ -1,24 +1,20 @@
 """Default variable filters."""
-from __future__ import unicode_literals
-
 import random as random_module
 import re
-import warnings
 from decimal import ROUND_HALF_UP, Context, Decimal, InvalidOperation
 from functools import wraps
 from operator import itemgetter
 from pprint import pformat
 
-from django.utils import formats, six
+from django.utils import formats
 from django.utils.dateformat import format, time_format
-from django.utils.deprecation import RemovedInDjango20Warning
 from django.utils.encoding import force_text, iri_to_uri
 from django.utils.html import (
     avoid_wrapping, conditional_escape, escape, escapejs, linebreaks,
     strip_tags, urlize as _urlize,
 )
 from django.utils.http import urlquote
-from django.utils.safestring import SafeData, mark_for_escaping, mark_safe
+from django.utils.safestring import SafeData, mark_safe
 from django.utils.text import (
     Truncator, normalize_newlines, phone2numeric, slugify as _slugify, wrap,
 )
@@ -172,7 +168,7 @@ def floatformat(text, arg=-1):
         # Avoid conversion to scientific notation by accessing `sign`, `digits`
         # and `exponent` from `Decimal.as_tuple()` directly.
         sign, digits, exponent = d.quantize(exp, ROUND_HALF_UP, Context(prec=prec)).as_tuple()
-        digits = [six.text_type(digit) for digit in reversed(digits)]
+        digits = [str(digit) for digit in reversed(digits)]
         while len(digits) <= abs(exponent):
             digits.append('0')
         digits.insert(-exponent, '.')
@@ -198,7 +194,7 @@ def linenumbers(value, autoescape=True):
     lines = value.split('\n')
     # Find the maximum width of the line count, for use with zero padding
     # string format command
-    width = six.text_type(len(six.text_type(len(lines))))
+    width = str(len(str(len(lines))))
     if not autoescape or isinstance(value, SafeData):
         for i, line in enumerate(lines):
             lines[i] = ("%0" + width + "d. %s") % (i + 1, line)
@@ -250,7 +246,7 @@ def stringformat(value, arg):
     for documentation of Python string formatting.
     """
     try:
-        return ("%" + six.text_type(arg)) % value
+        return ("%" + str(arg)) % value
     except (ValueError, TypeError):
         return ""
 
@@ -442,11 +438,7 @@ def escape_filter(value):
     """
     Marks the value as a string that should be auto-escaped.
     """
-    with warnings.catch_warnings():
-        # Ignore mark_for_escaping deprecation -- this will use
-        # conditional_escape() in Django 2.0.
-        warnings.simplefilter('ignore', category=RemovedInDjango20Warning)
-        return mark_for_escaping(value)
+    return conditional_escape(value)
 
 
 @register.filter(is_safe=True)
@@ -683,7 +675,7 @@ def unordered_list(value, autoescape=True):
                 except StopIteration:
                     yield item, None
                     break
-                if not isinstance(next_item, six.string_types):
+                if not isinstance(next_item, str):
                     try:
                         iter(next_item)
                     except TypeError:

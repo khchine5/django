@@ -21,13 +21,9 @@ Sample usage:
 For definitions of the different versions of RSS, see:
 http://web.archive.org/web/20110718035220/http://diveintomark.org/archives/2004/02/04/incompatible-rss
 """
-from __future__ import unicode_literals
-
 import datetime
-import warnings
 
-from django.utils import datetime_safe, six
-from django.utils.deprecation import RemovedInDjango20Warning
+from django.utils import datetime_safe
 from django.utils.encoding import force_text, iri_to_uri
 from django.utils.six import StringIO
 from django.utils.six.moves.urllib.parse import urlparse
@@ -46,8 +42,6 @@ def rfc2822_date(date):
     dow = days[date.weekday()]
     month = months[date.month - 1]
     time_str = date.strftime('%s, %%d %s %%Y %%H:%%M:%%S ' % (dow, month))
-    if six.PY2:             # strftime returns a byte string in Python 2
-        time_str = time_str.decode('utf-8')
     offset = date.utcoffset()
     # Historically, this function assumes that naive datetimes are in UTC.
     if offset is None:
@@ -62,8 +56,6 @@ def rfc3339_date(date):
     # Support datetime objects older than 1900
     date = datetime_safe.new_datetime(date)
     time_str = date.strftime('%Y-%m-%dT%H:%M:%S')
-    if six.PY2:             # strftime returns a byte string in Python 2
-        time_str = time_str.decode('utf-8')
     offset = date.utcoffset()
     # Historically, this function assumes that naive datetimes are in UTC.
     if offset is None:
@@ -119,9 +111,8 @@ class SyndicationFeed(object):
 
     def add_item(self, title, link, description, author_email=None,
                  author_name=None, author_link=None, pubdate=None, comments=None,
-                 unique_id=None, unique_id_is_permalink=None, enclosure=None,
-                 categories=(), item_copyright=None, ttl=None, updateddate=None,
-                 enclosures=None, **kwargs):
+                 unique_id=None, unique_id_is_permalink=None, categories=(),
+                 item_copyright=None, ttl=None, updateddate=None, enclosures=None, **kwargs):
         """
         Adds an item to the feed. All args are expected to be Python Unicode
         objects except pubdate and updateddate, which are datetime.datetime
@@ -135,16 +126,6 @@ class SyndicationFeed(object):
         if ttl is not None:
             # Force ints to unicode
             ttl = force_text(ttl)
-        if enclosure is None:
-            enclosures = [] if enclosures is None else enclosures
-        else:
-            warnings.warn(
-                "The enclosure keyword argument is deprecated, "
-                "use enclosures instead.",
-                RemovedInDjango20Warning,
-                stacklevel=2,
-            )
-            enclosures = [enclosure]
         item = {
             'title': to_unicode(title),
             'link': iri_to_uri(link),
@@ -277,15 +258,6 @@ class RssFeed(SyndicationFeed):
 
     def endChannelElement(self, handler):
         handler.endElement("channel")
-
-    @property
-    def mime_type(self):
-        warnings.warn(
-            'The mime_type attribute of RssFeed is deprecated. '
-            'Use content_type instead.',
-            RemovedInDjango20Warning, stacklevel=2
-        )
-        return self.content_type
 
 
 class RssUserland091Feed(RssFeed):
@@ -444,15 +416,6 @@ class Atom1Feed(SyndicationFeed):
         # Rights.
         if item['item_copyright'] is not None:
             handler.addQuickElement("rights", item['item_copyright'])
-
-    @property
-    def mime_type(self):
-        warnings.warn(
-            'The mime_type attribute of Atom1Feed is deprecated. '
-            'Use content_type instead.',
-            RemovedInDjango20Warning, stacklevel=2
-        )
-        return self.content_type
 
 
 # This isolates the decision of what the system default is, so calling code can

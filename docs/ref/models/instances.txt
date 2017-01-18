@@ -119,12 +119,6 @@ The example above shows a full ``from_db()`` implementation to clarify how that
 is done. In this case it would of course be possible to just use ``super()`` call
 in the ``from_db()`` method.
 
-.. versionchanged:: 1.10
-
-    In older versions, you could check if all fields were loaded by consulting
-    ``cls._deferred``. This attribute is removed and
-    ``django.db.models.DEFERRED`` is new.
-
 Refreshing objects from database
 ================================
 
@@ -134,11 +128,6 @@ value from the database::
     >>> obj = MyModel.objects.first()
     >>> del obj.field
     >>> obj.field  # Loads the field from the database
-
-.. versionchanged:: 1.10
-
-    In older versions, accessing a deleted field raised ``AttributeError``
-    instead of reloading it.
 
 .. method:: Model.refresh_from_db(using=None, fields=None)
 
@@ -612,18 +601,13 @@ representation of the model from the ``__str__()`` method.
 For example::
 
     from django.db import models
-    from django.utils.encoding import python_2_unicode_compatible
 
-    @python_2_unicode_compatible  # only if you need to support Python 2
     class Person(models.Model):
         first_name = models.CharField(max_length=50)
         last_name = models.CharField(max_length=50)
 
         def __str__(self):
             return '%s %s' % (self.first_name, self.last_name)
-
-If you'd like compatibility with Python 2, you can decorate your model class
-with :func:`~django.utils.encoding.python_2_unicode_compatible` as shown above.
 
 ``__eq__()``
 ------------

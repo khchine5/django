@@ -2,8 +2,6 @@
 Form classes
 """
 
-from __future__ import unicode_literals
-
 import copy
 from collections import OrderedDict
 
@@ -15,7 +13,7 @@ from django.forms.fields import Field, FileField
 from django.forms.utils import ErrorDict, ErrorList, pretty_name  # NOQA
 from django.forms.widgets import Media, MediaDefiningClass
 from django.utils import six
-from django.utils.encoding import force_text, python_2_unicode_compatible
+from django.utils.encoding import force_text
 from django.utils.functional import cached_property
 from django.utils.html import conditional_escape, html_safe
 from django.utils.safestring import mark_safe
@@ -61,7 +59,6 @@ class DeclarativeFieldsMetaclass(MediaDefiningClass):
 
 
 @html_safe
-@python_2_unicode_compatible
 class BaseForm(object):
     # This is the main implementation of all the Form logic. Note that this
     # class is different than Form. See the comments by the Form class for more
@@ -212,7 +209,7 @@ class BaseForm(object):
                     top_errors.extend(
                         [_('(Hidden field %(name)s) %(error)s') % {'name': name, 'error': force_text(e)}
                          for e in bf_errors])
-                hidden_fields.append(six.text_type(bf))
+                hidden_fields.append(str(bf))
             else:
                 # Create a 'class="..."' attribute if the row should have any
                 # CSS classes applied.
@@ -237,7 +234,7 @@ class BaseForm(object):
                 output.append(normal_row % {
                     'errors': force_text(bf_errors),
                     'label': force_text(label),
-                    'field': six.text_type(bf),
+                    'field': str(bf),
                     'help_text': help_text,
                     'html_class_attr': html_class_attr,
                     'css_classes': css_classes,
