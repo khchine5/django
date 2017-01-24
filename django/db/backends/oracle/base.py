@@ -7,13 +7,11 @@ import datetime
 import decimal
 import os
 import platform
-import sys
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db import utils
 from django.db.backends.base.base import BaseDatabaseWrapper
-from django.utils import six
 from django.utils.encoding import force_bytes, force_text
 from django.utils.functional import cached_property
 
@@ -59,7 +57,7 @@ from .schema import DatabaseSchemaEditor                    # NOQA isort:skip
 from .utils import Oracle_datetime                          # NOQA isort:skip
 
 
-class _UninitializedOperatorsDescriptor(object):
+class _UninitializedOperatorsDescriptor:
 
     def __get__(self, instance, cls=None):
         # If connection.operators is looked up before a connection has been
@@ -261,7 +259,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
                 x = e.args[0]
                 if hasattr(x, 'code') and hasattr(x, 'message') \
                    and x.code == 2091 and 'ORA-02291' in x.message:
-                    six.reraise(utils.IntegrityError, utils.IntegrityError(*tuple(e.args)), sys.exc_info()[2])
+                    raise utils.IntegrityError(*tuple(e.args))
                 raise
 
     # Oracle doesn't support releasing savepoints. But we fake them when query
@@ -306,7 +304,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             return None
 
 
-class OracleParam(object):
+class OracleParam:
     """
     Wrapper object for formatting parameters for Oracle. If the string
     representation of the value is large enough (greater than 4000 characters)
@@ -351,7 +349,7 @@ class OracleParam(object):
             self.input_size = None
 
 
-class VariableWrapper(object):
+class VariableWrapper:
     """
     An adapter class for cursor variables that prevents the wrapped object
     from being converted into a string when used to instantiate an OracleParam.
@@ -375,7 +373,7 @@ class VariableWrapper(object):
             setattr(self.var, key, value)
 
 
-class FormatStylePlaceholderCursor(object):
+class FormatStylePlaceholderCursor:
     """
     Django uses "format" (e.g. '%s') style placeholders, but Oracle uses ":var"
     style. This fixes it -- but note that if you want to use a literal "%s" in
@@ -443,17 +441,12 @@ class FormatStylePlaceholderCursor(object):
             # values. It can be used only in single query execute() because
             # executemany() shares the formatted query with each of the params
             # list. e.g. for input params = [0.75, 2, 0.75, 'sth', 0.75]
-            # params_dict = {
-            #   (2, <type 'int'>): ':arg2',
-            #   (0.75, <type 'float'>): ':arg1',
-            #   ('sth', <type 'str'>): ':arg0',
-            # }
+            # params_dict = {0.75: ':arg0', 2: ':arg1', 'sth': ':arg2'}
             # args = [':arg0', ':arg1', ':arg0', ':arg2', ':arg0']
             # params = {':arg0': 0.75, ':arg1': 2, ':arg2': 'sth'}
-            params = [(param, type(param)) for param in params]
             params_dict = {param: ':arg%d' % i for i, param in enumerate(set(params))}
             args = [params_dict[param] for param in params]
-            params = {value: key[0] for key, value in params_dict.items()}
+            params = {value: key for key, value in params_dict.items()}
             query = query % tuple(args)
         else:
             # Handle params as sequence
@@ -516,7 +509,7 @@ class FormatStylePlaceholderCursor(object):
         return CursorIterator(self.cursor)
 
 
-class CursorIterator(six.Iterator):
+class CursorIterator:
     """
     Cursor iterator wrapper that invokes our custom row factory.
     """

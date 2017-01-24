@@ -1,11 +1,10 @@
-import contextlib
 import hashlib
 import json
 import os
 
 from django.core.files.uploadedfile import UploadedFile
 from django.http import HttpResponse, HttpResponseServerError
-from django.utils.encoding import force_bytes, force_str
+from django.utils.encoding import force_bytes, force_text
 
 from .models import FileModel
 from .tests import UNICODE_FILENAME, UPLOAD_TO
@@ -98,7 +97,7 @@ def file_upload_echo_content(request):
     Simple view to echo back the content of uploaded files for tests.
     """
     def read_and_close(f):
-        with contextlib.closing(f):
+        with f:
             return f.read().decode('utf-8')
     r = {k: read_and_close(f) for k, f in request.FILES.items()}
     return HttpResponse(json.dumps(r))
@@ -153,9 +152,7 @@ def file_upload_content_type_extra(request):
     """
     params = {}
     for file_name, uploadedfile in request.FILES.items():
-        params[file_name] = {
-            k: force_str(v) for k, v in uploadedfile.content_type_extra.items()
-        }
+        params[file_name] = {k: force_text(v) for k, v in uploadedfile.content_type_extra.items()}
     return HttpResponse(json.dumps(params))
 
 

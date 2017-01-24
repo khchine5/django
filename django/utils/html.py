@@ -1,15 +1,14 @@
 """HTML utilities suitable for global use."""
 
 import re
+from urllib.parse import (
+    parse_qsl, quote, unquote, urlencode, urlsplit, urlunsplit,
+)
 
-from django.utils import six
-from django.utils.encoding import force_str, force_text
+from django.utils.encoding import force_text
 from django.utils.functional import keep_lazy, keep_lazy_text
 from django.utils.http import RFC3986_GENDELIMS, RFC3986_SUBDELIMS
 from django.utils.safestring import SafeData, SafeText, mark_safe
-from django.utils.six.moves.urllib.parse import (
-    parse_qsl, quote, unquote, urlencode, urlsplit, urlunsplit,
-)
 from django.utils.text import normalize_newlines
 
 from .html_parser import HTMLParseError, HTMLParser
@@ -93,7 +92,7 @@ def format_html(format_string, *args, **kwargs):
     of str.format or % interpolation to build up small HTML fragments.
     """
     args_safe = map(conditional_escape, args)
-    kwargs_safe = {k: conditional_escape(v) for (k, v) in six.iteritems(kwargs)}
+    kwargs_safe = {k: conditional_escape(v) for (k, v) in kwargs.items()}
     return mark_safe(format_string.format(*args_safe, **kwargs_safe))
 
 
@@ -173,9 +172,7 @@ def strip_tags(value):
     while '<' in value and '>' in value:
         new_value = _strip_once(value)
         if len(new_value) >= len(value):
-            # _strip_once was not able to detect more tags or length increased
-            # due to http://bugs.python.org/issue20288
-            # (affects Python 2 < 2.7.7 and Python 3 < 3.3.5)
+            # _strip_once was not able to detect more tags
             break
         value = new_value
     return value
@@ -190,11 +187,11 @@ def strip_spaces_between_tags(value):
 def smart_urlquote(url):
     "Quotes a URL if it isn't already quoted."
     def unquote_quote(segment):
-        segment = unquote(force_str(segment))
+        segment = unquote(segment)
         # Tilde is part of RFC3986 Unreserved Characters
         # http://tools.ietf.org/html/rfc3986#section-2.3
         # See also http://bugs.python.org/issue16285
-        segment = quote(segment, safe=RFC3986_SUBDELIMS + RFC3986_GENDELIMS + str('~'))
+        segment = quote(segment, safe=RFC3986_SUBDELIMS + RFC3986_GENDELIMS + '~')
         return force_text(segment)
 
     # Handle IDN before quoting.
@@ -212,7 +209,7 @@ def smart_urlquote(url):
     if query:
         # Separately unquoting key/value, so as to not mix querystring separators
         # included in query values. See #22267.
-        query_parts = [(unquote(force_str(q[0])), unquote(force_str(q[1])))
+        query_parts = [(unquote(q[0]), unquote(q[1]))
                        for q in parse_qsl(query, keep_blank_values=True)]
         # urlencode will take care of quoting
         query = urlencode(query_parts)

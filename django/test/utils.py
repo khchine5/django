@@ -6,6 +6,7 @@ import time
 import warnings
 from contextlib import contextmanager
 from functools import wraps
+from io import StringIO
 from types import SimpleNamespace
 from unittest import TestCase, skipIf, skipUnless
 from xml.dom.minidom import Node, parseString
@@ -21,9 +22,6 @@ from django.db.models.options import Options
 from django.template import Template
 from django.test.signals import setting_changed, template_rendered
 from django.urls import get_script_prefix, set_script_prefix
-from django.utils import six
-from django.utils.decorators import available_attrs
-from django.utils.encoding import force_str
 from django.utils.translation import deactivate
 
 try:
@@ -42,7 +40,7 @@ __all__ = (
 TZ_SUPPORT = hasattr(time, 'tzset')
 
 
-class Approximate(object):
+class Approximate:
     def __init__(self, val, places=7):
         self.val = val
         self.places = places
@@ -102,7 +100,7 @@ def instrumented_test_render(self, context):
     return self.nodelist.render(context)
 
 
-class _TestState(object):
+class _TestState:
     pass
 
 
@@ -312,17 +310,17 @@ def get_runner(settings, test_runner_class=None):
         test_runner_class = settings.TEST_RUNNER
 
     test_path = test_runner_class.split('.')
-    # Allow for Python 2.5 relative paths
+    # Allow for relative paths
     if len(test_path) > 1:
         test_module_name = '.'.join(test_path[:-1])
     else:
         test_module_name = '.'
-    test_module = __import__(test_module_name, {}, {}, force_str(test_path[-1]))
+    test_module = __import__(test_module_name, {}, {}, test_path[-1])
     test_runner = getattr(test_module, test_path[-1])
     return test_runner
 
 
-class TestContextDecorator(object):
+class TestContextDecorator:
     """
     A base class that can either be used as a context manager during tests
     or as a test function or unittest.TestCase subclass decorator to perform
@@ -371,7 +369,7 @@ class TestContextDecorator(object):
         raise TypeError('Can only decorate subclasses of unittest.TestCase')
 
     def decorate_callable(self, func):
-        @wraps(func, assigned=available_attrs(func))
+        @wraps(func)
         def inner(*args, **kwargs):
             with self as context:
                 if self.kwarg_name:
@@ -613,7 +611,7 @@ def str_prefix(s):
     return s % {'_': ''}
 
 
-class CaptureQueriesContext(object):
+class CaptureQueriesContext:
     """
     Context manager that captures queries executed by the specified connection.
     """
@@ -728,7 +726,7 @@ def captured_output(stream_name):
     Note: This function and the following ``captured_std*`` are copied
           from CPython's ``test.support`` module."""
     orig_stdout = getattr(sys, stream_name)
-    setattr(sys, stream_name, six.StringIO())
+    setattr(sys, stream_name, StringIO())
     try:
         yield getattr(sys, stream_name)
     finally:
@@ -766,20 +764,6 @@ def captured_stdin():
        self.assertEqual(captured, "hello")
     """
     return captured_output("stdin")
-
-
-def reset_warning_registry():
-    """
-    Clear warning registry for all modules. This is required in some tests
-    because of a bug in Python that prevents warnings.simplefilter("always")
-    from always making warnings appear: http://bugs.python.org/issue4180
-
-    The bug was fixed in Python 3.4.2.
-    """
-    key = "__warningregistry__"
-    for mod in sys.modules.values():
-        if hasattr(mod, key):
-            getattr(mod, key).clear()
 
 
 @contextmanager
@@ -832,7 +816,7 @@ class override_script_prefix(TestContextDecorator):
         set_script_prefix(self.old_prefix)
 
 
-class LoggingCaptureMixin(object):
+class LoggingCaptureMixin:
     """
     Capture the output from the 'django' logger and store it on the class's
     logger_output attribute.
@@ -840,7 +824,7 @@ class LoggingCaptureMixin(object):
     def setUp(self):
         self.logger = logging.getLogger('django')
         self.old_stream = self.logger.handlers[0].stream
-        self.logger_output = six.StringIO()
+        self.logger_output = StringIO()
         self.logger.handlers[0].stream = self.logger_output
 
     def tearDown(self):

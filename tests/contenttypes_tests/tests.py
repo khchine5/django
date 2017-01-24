@@ -1,4 +1,5 @@
 import datetime
+from unittest import mock
 
 from django.apps.registry import Apps, apps
 from django.conf import settings
@@ -12,10 +13,10 @@ from django.core import checks, management
 from django.core.management import call_command
 from django.db import connections, migrations, models
 from django.test import (
-    SimpleTestCase, TestCase, TransactionTestCase, mock, override_settings,
+    SimpleTestCase, TestCase, TransactionTestCase, override_settings,
 )
 from django.test.utils import captured_stdout, isolate_apps
-from django.utils.encoding import force_str, force_text
+from django.utils.encoding import force_text
 
 from .models import (
     Article, Author, ModelWithNullFKToSite, Post, SchemeIncludedURL,
@@ -144,7 +145,7 @@ class GenericForeignKeyTests(SimpleTestCase):
         class Model(models.Model):
             field = GenericForeignKey()
         expected = "contenttypes_tests.Model.field"
-        actual = force_str(Model.field)
+        actual = force_text(Model.field)
         self.assertEqual(expected, actual)
 
     def test_missing_content_type_field(self):
@@ -390,10 +391,7 @@ class UpdateContentTypesTests(TestCase):
         # A related object is needed to show that a custom collector with
         # can_fast_delete=False is needed.
         ModelWithNullFKToSite.objects.create(post=post)
-        with mock.patch(
-            'django.contrib.contenttypes.management.commands.remove_stale_contenttypes.input',
-            return_value='yes'
-        ):
+        with mock.patch('builtins.input', return_value='yes'):
             with captured_stdout() as stdout:
                 call_command('remove_stale_contenttypes', verbosity=2, stdout=stdout)
         self.assertEqual(Post.objects.count(), 0)
@@ -409,10 +407,7 @@ class UpdateContentTypesTests(TestCase):
         interactive mode of remove_stale_contenttypes (the default) should
         delete stale contenttypes even if there aren't any dependent objects.
         """
-        with mock.patch(
-            'django.contrib.contenttypes.management.commands.remove_stale_contenttypes.input',
-            return_value='yes'
-        ):
+        with mock.patch('builtins.input', return_value='yes'):
             with captured_stdout() as stdout:
                 call_command('remove_stale_contenttypes', verbosity=2)
         self.assertIn("Deleting stale content type", stdout.getvalue())
@@ -438,7 +433,7 @@ class UpdateContentTypesTests(TestCase):
         self.assertEqual(ContentType.objects.count(), self.before_count + 1)
 
 
-class TestRouter(object):
+class TestRouter:
     def db_for_read(self, model, **hints):
         return 'other'
 

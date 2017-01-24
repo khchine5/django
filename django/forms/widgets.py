@@ -11,13 +11,12 @@ from itertools import chain
 from django.conf import settings
 from django.forms.utils import to_current_timezone
 from django.templatetags.static import static
-from django.utils import datetime_safe, formats, six
+from django.utils import datetime_safe, formats
 from django.utils.dates import MONTHS
-from django.utils.encoding import force_str, force_text
+from django.utils.encoding import force_text
 from django.utils.formats import get_format
 from django.utils.html import format_html, html_safe
 from django.utils.safestring import mark_safe
-from django.utils.six.moves import range
 from django.utils.translation import ugettext_lazy
 
 from .renderers import get_default_renderer
@@ -36,7 +35,7 @@ MEDIA_TYPES = ('css', 'js')
 
 
 @html_safe
-class Media(object):
+class Media:
     def __init__(self, media=None, **kwargs):
         if media:
             media_attrs = media.__dict__
@@ -152,7 +151,7 @@ class MediaDefiningClass(type):
         return new_class
 
 
-class Widget(six.with_metaclass(MediaDefiningClass)):
+class Widget(metaclass=MediaDefiningClass):
     needs_multipart_form = False  # Determines does this widget need multipart form
     is_localized = False
     is_required = False
@@ -540,10 +539,6 @@ class ChoiceWidget(Widget):
         for option in self.options(name, value, attrs):
             yield option
 
-    def render(self, name, value, attrs=None, renderer=None):
-        context = self.get_context(name, value, attrs)
-        return self._render(self.template_name, context, renderer)
-
     def options(self, name, value, attrs=None):
         """Yield a flat list of options for this widgets."""
         for group in self.optgroups(name, value, attrs):
@@ -598,16 +593,16 @@ class ChoiceWidget(Widget):
             option_attrs.update(self.checked_attribute)
         if 'id' in option_attrs:
             option_attrs['id'] = self.id_for_label(option_attrs['id'], index)
-        return dict(
-            name=name,
-            value=value,
-            label=label,
-            selected=selected,
-            index=index,
-            attrs=option_attrs,
-            type=self.input_type,
-            template_name=self.option_template_name,
-        )
+        return {
+            'name': name,
+            'value': value,
+            'label': label,
+            'selected': selected,
+            'index': index,
+            'attrs': option_attrs,
+            'type': self.input_type,
+            'template_name': self.option_template_name,
+        }
 
     def get_context(self, name, value, attrs=None):
         context = super(ChoiceWidget, self).get_context(name, value, attrs)
@@ -987,7 +982,7 @@ class SelectDateWidget(Widget):
             if settings.USE_L10N:
                 try:
                     input_format = get_format('DATE_INPUT_FORMATS')[0]
-                    d = datetime.datetime.strptime(force_str(value), input_format)
+                    d = datetime.datetime.strptime(value, input_format)
                     year, month, day = d.year, d.month, d.day
                 except ValueError:
                     pass

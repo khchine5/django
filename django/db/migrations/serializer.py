@@ -1,8 +1,11 @@
+import builtins
 import collections
 import datetime
 import decimal
+import enum
 import functools
 import math
+import re
 import types
 import uuid
 from importlib import import_module
@@ -10,20 +13,14 @@ from importlib import import_module
 from django.db import models
 from django.db.migrations.operations.base import Operation
 from django.db.migrations.utils import COMPILED_REGEX_TYPE, RegexObject
-from django.utils import datetime_safe, six
+from django.utils import datetime_safe
 from django.utils.encoding import force_text
 from django.utils.functional import LazyObject, Promise
 from django.utils.timezone import utc
 from django.utils.version import get_docs_version
 
-try:
-    import enum
-except ImportError:
-    # No support on Python 2 if enum34 isn't installed.
-    enum = None
 
-
-class BaseSerializer(object):
+class BaseSerializer:
     def __init__(self, value):
         self.value = value
 
@@ -163,24 +160,14 @@ class FunctionTypeSerializer(BaseSerializer):
             if "<" not in self.value.__qualname__:  # Qualname can include <locals>
                 return "%s.%s" % \
                     (self.value.__module__, self.value.__qualname__), {"import %s" % self.value.__module__}
-        # Python 2/fallback version
+        # Fallback version
         module_name = self.value.__module__
-        # Make sure it's actually there and not an unbound method
+        # Make sure it's actually there
         module = import_module(module_name)
         if not hasattr(module, self.value.__name__):
             raise ValueError(
-                "Could not find function %s in %s.\n"
-                "Please note that due to Python 2 limitations, you cannot "
-                "serialize unbound method functions (e.g. a method "
-                "declared and used in the same class body). Please move "
-                "the function into the main module body to use migrations.\n"
-                "For more information, see "
-                "https://docs.djangoproject.com/en/%s/topics/migrations/#serializing-values"
-                % (self.value.__name__, module_name, get_docs_version())
+                "Could not find function %s in %s.\n" % (self.value.__name__, module_name)
             )
-        # Needed on Python 2 only
-        if module_name == '__builtin__':
-            return self.value.__name__, set()
         return "%s.%s" % (module_name, self.value.__name__), {"import %s" % module_name}
 
 
@@ -245,11 +232,14 @@ class RegexSerializer(BaseSerializer):
     def serialize(self):
         imports = {"import re"}
         regex_pattern, pattern_imports = serializer_factory(self.value.pattern).serialize()
-        regex_flags, flag_imports = serializer_factory(self.value.flags).serialize()
+        # Turn off default implicit flags (e.g. re.U) because regexes with the
+        # same implicit and explicit flags aren't equal.
+        flags = self.value.flags ^ re.compile('').flags
+        regex_flags, flag_imports = serializer_factory(flags).serialize()
         imports.update(pattern_imports)
         imports.update(flag_imports)
         args = [regex_pattern]
-        if self.value.flags:
+        if flags:
             args.append(regex_flags)
         return "re.compile(%s)" % ', '.join(args), imports
 
@@ -305,7 +295,7 @@ class TypeSerializer(BaseSerializer):
                 return string, set(imports)
         if hasattr(self.value, "__module__"):
             module = self.value.__module__
-            if module == six.moves.builtins.__name__:
+            if module == builtins.__name__:
                 return self.value.__name__, set()
             else:
                 return "%s.%s" % (module, self.value.__name__), {"import %s" % module}
@@ -348,7 +338,7 @@ def serializer_factory(value):
         return TupleSerializer(value)
     if isinstance(value, dict):
         return DictionarySerializer(value)
-    if enum and isinstance(value, enum.Enum):
+    if isinstance(value, enum.Enum):
         return EnumSerializer(value)
     if isinstance(value, datetime.datetime):
         return DatetimeSerializer(value)

@@ -14,9 +14,8 @@ from django.conf import settings
 from django.core.checks import Warning
 from django.core.checks.urls import check_resolver
 from django.core.exceptions import ImproperlyConfigured
-from django.utils import lru_cache
 from django.utils.datastructures import MultiValueDict
-from django.utils.encoding import force_str, force_text
+from django.utils.encoding import force_text
 from django.utils.functional import cached_property
 from django.utils.http import RFC3986_SUBDELIMS, urlquote
 from django.utils.regex_helper import normalize
@@ -26,7 +25,7 @@ from .exceptions import NoReverseMatch, Resolver404
 from .utils import get_callable
 
 
-class ResolverMatch(object):
+class ResolverMatch:
     def __init__(self, func, args, kwargs, url_name=None, app_names=None, namespaces=None):
         self.func = func
         self.args = args
@@ -60,7 +59,7 @@ class ResolverMatch(object):
         )
 
 
-@lru_cache.lru_cache(maxsize=None)
+@functools.lru_cache(maxsize=None)
 def get_resolver(urlconf=None):
     if urlconf is None:
         from django.conf import settings
@@ -68,7 +67,7 @@ def get_resolver(urlconf=None):
     return RegexURLResolver(r'^/', urlconf)
 
 
-@lru_cache.lru_cache(maxsize=None)
+@functools.lru_cache(maxsize=None)
 def get_ns_resolver(ns_pattern, resolver):
     # Build a namespaced resolver for the given parent URLconf pattern.
     # This makes it possible to have captured parameters in the parent
@@ -77,7 +76,7 @@ def get_ns_resolver(ns_pattern, resolver):
     return RegexURLResolver(r'^/', [ns_resolver])
 
 
-class LocaleRegexDescriptor(object):
+class LocaleRegexDescriptor:
     def __get__(self, instance, cls=None):
         """
         Return a compiled regular expression based on the active language.
@@ -100,14 +99,14 @@ class LocaleRegexDescriptor(object):
         Compile and return the given regular expression.
         """
         try:
-            return re.compile(regex, re.UNICODE)
+            return re.compile(regex)
         except re.error as e:
             raise ImproperlyConfigured(
                 '"%s" is not a valid regular expression: %s' % (regex, e)
             )
 
 
-class LocaleRegexProvider(object):
+class LocaleRegexProvider:
     """
     A mixin to provide a default regex property which can vary by active
     language.
@@ -161,7 +160,7 @@ class RegexURLPattern(LocaleRegexProvider):
         self.name = name
 
     def __repr__(self):
-        return force_str('<%s %s %s>' % (self.__class__.__name__, self.name, self.regex.pattern))
+        return '<%s %s %s>' % (self.__class__.__name__, self.name, self.regex.pattern)
 
     def check(self):
         warnings = self._check_pattern_name()
@@ -237,7 +236,7 @@ class RegexURLResolver(LocaleRegexProvider):
             urlconf_repr = '<%s list>' % self.urlconf_name[0].__class__.__name__
         else:
             urlconf_repr = repr(self.urlconf_name)
-        return str('<%s %s (%s:%s) %s>') % (
+        return '<%s %s (%s:%s) %s>' % (
             self.__class__.__name__, urlconf_repr, self.app_name,
             self.namespace, self.regex.pattern,
         )
@@ -454,7 +453,7 @@ class RegexURLResolver(LocaleRegexProvider):
                 # Then, if we have a match, redo the substitution with quoted
                 # arguments in order to return a properly encoded URL.
                 candidate_pat = _prefix.replace('%', '%%') + result
-                if re.search('^%s%s' % (re.escape(_prefix), pattern), candidate_pat % candidate_subs, re.UNICODE):
+                if re.search('^%s%s' % (re.escape(_prefix), pattern), candidate_pat % candidate_subs):
                     # safe characters from `pchar` definition of RFC 3986
                     url = urlquote(candidate_pat % candidate_subs, safe=RFC3986_SUBDELIMS + str('/~:@'))
                     # Don't allow construction of scheme relative urls.
@@ -514,5 +513,5 @@ class LocaleRegexURLResolver(RegexURLResolver):
                 regex_string = ''
             else:
                 regex_string = '^%s/' % language_code
-            self._regex_dict[language_code] = re.compile(regex_string, re.UNICODE)
+            self._regex_dict[language_code] = re.compile(regex_string)
         return self._regex_dict[language_code]

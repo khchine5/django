@@ -1,3 +1,4 @@
+import functools
 import os
 from collections import OrderedDict
 
@@ -8,7 +9,6 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.files.storage import (
     FileSystemStorage, Storage, default_storage,
 )
-from django.utils import lru_cache, six
 from django.utils._os import safe_join
 from django.utils.functional import LazyObject, empty
 from django.utils.module_loading import import_string
@@ -17,7 +17,7 @@ from django.utils.module_loading import import_string
 searched_locations = []
 
 
-class BaseFinder(object):
+class BaseFinder:
     """
     A base file finder to be used for custom staticfiles finder classes.
     """
@@ -143,7 +143,7 @@ class AppDirectoriesFinder(BaseFinder):
         """
         List all files in all app storages.
         """
-        for storage in six.itervalues(self.storages):
+        for storage in self.storages.values():
             if storage.exists(''):  # check if storage location exists
                 for path in utils.get_files(storage, ignore_patterns):
                     yield path, storage
@@ -264,7 +264,7 @@ def get_finders():
         yield get_finder(finder_path)
 
 
-@lru_cache.lru_cache(maxsize=None)
+@functools.lru_cache(maxsize=None)
 def get_finder(import_path):
     """
     Imports the staticfiles finder class described by import_path, where

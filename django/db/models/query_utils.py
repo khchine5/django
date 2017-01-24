@@ -5,12 +5,12 @@ Factored out from django.db.models.query to avoid making the main module very
 large and/or so that they can be used by other modules without getting into
 circular import difficulties.
 """
+import functools
 import inspect
 from collections import namedtuple
 
 from django.db.models.constants import LOOKUP_SEP
 from django.utils import tree
-from django.utils.lru_cache import lru_cache
 
 # PathInfo is used when converting lookups (fk__somecol). The contents
 # describe the relation in Model terms (model Options and Fields for both
@@ -27,14 +27,11 @@ class InvalidQuery(Exception):
 
 def subclasses(cls):
     yield cls
-    # Python 2 lacks 'yield from', which could replace the inner loop
     for subclass in cls.__subclasses__():
-        # yield from subclasses(subclass)
-        for item in subclasses(subclass):
-            yield item
+        yield from subclasses(subclass)
 
 
-class QueryWrapper(object):
+class QueryWrapper:
     """
     A type that indicates the contents are an SQL fragment and the associate
     parameters. Can be used to pass opaque data to a where-clause, for example.
@@ -90,7 +87,7 @@ class Q(tree.Node):
         return clause
 
 
-class DeferredAttribute(object):
+class DeferredAttribute:
     """
     A wrapper for a deferred-loading field. When the value is read from this
     object the first time, the query is executed.
@@ -130,14 +127,14 @@ class DeferredAttribute(object):
         return None
 
 
-class RegisterLookupMixin(object):
+class RegisterLookupMixin:
 
     @classmethod
     def _get_lookup(cls, lookup_name):
         return cls.get_lookups().get(lookup_name, None)
 
     @classmethod
-    @lru_cache(maxsize=None)
+    @functools.lru_cache(maxsize=None)
     def get_lookups(cls):
         class_lookups = [parent.__dict__.get('class_lookups', {}) for parent in inspect.getmro(cls)]
         return cls.merge_dicts(class_lookups)

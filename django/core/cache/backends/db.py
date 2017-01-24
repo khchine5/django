@@ -1,5 +1,6 @@
 "Database cache backend."
 import base64
+import pickle
 from datetime import datetime
 
 from django.conf import settings
@@ -8,13 +9,8 @@ from django.db import DatabaseError, connections, models, router, transaction
 from django.utils import timezone
 from django.utils.encoding import force_bytes
 
-try:
-    from django.utils.six.moves import cPickle as pickle
-except ImportError:
-    import pickle
 
-
-class Options(object):
+class Options:
     """A class that will quack like a Django model _meta class.
 
     This allows cache operations to be controlled by the router
@@ -37,7 +33,7 @@ class BaseDatabaseCache(BaseCache):
         BaseCache.__init__(self, params)
         self._table = table
 
-        class CacheEntry(object):
+        class CacheEntry:
             _meta = Options(table)
         self.cache_model_class = CacheEntry
 

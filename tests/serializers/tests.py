@@ -1,16 +1,15 @@
 from datetime import datetime
+from io import StringIO
+from unittest import mock
 
 from django.core import serializers
 from django.core.serializers import SerializerDoesNotExist
 from django.core.serializers.base import ProgressBar
 from django.db import connection, transaction
 from django.http import HttpResponse
-from django.test import (
-    SimpleTestCase, mock, override_settings, skipUnlessDBFeature,
-)
+from django.test import SimpleTestCase, override_settings, skipUnlessDBFeature
 from django.test.utils import Approximate
 from django.utils.functional import curry
-from django.utils.six import StringIO
 
 from .models import (
     Actor, Article, Author, AuthorProfile, BaseModel, Category, ComplexModel,
@@ -88,7 +87,7 @@ class SerializerRegistrationTests(SimpleTestCase):
             serializers.get_deserializer("nonsense")
 
 
-class SerializersTestBase(object):
+class SerializersTestBase:
     serializer_name = None  # Set by subclasses to the serialization format name
 
     @staticmethod
@@ -349,7 +348,7 @@ class SerializersTestBase(object):
 class SerializerAPITests(SimpleTestCase):
 
     def test_stream_class(self):
-        class File(object):
+        class File:
             def __init__(self):
                 self.lines = []
 
@@ -369,7 +368,7 @@ class SerializerAPITests(SimpleTestCase):
         self.assertEqual(data, '[{"model": "serializers.score", "pk": 1, "fields": {"score": 3.4}}]')
 
 
-class SerializersTransactionTestBase(object):
+class SerializersTransactionTestBase:
 
     available_apps = ['serializers']
 

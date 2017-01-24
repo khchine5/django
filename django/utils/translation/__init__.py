@@ -3,8 +3,8 @@ Internationalization support.
 """
 import re
 import warnings
+from contextlib import ContextDecorator
 
-from django.utils.decorators import ContextDecorator
 from django.utils.deprecation import RemovedInDjango21Warning
 from django.utils.encoding import force_text
 from django.utils.functional import lazy
@@ -38,7 +38,7 @@ class TranslatorCommentWarning(SyntaxWarning):
 # replace the functions with their real counterparts (once we do access the
 # settings).
 
-class Trans(object):
+class Trans:
     """
     The purpose of this class is to store the actual translation function upon
     receiving the first call to that function. After this is done, changes to
@@ -113,9 +113,6 @@ def lazy_number(func, resultclass, number=None, **kwargs):
         class NumberAwareString(resultclass):
             def __bool__(self):
                 return bool(kwargs['singular'])
-
-            def __nonzero__(self):  # Python 2 compatibility
-                return type(self).__bool__(self)
 
             def __mod__(self, rhs):
                 if isinstance(rhs, dict) and number:

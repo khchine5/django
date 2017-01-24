@@ -1,3 +1,4 @@
+import functools
 import gzip
 import os
 import re
@@ -7,8 +8,6 @@ from django.conf import settings
 from django.core.exceptions import (
     FieldDoesNotExist, ImproperlyConfigured, ValidationError,
 )
-from django.utils import lru_cache
-from django.utils._os import upath
 from django.utils.encoding import force_text
 from django.utils.functional import lazy
 from django.utils.html import format_html
@@ -16,7 +15,7 @@ from django.utils.module_loading import import_string
 from django.utils.translation import ugettext as _, ungettext
 
 
-@lru_cache.lru_cache(maxsize=None)
+@functools.lru_cache(maxsize=None)
 def get_default_password_validators():
     return get_password_validators(settings.AUTH_PASSWORD_VALIDATORS)
 
@@ -90,7 +89,7 @@ def _password_validators_help_text_html(password_validators=None):
 password_validators_help_text_html = lazy(_password_validators_help_text_html, str)
 
 
-class MinimumLengthValidator(object):
+class MinimumLengthValidator:
     """
     Validate whether the password is of a minimum length.
     """
@@ -117,7 +116,7 @@ class MinimumLengthValidator(object):
         ) % {'min_length': self.min_length}
 
 
-class UserAttributeSimilarityValidator(object):
+class UserAttributeSimilarityValidator:
     """
     Validate whether the password is sufficiently different from the user's
     attributes.
@@ -159,7 +158,7 @@ class UserAttributeSimilarityValidator(object):
         return _("Your password can't be too similar to your other personal information.")
 
 
-class CommonPasswordValidator(object):
+class CommonPasswordValidator:
     """
     Validate whether the password is a common password.
 
@@ -168,7 +167,7 @@ class CommonPasswordValidator(object):
     https://xato.net/passwords/more-top-worst-passwords/
     """
     DEFAULT_PASSWORD_LIST_PATH = os.path.join(
-        os.path.dirname(os.path.realpath(upath(__file__))), 'common-passwords.txt.gz'
+        os.path.dirname(os.path.realpath(__file__)), 'common-passwords.txt.gz'
     )
 
     def __init__(self, password_list_path=DEFAULT_PASSWORD_LIST_PATH):
@@ -192,7 +191,7 @@ class CommonPasswordValidator(object):
         return _("Your password can't be a commonly used password.")
 
 
-class NumericPasswordValidator(object):
+class NumericPasswordValidator:
     """
     Validate whether the password is alphanumeric.
     """

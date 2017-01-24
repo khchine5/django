@@ -3,7 +3,6 @@ import threading
 import weakref
 
 from django.utils.inspect import func_accepts_kwargs
-from django.utils.six.moves import range
 
 
 def _make_id(target):
@@ -18,7 +17,7 @@ NONE_ID = _make_id(None)
 NO_RECEIVERS = object()
 
 
-class Signal(object):
+class Signal:
     """
     Base class for all signals
 

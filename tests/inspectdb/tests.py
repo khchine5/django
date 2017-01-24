@@ -1,11 +1,11 @@
 import re
-from unittest import skipUnless
+from io import StringIO
+from unittest import mock, skipUnless
 
 from django.core.management import call_command
 from django.db import connection
-from django.test import TestCase, mock, skipUnlessDBFeature
+from django.test import TestCase, skipUnlessDBFeature
 from django.utils.encoding import force_text
-from django.utils.six import StringIO
 
 from .models import ColumnTypes
 
@@ -66,9 +66,9 @@ class InspectDBTestCase(TestCase):
         assertFieldType('date_field', "models.DateField()")
         assertFieldType('date_time_field', "models.DateTimeField()")
         if connection.features.can_introspect_ip_address_field:
-            assertFieldType('gen_ip_adress_field', "models.GenericIPAddressField()")
+            assertFieldType('gen_ip_address_field', "models.GenericIPAddressField()")
         elif not connection.features.interprets_empty_strings_as_nulls:
-            assertFieldType('gen_ip_adress_field', "models.CharField(max_length=39)")
+            assertFieldType('gen_ip_address_field', "models.CharField(max_length=39)")
         if connection.features.can_introspect_time_field:
             assertFieldType('time_field', "models.TimeField()")
         if connection.features.has_native_uuid_field:

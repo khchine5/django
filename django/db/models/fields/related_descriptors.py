@@ -71,7 +71,7 @@ from django.db.models.query import QuerySet
 from django.utils.functional import cached_property
 
 
-class ForwardManyToOneDescriptor(object):
+class ForwardManyToOneDescriptor:
     """
     Accessor to the related object on the forward side of a many-to-one or
     one-to-one (via ForwardOneToOneDescriptor subclass) relation.
@@ -94,7 +94,7 @@ class ForwardManyToOneDescriptor(object):
         # related model might not be resolved yet; `rel.model` might still be
         # a string model reference.
         return type(
-            str('RelatedObjectDoesNotExist'),
+            'RelatedObjectDoesNotExist',
             (self.field.remote_field.model.DoesNotExist, AttributeError),
             {}
         )
@@ -275,7 +275,7 @@ class ForwardOneToOneDescriptor(ForwardManyToOneDescriptor):
         return super(ForwardOneToOneDescriptor, self).get_object(instance)
 
 
-class ReverseOneToOneDescriptor(object):
+class ReverseOneToOneDescriptor:
     """
     Accessor to the related object on the reverse side of a one-to-one
     relation.
@@ -297,7 +297,7 @@ class ReverseOneToOneDescriptor(object):
         # The exception isn't created at initialization time for the sake of
         # consistency with `ForwardManyToOneDescriptor`.
         return type(
-            str('RelatedObjectDoesNotExist'),
+            'RelatedObjectDoesNotExist',
             (self.related.related_model.DoesNotExist, AttributeError),
             {}
         )
@@ -435,7 +435,7 @@ class ReverseOneToOneDescriptor(object):
             setattr(value, self.related.field.get_cache_name(), instance)
 
 
-class ReverseManyToOneDescriptor(object):
+class ReverseManyToOneDescriptor:
     """
     Accessor to the related objects manager on the reverse side of a
     many-to-one relation.

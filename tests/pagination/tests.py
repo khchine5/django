@@ -6,7 +6,6 @@ from django.core.paginator import (
     UnorderedObjectListWarning,
 )
 from django.test import TestCase
-from django.utils import six
 
 from .custom import ValidAdjacentNumsPaginator
 from .models import Article
@@ -125,7 +124,7 @@ class PaginationTests(unittest.TestCase):
         self.assertEqual(paginator.validate_number(1), 1)
 
     def test_paginate_misc_classes(self):
-        class CountContainer(object):
+        class CountContainer:
             def count(self):
                 return 42
         # Paginator can be passed other objects with a count() method.
@@ -135,7 +134,7 @@ class PaginationTests(unittest.TestCase):
         self.assertEqual([1, 2, 3, 4, 5], list(paginator.page_range))
 
         # Paginator can be passed other objects that implement __len__.
-        class LenContainer(object):
+        class LenContainer:
             def __len__(self):
                 return 42
         paginator = Paginator(LenContainer(), 10)
@@ -240,7 +239,7 @@ class PaginationTests(unittest.TestCase):
         """
         Paginator.page_range should be an iterator.
         """
-        self.assertIsInstance(Paginator([1, 2, 3], 2).page_range, type(six.moves.range(0)))
+        self.assertIsInstance(Paginator([1, 2, 3], 2).page_range, type(range(0)))
 
 
 class ModelPaginationTests(TestCase):

@@ -1,3 +1,4 @@
+import functools
 import inspect
 from functools import partial
 
@@ -13,7 +14,6 @@ from django.db.models.query_utils import PathInfo
 from django.db.models.utils import make_model_tuple
 from django.utils.encoding import force_text
 from django.utils.functional import cached_property, curry
-from django.utils.lru_cache import lru_cache
 from django.utils.translation import ugettext_lazy as _
 
 from . import Field
@@ -710,7 +710,7 @@ class ForeignObject(RelatedField):
         return pathinfos
 
     @classmethod
-    @lru_cache(maxsize=None)
+    @functools.lru_cache(maxsize=None)
     def get_lookups(cls):
         bases = inspect.getmro(cls)
         bases = bases[:bases.index(ForeignObject) + 1]
@@ -1023,7 +1023,7 @@ def create_many_to_many_intermediary_model(field, klass):
         to = 'to_%s' % to
         from_ = 'from_%s' % from_
 
-    meta = type(str('Meta'), (object,), {
+    meta = type('Meta', (), {
         'db_table': field._get_m2m_db_table(klass._meta),
         'auto_created': klass,
         'app_label': klass._meta.app_label,
@@ -1034,7 +1034,7 @@ def create_many_to_many_intermediary_model(field, klass):
         'apps': field.model._meta.apps,
     })
     # Construct and return the new class.
-    return type(str(name), (models.Model,), {
+    return type(name, (models.Model,), {
         'Meta': meta,
         '__module__': klass.__module__,
         from_: models.ForeignKey(

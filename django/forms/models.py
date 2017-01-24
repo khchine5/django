@@ -16,7 +16,6 @@ from django.forms.utils import ErrorList
 from django.forms.widgets import (
     HiddenInput, MultipleHiddenInput, SelectMultiple,
 )
-from django.utils import six
 from django.utils.encoding import force_text
 from django.utils.text import capfirst, get_text_list
 from django.utils.translation import ugettext, ugettext_lazy as _
@@ -185,7 +184,7 @@ def fields_for_model(model, fields=None, exclude=None, widgets=None,
     return field_dict
 
 
-class ModelFormOptions(object):
+class ModelFormOptions:
     def __init__(self, options=None):
         self.model = getattr(options, 'model', None)
         self.fields = getattr(options, 'fields', None)
@@ -250,7 +249,7 @@ class ModelFormMetaclass(DeclarativeFieldsMetaclass):
                                       opts.field_classes)
 
             # make sure opts.fields doesn't specify an invalid field
-            none_model_fields = [k for k, v in six.iteritems(fields) if not v]
+            none_model_fields = [k for k, v in fields.items() if not v]
             missing_fields = (set(none_model_fields) -
                               set(new_class.declared_fields.keys()))
             if missing_fields:
@@ -457,7 +456,7 @@ class BaseModelForm(BaseForm):
     save.alters_data = True
 
 
-class ModelForm(six.with_metaclass(ModelFormMetaclass, BaseModelForm)):
+class ModelForm(BaseModelForm, metaclass=ModelFormMetaclass):
     pass
 
 
@@ -518,14 +517,12 @@ def modelform_factory(model, form=ModelForm, fields=None, exclude=None,
 
     # If parent form class already has an inner Meta, the Meta we're
     # creating needs to inherit from the parent's inner meta.
-    parent = (object,)
-    if hasattr(form, 'Meta'):
-        parent = (form.Meta, object)
-    Meta = type(str('Meta'), parent, attrs)
+    bases = (form.Meta,) if hasattr(form, 'Meta') else ()
+    Meta = type('Meta', bases, attrs)
     if formfield_callback:
         Meta.formfield_callback = staticmethod(formfield_callback)
     # Give this new form class a reasonable name.
-    class_name = model.__name__ + str('Form')
+    class_name = model.__name__ + 'Form'
 
     # Class attributes for the new form class.
     form_class_attrs = {
@@ -1100,7 +1097,7 @@ class InlineForeignKeyField(Field):
         return False
 
 
-class ModelChoiceIterator(object):
+class ModelChoiceIterator:
     def __init__(self, field):
         self.field = field
         self.queryset = field.queryset

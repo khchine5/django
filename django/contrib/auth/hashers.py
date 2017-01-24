@@ -1,5 +1,6 @@
 import base64
 import binascii
+import functools
 import hashlib
 import importlib
 import warnings
@@ -9,11 +10,10 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.core.signals import setting_changed
 from django.dispatch import receiver
-from django.utils import lru_cache
 from django.utils.crypto import (
     constant_time_compare, get_random_string, pbkdf2,
 )
-from django.utils.encoding import force_bytes, force_str, force_text
+from django.utils.encoding import force_bytes, force_text
 from django.utils.module_loading import import_string
 from django.utils.translation import ugettext_noop as _
 
@@ -82,7 +82,7 @@ def make_password(password, salt=None, hasher='default'):
     return hasher.encode(password, salt)
 
 
-@lru_cache.lru_cache()
+@functools.lru_cache()
 def get_hashers():
     hashers = []
     for hasher_path in settings.PASSWORD_HASHERS:
@@ -95,7 +95,7 @@ def get_hashers():
     return hashers
 
 
-@lru_cache.lru_cache()
+@functools.lru_cache()
 def get_hashers_by_algorithm():
     return {hasher.algorithm: hasher for hasher in get_hashers()}
 
@@ -162,7 +162,7 @@ def mask_hash(hash, show=6, char="*"):
     return masked
 
 
-class BasePasswordHasher(object):
+class BasePasswordHasher:
     """
     Abstract base class for password hashers
 
@@ -627,7 +627,7 @@ class CryptPasswordHasher(BasePasswordHasher):
     def encode(self, password, salt):
         crypt = self._load_library()
         assert len(salt) == 2
-        data = crypt.crypt(force_str(password), salt)
+        data = crypt.crypt(password, salt)
         assert data is not None  # A platform like OpenBSD with a dummy crypt module.
         # we don't need to store the salt, but Django used to do this
         return "%s$%s$%s" % (self.algorithm, '', data)
@@ -636,7 +636,7 @@ class CryptPasswordHasher(BasePasswordHasher):
         crypt = self._load_library()
         algorithm, salt, data = encoded.split('$', 2)
         assert algorithm == self.algorithm
-        return constant_time_compare(data, crypt.crypt(force_str(password), data))
+        return constant_time_compare(data, crypt.crypt(password, data))
 
     def safe_summary(self, encoded):
         algorithm, salt, data = encoded.split('$', 2)

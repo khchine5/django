@@ -26,21 +26,19 @@ from django.db.models.signals import (
     class_prepared, post_init, post_save, pre_init, pre_save,
 )
 from django.db.models.utils import make_model_tuple
-from django.utils import six
-from django.utils.encoding import force_str, force_text
+from django.utils.encoding import force_text
 from django.utils.functional import curry
-from django.utils.six.moves import zip
 from django.utils.text import capfirst, get_text_list
 from django.utils.translation import ugettext_lazy as _
 from django.utils.version import get_version
 
 
-class Deferred(object):
+class Deferred:
     def __repr__(self):
-        return str('<Deferred field>')
+        return '<Deferred field>'
 
     def __str__(self):
-        return str('<Deferred field>')
+        return '<Deferred field>'
 
 
 DEFERRED = Deferred()
@@ -120,7 +118,7 @@ class ModelBase(type):
             new_class.add_to_class(
                 'DoesNotExist',
                 subclass_exception(
-                    str('DoesNotExist'),
+                    'DoesNotExist',
                     tuple(
                         x.DoesNotExist for x in parents if hasattr(x, '_meta') and not x._meta.abstract
                     ) or (ObjectDoesNotExist,),
@@ -129,7 +127,7 @@ class ModelBase(type):
             new_class.add_to_class(
                 'MultipleObjectsReturned',
                 subclass_exception(
-                    str('MultipleObjectsReturned'),
+                    'MultipleObjectsReturned',
                     tuple(
                         x.MultipleObjectsReturned for x in parents if hasattr(x, '_meta') and not x._meta.abstract
                     ) or (MultipleObjectsReturned,),
@@ -373,7 +371,7 @@ class ModelBase(type):
         return cls._meta.default_manager
 
 
-class ModelState(object):
+class ModelState:
     """
     A class for storing instance state
     """
@@ -385,7 +383,7 @@ class ModelState(object):
         self.adding = True
 
 
-class Model(six.with_metaclass(ModelBase)):
+class Model(metaclass=ModelBase):
 
     def __init__(self, *args, **kwargs):
         # Alias some things as locals to avoid repeat global lookups
@@ -507,7 +505,7 @@ class Model(six.with_metaclass(ModelBase)):
             u = str(self)
         except (UnicodeEncodeError, UnicodeDecodeError):
             u = '[Bad Unicode data]'
-        return force_str('<%s: %s>' % (self.__class__.__name__, u))
+        return '<%s: %s>' % (self.__class__.__name__, u)
 
     def __str__(self):
         return '%s object' % self.__class__.__name__
@@ -521,9 +519,6 @@ class Model(six.with_metaclass(ModelBase)):
         if my_pk is None:
             return self is other
         return my_pk == other._get_pk_val()
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
 
     def __hash__(self):
         if self._get_pk_val() is None:

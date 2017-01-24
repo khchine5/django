@@ -1,4 +1,3 @@
-import io
 import os
 import sys
 from itertools import takewhile
@@ -17,8 +16,6 @@ from django.db.migrations.questioner import (
 from django.db.migrations.state import ProjectState
 from django.db.migrations.utils import get_migration_name_timestamp
 from django.db.migrations.writer import MigrationWriter
-from django.utils.six import iteritems
-from django.utils.six.moves import zip
 
 
 class Command(BaseCommand):
@@ -102,7 +99,7 @@ class Command(BaseCommand):
         # If app_labels is specified, filter out conflicting migrations for unspecified apps
         if app_labels:
             conflicts = {
-                app_label: conflict for app_label, conflict in iteritems(conflicts)
+                app_label: conflict for app_label, conflict in conflicts.items()
                 if app_label in app_labels
             }
 
@@ -212,7 +209,7 @@ class Command(BaseCommand):
                         # We just do this once per app
                         directory_created[app_label] = True
                     migration_string = writer.as_string()
-                    with io.open(writer.path, "w", encoding='utf-8') as fh:
+                    with open(writer.path, "w", encoding='utf-8') as fh:
                         fh.write(migration_string)
                 elif self.verbosity == 3:
                     # Alternatively, makemigrations --dry-run --verbosity 3
@@ -291,7 +288,7 @@ class Command(BaseCommand):
 
                 if not self.dry_run:
                     # Write the merge migrations file to the disk
-                    with io.open(writer.path, "w", encoding='utf-8') as fh:
+                    with open(writer.path, "w", encoding='utf-8') as fh:
                         fh.write(writer.as_string())
                     if self.verbosity > 0:
                         self.stdout.write("\nCreated new merge migration %s" % writer.path)

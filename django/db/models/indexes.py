@@ -2,13 +2,13 @@ import hashlib
 
 from django.utils.encoding import force_bytes
 
-__all__ = [str('Index')]
+__all__ = ['Index']
 
 # The max length of the names of the indexes (restricted to 30 due to Oracle)
 MAX_NAME_LENGTH = 30
 
 
-class Index(object):
+class Index:
     suffix = 'idx'
 
     def __init__(self, fields=[], name=None):
@@ -117,6 +117,3 @@ class Index(object):
 
     def __eq__(self, other):
         return (self.__class__ == other.__class__) and (self.deconstruct() == other.deconstruct())
-
-    def __ne__(self, other):
-        return not (self == other)

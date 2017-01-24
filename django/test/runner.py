@@ -8,6 +8,7 @@ import textwrap
 import unittest
 import warnings
 from importlib import import_module
+from io import StringIO
 
 from django.core.management import call_command
 from django.db import connections
@@ -18,7 +19,6 @@ from django.test.utils import (
 )
 from django.utils.datastructures import OrderedSet
 from django.utils.deprecation import RemovedInDjango21Warning
-from django.utils.six import StringIO
 
 try:
     import tblib.pickling_support
@@ -66,7 +66,7 @@ class DebugSQLTextTestResult(unittest.TextTestResult):
             self.stream.writeln("%s" % sql_debug)
 
 
-class RemoteTestResult(object):
+class RemoteTestResult:
     """
     Record information about which tests have succeeded and which have failed.
 
@@ -230,7 +230,7 @@ failure and get a correct traceback.
         self.stop_if_failfast()
 
 
-class RemoteTestRunner(object):
+class RemoteTestRunner:
     """
     Run tests and record everything but don't display anything.
 
@@ -389,7 +389,7 @@ class ParallelTestSuite(unittest.TestSuite):
         return result
 
 
-class DiscoverRunner(object):
+class DiscoverRunner:
     """
     A Django test runner that uses unittest2 test discovery.
     """
@@ -550,11 +550,11 @@ class DiscoverRunner(object):
         return DebugSQLTextTestResult if self.debug_sql else None
 
     def get_test_runner_kwargs(self):
-        return dict(
-            failfast=self.failfast,
-            resultclass=self.get_resultclass(),
-            verbosity=self.verbosity,
-        )
+        return {
+            'failfast': self.failfast,
+            'resultclass': self.get_resultclass(),
+            'verbosity': self.verbosity,
+        }
 
     def run_checks(self):
         # Checks are run after database creation since some checks require

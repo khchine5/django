@@ -8,7 +8,6 @@ from django.test import (
 )
 from django.test.selenium import SeleniumTestCase
 from django.urls import reverse
-from django.utils._os import upath
 from django.utils.translation import (
     LANGUAGE_SESSION_KEY, get_language, override,
 )
@@ -135,13 +134,13 @@ class I18NTests(TestCase):
     def test_setlang_cookie(self):
         # we force saving language to a cookie rather than a session
         # by excluding session middleware and those which do require it
-        test_settings = dict(
-            MIDDLEWARE=['django.middleware.common.CommonMiddleware'],
-            LANGUAGE_COOKIE_NAME='mylanguage',
-            LANGUAGE_COOKIE_AGE=3600 * 7 * 2,
-            LANGUAGE_COOKIE_DOMAIN='.example.com',
-            LANGUAGE_COOKIE_PATH='/test/',
-        )
+        test_settings = {
+            'MIDDLEWARE': ['django.middleware.common.CommonMiddleware'],
+            'LANGUAGE_COOKIE_NAME': 'mylanguage',
+            'LANGUAGE_COOKIE_AGE': 3600 * 7 * 2,
+            'LANGUAGE_COOKIE_DOMAIN': '.example.com',
+            'LANGUAGE_COOKIE_PATH': '/test/',
+        }
         with self.settings(**test_settings):
             post_data = dict(language='pl', next='/views/')
             response = self.client.post('/i18n/setlang/', data=post_data)
@@ -373,7 +372,7 @@ class JsI18NTestsMultiPackage(SimpleTestCase):
     def test_i18n_with_locale_paths(self):
         extended_locale_paths = settings.LOCALE_PATHS + [
             path.join(
-                path.dirname(path.dirname(path.abspath(upath(__file__)))),
+                path.dirname(path.dirname(path.abspath(__file__))),
                 'app3',
                 'locale',
             ),

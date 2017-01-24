@@ -7,7 +7,7 @@ file upload handlers for processing.
 import base64
 import binascii
 import cgi
-import sys
+from urllib.parse import unquote
 
 from django.conf import settings
 from django.core.exceptions import (
@@ -16,10 +16,8 @@ from django.core.exceptions import (
 from django.core.files.uploadhandler import (
     SkipFile, StopFutureHandlers, StopUpload,
 )
-from django.utils import six
 from django.utils.datastructures import MultiValueDict
 from django.utils.encoding import force_text
-from django.utils.six.moves.urllib.parse import unquote
 from django.utils.text import unescape_entities
 
 __all__ = ('MultiPartParser', 'MultiPartParserError', 'InputStreamExhausted')
@@ -41,7 +39,7 @@ FILE = "file"
 FIELD = "field"
 
 
-class MultiPartParser(object):
+class MultiPartParser:
     """
     A rfc2388 multipart/form-data parser.
 
@@ -247,10 +245,9 @@ class MultiPartParser(object):
 
                                 try:
                                     chunk = base64.b64decode(stripped_chunk)
-                                except Exception as e:
+                                except Exception as exc:
                                     # Since this is only a chunk, any error is an unfixable error.
-                                    msg = "Could not decode base64 data: %r" % e
-                                    six.reraise(MultiPartParserError, MultiPartParserError(msg), sys.exc_info()[2])
+                                    raise MultiPartParserError("Could not decode base64 data.") from exc
 
                             for i, handler in enumerate(handlers):
                                 chunk_length = len(chunk)
@@ -312,7 +309,7 @@ class MultiPartParser(object):
                 handler.file.close()
 
 
-class LazyStream(six.Iterator):
+class LazyStream:
     """
     The LazyStream wrapper allows one to get and "unget" bytes from a stream.
 
@@ -429,7 +426,7 @@ class LazyStream(six.Iterator):
             )
 
 
-class ChunkIter(six.Iterator):
+class ChunkIter:
     """
     An iterable that will yield chunks of data. Given a file-like object as the
     constructor, this object will yield chunks of read operations from that
@@ -453,7 +450,7 @@ class ChunkIter(six.Iterator):
         return self
 
 
-class InterBoundaryIter(six.Iterator):
+class InterBoundaryIter:
     """
     A Producer that will iterate over boundaries.
     """
@@ -471,7 +468,7 @@ class InterBoundaryIter(six.Iterator):
             raise StopIteration()
 
 
-class BoundaryIter(six.Iterator):
+class BoundaryIter:
     """
     A Producer that is sensitive to boundaries.
 
@@ -646,7 +643,7 @@ def parse_boundary_stream(stream, max_header_size):
     return (TYPE, outdict, stream)
 
 
-class Parser(object):
+class Parser:
     def __init__(self, stream, boundary):
         self._stream = stream
         self._separator = b'--' + boundary

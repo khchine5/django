@@ -6,6 +6,7 @@ import sys
 from copy import copy
 from importlib import import_module
 from io import BytesIO
+from urllib.parse import urljoin, urlparse, urlsplit
 
 from django.conf import settings
 from django.core.handlers.base import BaseHandler
@@ -19,12 +20,10 @@ from django.template import TemplateDoesNotExist
 from django.test import signals
 from django.test.utils import ContextList
 from django.urls import resolve
-from django.utils import six
-from django.utils.encoding import force_bytes, force_str, uri_to_iri
+from django.utils.encoding import force_bytes, uri_to_iri
 from django.utils.functional import SimpleLazyObject, curry
 from django.utils.http import urlencode
 from django.utils.itercompat import is_iterable
-from django.utils.six.moves.urllib.parse import urljoin, urlparse, urlsplit
 
 __all__ = ('Client', 'RedirectCycleError', 'RequestFactory', 'encode_file', 'encode_multipart')
 
@@ -46,7 +45,7 @@ class RedirectCycleError(Exception):
         self.redirect_chain = last_response.redirect_chain
 
 
-class FakePayload(object):
+class FakePayload:
     """
     A wrapper around BytesIO that restricts what can be read since data from
     the network can't be seeked and cannot be read outside of its content
@@ -253,7 +252,7 @@ def encode_file(boundary, key, file):
     ]
 
 
-class RequestFactory(object):
+class RequestFactory:
     """
     Class that lets you create mock Request objects for use in testing.
 
@@ -281,15 +280,15 @@ class RequestFactory(object):
         # See http://www.python.org/dev/peps/pep-3333/#environ-variables
         environ = {
             'HTTP_COOKIE': self.cookies.output(header='', sep='; '),
-            'PATH_INFO': str('/'),
-            'REMOTE_ADDR': str('127.0.0.1'),
-            'REQUEST_METHOD': str('GET'),
-            'SCRIPT_NAME': str(''),
-            'SERVER_NAME': str('testserver'),
-            'SERVER_PORT': str('80'),
-            'SERVER_PROTOCOL': str('HTTP/1.1'),
+            'PATH_INFO': '/',
+            'REMOTE_ADDR': '127.0.0.1',
+            'REQUEST_METHOD': 'GET',
+            'SCRIPT_NAME': '',
+            'SERVER_NAME': 'testserver',
+            'SERVER_PORT': '80',
+            'SERVER_PROTOCOL': 'HTTP/1.1',
             'wsgi.version': (1, 0),
-            'wsgi.url_scheme': str('http'),
+            'wsgi.url_scheme': 'http',
             'wsgi.input': FakePayload(b''),
             'wsgi.errors': self.errors,
             'wsgi.multiprocess': True,
@@ -317,10 +316,10 @@ class RequestFactory(object):
             return force_bytes(data, encoding=charset)
 
     def _get_path(self, parsed):
-        path = force_str(parsed[2])
+        path = parsed.path
         # If there are parameters, add them
-        if parsed[3]:
-            path += str(";") + force_str(parsed[3])
+        if parsed.params:
+            path += ";" + parsed.params
         path = uri_to_iri(path).encode(UTF_8)
         # Replace the behavior where non-ASCII values in the WSGI environ are
         # arbitrarily decoded with ISO-8859-1.
@@ -389,18 +388,18 @@ class RequestFactory(object):
                 content_type='application/octet-stream', secure=False,
                 **extra):
         """Constructs an arbitrary HTTP request."""
-        parsed = urlparse(force_str(path))
+        parsed = urlparse(str(path))  # path can be lazy
         data = force_bytes(data, settings.DEFAULT_CHARSET)
         r = {
             'PATH_INFO': self._get_path(parsed),
-            'REQUEST_METHOD': str(method),
-            'SERVER_PORT': str('443') if secure else str('80'),
-            'wsgi.url_scheme': str('https') if secure else str('http'),
+            'REQUEST_METHOD': method,
+            'SERVER_PORT': '443' if secure else '80',
+            'wsgi.url_scheme': 'https' if secure else 'http',
         }
         if data:
             r.update({
                 'CONTENT_LENGTH': len(data),
-                'CONTENT_TYPE': str(content_type),
+                'CONTENT_TYPE': content_type,
                 'wsgi.input': FakePayload(data),
             })
         r.update(extra)
@@ -494,7 +493,7 @@ class Client(RequestFactory):
             if self.exc_info:
                 exc_info = self.exc_info
                 self.exc_info = None
-                six.reraise(*exc_info)
+                raise exc_info[0](exc_info[1]).with_traceback(exc_info[2])
 
             # Save the client and request that stimulated the response.
             response.client = self

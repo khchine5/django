@@ -2,27 +2,23 @@
 MySQL database backend for Django.
 
 Requires mysqlclient: https://pypi.python.org/pypi/mysqlclient/
-MySQLdb is supported for Python 2 only: http://sourceforge.net/projects/mysql-python
 """
 import re
-import sys
 
 from django.core.exceptions import ImproperlyConfigured
 from django.db import utils
 from django.db.backends import utils as backend_utils
 from django.db.backends.base.base import BaseDatabaseWrapper
-from django.utils import six
-from django.utils.encoding import force_str
 from django.utils.functional import cached_property
 from django.utils.safestring import SafeBytes, SafeText
 
 try:
     import MySQLdb as Database
-except ImportError as e:
+except ImportError as err:
     raise ImproperlyConfigured(
-        'Error loading MySQLdb module: %s.\n'
-        'Did you install mysqlclient or MySQL-python?' % e
-    )
+        'Error loading MySQLdb module.\n'
+        'Did you install mysqlclient or MySQL-python?'
+    ) from err
 
 from MySQLdb.constants import CLIENT, FIELD_TYPE                # isort:skip
 from MySQLdb.converters import conversions                      # isort:skip
@@ -53,8 +49,6 @@ if (version < (1, 2, 1) or (
 django_conversions = conversions.copy()
 django_conversions.update({
     FIELD_TYPE.TIME: backend_utils.typecast_time,
-    FIELD_TYPE.DECIMAL: backend_utils.typecast_decimal,
-    FIELD_TYPE.NEWDECIMAL: backend_utils.typecast_decimal,
 })
 
 # This should match the numerical portion of the version numbers (we can treat
@@ -69,7 +63,7 @@ server_version_re = re.compile(r'(\d{1,2})\.(\d{1,2})\.(\d{1,2})')
 # standard backend_utils.CursorDebugWrapper can be used. Also, using sql_mode
 # TRADITIONAL will automatically cause most warnings to be treated as errors.
 
-class CursorWrapper(object):
+class CursorWrapper:
     """
     A thin wrapper around MySQLdb's normal cursor class so that we can catch
     particular exception instances and reraise them with the right types.
@@ -90,7 +84,7 @@ class CursorWrapper(object):
             # Map some error codes to IntegrityError, since they seem to be
             # misclassified and Django would prefer the more logical place.
             if e.args[0] in self.codes_for_integrityerror:
-                six.reraise(utils.IntegrityError, utils.IntegrityError(*tuple(e.args)), sys.exc_info()[2])
+                raise utils.IntegrityError(*tuple(e.args))
             raise
 
     def executemany(self, query, args):
@@ -100,7 +94,7 @@ class CursorWrapper(object):
             # Map some error codes to IntegrityError, since they seem to be
             # misclassified and Django would prefer the more logical place.
             if e.args[0] in self.codes_for_integrityerror:
-                six.reraise(utils.IntegrityError, utils.IntegrityError(*tuple(e.args)), sys.exc_info()[2])
+                raise utils.IntegrityError(*tuple(e.args))
             raise
 
     def __getattr__(self, attr):
@@ -116,8 +110,8 @@ class CursorWrapper(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        # Ticket #17671 - Close instead of passing thru to avoid backend
-        # specific behavior.
+        # Close instead of passing through to avoid backend-specific behavior
+        # (#17671).
         self.close()
 
 
@@ -225,7 +219,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         if settings_dict['NAME']:
             kwargs['db'] = settings_dict['NAME']
         if settings_dict['PASSWORD']:
-            kwargs['passwd'] = force_str(settings_dict['PASSWORD'])
+            kwargs['passwd'] = settings_dict['PASSWORD']
         if settings_dict['HOST'].startswith('/'):
             kwargs['unix_socket'] = settings_dict['HOST']
         elif settings_dict['HOST']:

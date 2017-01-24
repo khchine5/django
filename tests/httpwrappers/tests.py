@@ -16,15 +16,12 @@ from django.http import (
     StreamingHttpResponse, parse_cookie,
 )
 from django.test import SimpleTestCase
-from django.utils import six
-from django.utils._os import upath
-from django.utils.encoding import force_str
 from django.utils.functional import lazystr
 
 
 class QueryDictTests(SimpleTestCase):
     def test_create_with_no_args(self):
-        self.assertEqual(QueryDict(), QueryDict(str('')))
+        self.assertEqual(QueryDict(), QueryDict(''))
 
     def test_missing_key(self):
         q = QueryDict()
@@ -56,17 +53,17 @@ class QueryDictTests(SimpleTestCase):
         q = QueryDict()
         self.assertEqual(q.getlist('foo'), [])
         self.assertNotIn('foo', q)
-        self.assertEqual(list(six.iteritems(q)), [])
-        self.assertEqual(list(six.iterlists(q)), [])
-        self.assertEqual(list(six.iterkeys(q)), [])
-        self.assertEqual(list(six.itervalues(q)), [])
+        self.assertEqual(list(q.items()), [])
+        self.assertEqual(list(q.lists()), [])
+        self.assertEqual(list(q.keys()), [])
+        self.assertEqual(list(q.values()), [])
         self.assertEqual(len(q), 0)
         self.assertEqual(q.urlencode(), '')
 
     def test_single_key_value(self):
         """Test QueryDict with one key/value pair"""
 
-        q = QueryDict(str('foo=bar'))
+        q = QueryDict('foo=bar')
         self.assertEqual(q['foo'], 'bar')
         with self.assertRaises(KeyError):
             q.__getitem__('bar')
@@ -86,10 +83,10 @@ class QueryDictTests(SimpleTestCase):
         self.assertIn('foo', q)
         self.assertNotIn('bar', q)
 
-        self.assertEqual(list(six.iteritems(q)), [('foo', 'bar')])
-        self.assertEqual(list(six.iterlists(q)), [('foo', ['bar'])])
-        self.assertEqual(list(six.iterkeys(q)), ['foo'])
-        self.assertEqual(list(six.itervalues(q)), ['bar'])
+        self.assertEqual(list(q.items()), [('foo', 'bar')])
+        self.assertEqual(list(q.lists()), [('foo', ['bar'])])
+        self.assertEqual(list(q.keys()), ['foo'])
+        self.assertEqual(list(q.values()), ['bar'])
         self.assertEqual(len(q), 1)
 
         with self.assertRaises(AttributeError):
@@ -146,14 +143,10 @@ class QueryDictTests(SimpleTestCase):
         self.assertEqual(q['foo'], 'another')
         self.assertIn('foo', q)
 
-        self.assertListEqual(sorted(six.iteritems(q)),
-                             [('foo', 'another'), ('name', 'john')])
-        self.assertListEqual(sorted(six.iterlists(q)),
-                             [('foo', ['bar', 'baz', 'another']), ('name', ['john'])])
-        self.assertListEqual(sorted(six.iterkeys(q)),
-                             ['foo', 'name'])
-        self.assertListEqual(sorted(six.itervalues(q)),
-                             ['another', 'john'])
+        self.assertListEqual(sorted(q.items()), [('foo', 'another'), ('name', 'john')])
+        self.assertListEqual(sorted(q.lists()), [('foo', ['bar', 'baz', 'another']), ('name', ['john'])])
+        self.assertListEqual(sorted(q.keys()), ['foo', 'name'])
+        self.assertListEqual(sorted(q.values()), ['another', 'john'])
 
         q.update({'foo': 'hello'})
         self.assertEqual(q['foo'], 'hello')
@@ -173,7 +166,7 @@ class QueryDictTests(SimpleTestCase):
     def test_multiple_keys(self):
         """Test QueryDict with two key/value pairs with same keys."""
 
-        q = QueryDict(str('vote=yes&vote=no'))
+        q = QueryDict('vote=yes&vote=no')
 
         self.assertEqual(q['vote'], 'no')
         with self.assertRaises(AttributeError):
@@ -193,10 +186,10 @@ class QueryDictTests(SimpleTestCase):
 
         self.assertIn('vote', q)
         self.assertNotIn('foo', q)
-        self.assertEqual(list(six.iteritems(q)), [('vote', 'no')])
-        self.assertEqual(list(six.iterlists(q)), [('vote', ['yes', 'no'])])
-        self.assertEqual(list(six.iterkeys(q)), ['vote'])
-        self.assertEqual(list(six.itervalues(q)), ['no'])
+        self.assertEqual(list(q.items()), [('vote', 'no')])
+        self.assertEqual(list(q.lists()), [('vote', ['yes', 'no'])])
+        self.assertEqual(list(q.keys()), ['vote'])
+        self.assertEqual(list(q.values()), ['no'])
         self.assertEqual(len(q), 1)
 
         with self.assertRaises(AttributeError):
@@ -216,29 +209,29 @@ class QueryDictTests(SimpleTestCase):
         q = QueryDict()
         q1 = pickle.loads(pickle.dumps(q, 2))
         self.assertEqual(q, q1)
-        q = QueryDict(str('a=b&c=d'))
+        q = QueryDict('a=b&c=d')
         q1 = pickle.loads(pickle.dumps(q, 2))
         self.assertEqual(q, q1)
-        q = QueryDict(str('a=b&c=d&a=1'))
+        q = QueryDict('a=b&c=d&a=1')
         q1 = pickle.loads(pickle.dumps(q, 2))
         self.assertEqual(q, q1)
 
     def test_update_from_querydict(self):
         """Regression test for #8278: QueryDict.update(QueryDict)"""
-        x = QueryDict(str("a=1&a=2"), mutable=True)
-        y = QueryDict(str("a=3&a=4"))
+        x = QueryDict("a=1&a=2", mutable=True)
+        y = QueryDict("a=3&a=4")
         x.update(y)
         self.assertEqual(x.getlist('a'), ['1', '2', '3', '4'])
 
     def test_non_default_encoding(self):
         """#13572 - QueryDict with a non-default encoding"""
-        q = QueryDict(str('cur=%A4'), encoding='iso-8859-15')
+        q = QueryDict('cur=%A4', encoding='iso-8859-15')
         self.assertEqual(q.encoding, 'iso-8859-15')
-        self.assertEqual(list(six.iteritems(q)), [('cur', '€')])
+        self.assertEqual(list(q.items()), [('cur', '€')])
         self.assertEqual(q.urlencode(), 'cur=%A4')
         q = q.copy()
         self.assertEqual(q.encoding, 'iso-8859-15')
-        self.assertEqual(list(six.iteritems(q)), [('cur', '€')])
+        self.assertEqual(list(q.items()), [('cur', '€')])
         self.assertEqual(q.urlencode(), 'cur=%A4')
         self.assertEqual(copy.copy(q).encoding, 'iso-8859-15')
         self.assertEqual(copy.deepcopy(q).encoding, 'iso-8859-15')
@@ -287,31 +280,20 @@ class HttpResponseTests(unittest.TestCase):
     def test_headers_type(self):
         r = HttpResponse()
 
-        # The following tests explicitly test types in addition to values
-        # because in Python 2 u'foo' == b'foo'.
-
-        # ASCII unicode or bytes values are converted to native strings.
+        # ASCII unicode or bytes values are converted to strings.
         r['key'] = 'test'
-        self.assertEqual(r['key'], str('test'))
-        self.assertIsInstance(r['key'], str)
+        self.assertEqual(r['key'], 'test')
         r['key'] = 'test'.encode('ascii')
-        self.assertEqual(r['key'], str('test'))
-        self.assertIsInstance(r['key'], str)
+        self.assertEqual(r['key'], 'test')
         self.assertIn(b'test', r.serialize_headers())
 
-        # Latin-1 unicode or bytes values are also converted to native strings.
+        # Non-ASCII values are serialized to Latin-1.
         r['key'] = 'café'
-        self.assertEqual(r['key'], force_str('café', 'latin-1'))
-        self.assertIsInstance(r['key'], str)
-        r['key'] = 'café'.encode('latin-1')
-        self.assertEqual(r['key'], force_str('café', 'latin-1'))
-        self.assertIsInstance(r['key'], str)
         self.assertIn('café'.encode('latin-1'), r.serialize_headers())
 
         # Other unicode values are MIME-encoded (there's no way to pass them as bytes).
         r['key'] = '†'
-        self.assertEqual(r['key'], str('=?utf-8?b?4oCg?='))
-        self.assertIsInstance(r['key'], str)
+        self.assertEqual(r['key'], '=?utf-8?b?4oCg?=')
         self.assertIn(b'=?utf-8?b?4oCg?=', r.serialize_headers())
 
         # The response also converts unicode or bytes keys to strings, but requires
@@ -322,7 +304,6 @@ class HttpResponseTests(unittest.TestCase):
         headers = list(r.items())
         self.assertEqual(len(headers), 1)
         self.assertEqual(headers[0], ('foo', 'bar'))
-        self.assertIsInstance(headers[0][0], str)
 
         r = HttpResponse()
         del r['Content-Type']
@@ -645,7 +626,7 @@ class FileCloseTests(SimpleTestCase):
         request_finished.connect(close_old_connections)
 
     def test_response(self):
-        filename = os.path.join(os.path.dirname(upath(__file__)), 'abc.txt')
+        filename = os.path.join(os.path.dirname(__file__), 'abc.txt')
 
         # file isn't closed until we close the response.
         file1 = open(filename)
@@ -663,7 +644,7 @@ class FileCloseTests(SimpleTestCase):
         self.assertTrue(file2.closed)
 
     def test_streaming_response(self):
-        filename = os.path.join(os.path.dirname(upath(__file__)), 'abc.txt')
+        filename = os.path.join(os.path.dirname(__file__), 'abc.txt')
 
         # file isn't closed until we close the response.
         file1 = open(filename)
@@ -764,7 +745,7 @@ class CookieTests(unittest.TestCase):
         # More characters the spec forbids.
         self.assertEqual(parse_cookie('a   b,c<>@:/[]?{}=d  "  =e,f g'), {'a   b,c<>@:/[]?{}': 'd  "  =e,f g'})
         # Unicode characters. The spec only allows ASCII.
-        self.assertEqual(parse_cookie('saint=André Bessette'), {'saint': force_str('André Bessette')})
+        self.assertEqual(parse_cookie('saint=André Bessette'), {'saint': 'André Bessette'})
         # Browsers don't send extra whitespace or semicolons in Cookie headers,
         # but parse_cookie() should parse whitespace the same way
         # document.cookie parses whitespace.

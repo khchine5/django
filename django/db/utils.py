@@ -5,8 +5,6 @@ from threading import local
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from django.utils import six
-from django.utils._os import npath, upath
 from django.utils.functional import cached_property
 from django.utils.module_loading import import_string
 
@@ -50,7 +48,7 @@ class NotSupportedError(DatabaseError):
     pass
 
 
-class DatabaseErrorWrapper(object):
+class DatabaseErrorWrapper:
     """
     Context manager and decorator that re-throws backend-specific database
     exceptions using Django's common wrappers.
@@ -91,7 +89,7 @@ class DatabaseErrorWrapper(object):
                 # the connection unusable.
                 if dj_exc_type not in (DataError, IntegrityError):
                     self.wrapper.errors_occurred = True
-                six.reraise(dj_exc_type, dj_exc_value, traceback)
+                raise dj_exc_value.with_traceback(traceback)
 
     def __call__(self, func):
         # Note that we are intentionally not using @wraps here for performance
@@ -116,10 +114,10 @@ def load_backend(backend_name):
     except ImportError as e_user:
         # The database backend wasn't found. Display a helpful error message
         # listing all possible (built-in) database backends.
-        backend_dir = os.path.join(os.path.dirname(upath(__file__)), 'backends')
+        backend_dir = os.path.join(os.path.dirname(__file__), 'backends')
         try:
             builtin_backends = [
-                name for _, name, ispkg in pkgutil.iter_modules([npath(backend_dir)])
+                name for _, name, ispkg in pkgutil.iter_modules([backend_dir])
                 if ispkg and name not in {'base', 'dummy', 'postgresql_psycopg2'}
             ]
         except EnvironmentError:
@@ -141,7 +139,7 @@ class ConnectionDoesNotExist(Exception):
     pass
 
 
-class ConnectionHandler(object):
+class ConnectionHandler:
     def __init__(self, databases=None):
         """
         databases is an optional dictionary of database definitions (structured
@@ -234,7 +232,7 @@ class ConnectionHandler(object):
             connection.close()
 
 
-class ConnectionRouter(object):
+class ConnectionRouter:
     def __init__(self, routers=None):
         """
         If routers is not specified, will default to settings.DATABASE_ROUTERS.

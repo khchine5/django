@@ -1,7 +1,9 @@
 import gzip
 import random
 import re
+import struct
 from io import BytesIO
+from urllib.parse import quote
 
 from django.conf import settings
 from django.core import mail
@@ -19,11 +21,9 @@ from django.middleware.http import ConditionalGetMiddleware
 from django.test import (
     RequestFactory, SimpleTestCase, ignore_warnings, override_settings,
 )
-from django.utils import six
 from django.utils.deprecation import RemovedInDjango21Warning
-from django.utils.encoding import force_str
-from django.utils.six.moves import range
-from django.utils.six.moves.urllib.parse import quote
+
+int2byte = struct.Struct(">B").pack
 
 
 @override_settings(ROOT_URLCONF='middleware.urls')
@@ -349,7 +349,7 @@ class CommonMiddlewareTest(SimpleTestCase):
     def test_non_ascii_query_string_does_not_crash(self):
         """Regression test for #15152"""
         request = self.rf.get('/slash')
-        request.META['QUERY_STRING'] = force_str('drink=café')
+        request.META['QUERY_STRING'] = 'drink=café'
         r = CommonMiddleware().process_request(request)
         self.assertEqual(r.status_code, 301)
 
@@ -732,7 +732,7 @@ class GZipMiddlewareTest(SimpleTestCase):
     """
     short_string = b"This string is too short to be worth compressing."
     compressible_string = b'a' * 500
-    incompressible_string = b''.join(six.int2byte(random.randint(0, 255)) for _ in range(500))
+    incompressible_string = b''.join(int2byte(random.randint(0, 255)) for _ in range(500))
     sequence = [b'a' * 500, b'b' * 200, b'a' * 300]
     sequence_unicode = ['a' * 500, 'é' * 200, 'a' * 300]
 

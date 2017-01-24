@@ -9,7 +9,7 @@ from django.core.files.storage import default_storage
 from django.core.validators import validate_image_file_extension
 from django.db.models import signals
 from django.db.models.fields import Field
-from django.utils.encoding import force_str, force_text
+from django.utils.encoding import force_text
 from django.utils.translation import ugettext_lazy as _
 
 
@@ -27,9 +27,6 @@ class FieldFile(File):
         if hasattr(other, 'name'):
             return self.name == other.name
         return self.name == other
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
 
     def __hash__(self):
         return hash(self.name)
@@ -134,7 +131,7 @@ class FieldFile(File):
         return {'name': self.name, 'closed': False, '_committed': True, '_file': None}
 
 
-class FileDescriptor(object):
+class FileDescriptor:
     """
     The descriptor for the file attribute on the model instance. Returns a
     FieldFile when accessed so you can do stuff like::
@@ -280,7 +277,7 @@ class FileField(Field):
     def get_prep_value(self, value):
         "Returns field's value prepared for saving into a database."
         value = super(FileField, self).get_prep_value(value)
-        # Need to convert File objects provided via a form to unicode for database insertion
+        # Need to convert File objects provided via a form to string for database insertion
         if value is None:
             return None
         return str(value)
@@ -307,7 +304,7 @@ class FileField(Field):
         if callable(self.upload_to):
             filename = self.upload_to(instance, filename)
         else:
-            dirname = force_text(datetime.datetime.now().strftime(force_str(self.upload_to)))
+            dirname = force_text(datetime.datetime.now().strftime(self.upload_to))
             filename = posixpath.join(dirname, filename)
         return self.storage.generate_filename(filename)
 

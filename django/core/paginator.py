@@ -2,7 +2,6 @@ import collections
 import warnings
 from math import ceil
 
-from django.utils import six
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
@@ -23,7 +22,7 @@ class EmptyPage(InvalidPage):
     pass
 
 
-class Paginator(object):
+class Paginator:
 
     def __init__(self, object_list, per_page, orphans=0,
                  allow_empty_first_page=True):
@@ -99,7 +98,7 @@ class Paginator(object):
         Returns a 1-based range of pages for iterating through within
         a template for loop.
         """
-        return six.moves.range(1, self.num_pages + 1)
+        return range(1, self.num_pages + 1)
 
     def _check_object_list_is_ordered(self):
         """

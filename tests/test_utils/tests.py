@@ -1,5 +1,7 @@
+import os
 import sys
 import unittest
+from io import StringIO
 
 from django.conf.urls import url
 from django.contrib.staticfiles.finders import get_finder, get_finders
@@ -18,8 +20,6 @@ from django.test.utils import (
     setup_test_environment,
 )
 from django.urls import NoReverseMatch, reverse
-from django.utils import six
-from django.utils._os import abspathu
 
 from .models import Car, Person, PossessedCar
 from .views import empty_response
@@ -117,7 +117,7 @@ class SkippingClassTestCase(SimpleTestCase):
             test_suite.addTest(SkippedTestsSubclass('test_will_be_skipped'))
         except unittest.SkipTest:
             self.fail("SkipTest should not be raised at this stage")
-        result = unittest.TextTestRunner(stream=six.StringIO()).run(test_suite)
+        result = unittest.TextTestRunner(stream=StringIO()).run(test_suite)
         self.assertEqual(result.testsRun, 3)
         self.assertEqual(len(result.skipped), 2)
         self.assertEqual(result.skipped[0][1], 'Database has feature(s) __class__')
@@ -362,22 +362,26 @@ class AssertTemplateUsedContextManagerTests(SimpleTestCase):
             pass
 
     def test_error_message(self):
-        with self.assertRaisesRegex(AssertionError, r'^template_used/base\.html'):
+        msg = 'template_used/base.html was not rendered. No template was rendered.'
+        with self.assertRaisesMessage(AssertionError, msg):
             with self.assertTemplateUsed('template_used/base.html'):
                 pass
 
-        with self.assertRaisesRegex(AssertionError, r'^template_used/base\.html'):
+        with self.assertRaisesMessage(AssertionError, msg):
             with self.assertTemplateUsed(template_name='template_used/base.html'):
                 pass
 
-        with self.assertRaisesRegex(AssertionError, r'^template_used/base\.html.*template_used/alternative\.html$'):
+        msg2 = (
+            'template_used/base.html was not rendered. Following templates '
+            'were rendered: template_used/alternative.html'
+        )
+        with self.assertRaisesMessage(AssertionError, msg2):
             with self.assertTemplateUsed('template_used/base.html'):
                 render_to_string('template_used/alternative.html')
 
-        with self.assertRaises(AssertionError) as cm:
+        with self.assertRaisesMessage(AssertionError, 'No templates used to render the response'):
             response = self.client.get('/test_utils/no_template_used/')
             self.assertTemplateUsed(response, 'template_used/base.html')
-        self.assertEqual(cm.exception.args[0], "No templates used to render the response")
 
     def test_failure(self):
         with self.assertRaises(TypeError):
@@ -964,7 +968,7 @@ class OverrideSettingsTests(SimpleTestCase):
         django.contrib.staticfiles.storage.staticfiles_storage.
         """
         with self.settings(STATIC_ROOT='/tmp/test'):
-            self.assertEqual(staticfiles_storage.location, abspathu('/tmp/test'))
+            self.assertEqual(staticfiles_storage.location, os.path.abspath('/tmp/test'))
 
     def test_override_staticfiles_storage(self):
         """

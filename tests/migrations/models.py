@@ -1,13 +1,12 @@
 from django.apps.registry import Apps
 from django.db import models
-from django.utils import six
 
 
 class CustomModelBase(models.base.ModelBase):
     pass
 
 
-class ModelWithCustomBase(six.with_metaclass(CustomModelBase, models.Model)):
+class ModelWithCustomBase(models.Model, metaclass=CustomModelBase):
     pass
 
 
@@ -24,7 +23,7 @@ class UnicodeModel(models.Model):
         return self.title
 
 
-class Unserializable(object):
+class Unserializable:
     """
     An object that migration doesn't know how to serialize.
     """

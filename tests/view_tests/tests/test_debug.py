@@ -4,6 +4,7 @@ import os
 import re
 import sys
 import tempfile
+from io import StringIO
 
 from django.conf.urls import url
 from django.core import mail
@@ -13,7 +14,6 @@ from django.template import TemplateDoesNotExist
 from django.test import RequestFactory, SimpleTestCase, override_settings
 from django.test.utils import LoggingCaptureMixin, patch_logger
 from django.urls import reverse
-from django.utils import six
 from django.utils.encoding import force_bytes, force_text
 from django.utils.functional import SimpleLazyObject
 from django.views.debug import (
@@ -32,7 +32,7 @@ from ..views import (
 PY36 = sys.version_info >= (3, 6)
 
 
-class User(object):
+class User:
     def __str__(self):
         return 'jacob'
 
@@ -45,7 +45,7 @@ class CallableSettingWrapperTests(SimpleTestCase):
     """ Unittests for CallableSettingWrapper
     """
     def test_repr(self):
-        class WrappedCallable(object):
+        class WrappedCallable:
             def __repr__(self):
                 return "repr from the wrapped callable"
 
@@ -422,7 +422,7 @@ class ExceptionReporterTests(SimpleTestCase):
     def test_unprintable_values_handling(self):
         "Unprintable values should not make the output generation choke."
         try:
-            class OomOutput(object):
+            class OomOutput:
                 def __repr__(self):
                     raise MemoryError('OOM')
             oomvalue = OomOutput()  # NOQA
@@ -438,7 +438,7 @@ class ExceptionReporterTests(SimpleTestCase):
         large = 256 * 1024
         repr_of_str_adds = len(repr(''))
         try:
-            class LargeOutput(object):
+            class LargeOutput:
                 def __repr__(self):
                     return repr('A' * large)
             largevalue = LargeOutput()  # NOQA
@@ -513,7 +513,7 @@ class ExceptionReporterTests(SimpleTestCase):
         html = reporter.get_traceback_html()
         self.assertInHTML(value, html)
         # FILES
-        fp = six.StringIO('filecontent')
+        fp = StringIO('filecontent')
         request = self.rf.post('/test_view/', data={'name': 'filename', 'items': fp})
         reporter = ExceptionReporter(request, None, None, None)
         html = reporter.get_traceback_html()
@@ -535,7 +535,7 @@ class ExceptionReporterTests(SimpleTestCase):
         The error page can be rendered if the current user can't be retrieved
         (such as when the database is unavailable).
         """
-        class ExceptionUser(object):
+        class ExceptionUser:
             def __str__(self):
                 raise Exception()
 
@@ -628,7 +628,7 @@ class PlainTextReportTests(SimpleTestCase):
         text = reporter.get_traceback_text()
         self.assertIn("items = 'Oops'", text)
         # FILES
-        fp = six.StringIO('filecontent')
+        fp = StringIO('filecontent')
         request = self.rf.post('/test_view/', data={'name': 'filename', 'items': fp})
         reporter = ExceptionReporter(request, None, None, None)
         text = reporter.get_traceback_text()
@@ -654,7 +654,7 @@ class PlainTextReportTests(SimpleTestCase):
         self.assertIn("http://evil.com/", text)
 
 
-class ExceptionReportTestMixin(object):
+class ExceptionReportTestMixin:
 
     # Mixin used in the ExceptionReporterFilterTests and
     # AjaxResponseExceptionReporterFilter tests below
@@ -951,7 +951,7 @@ class ExceptionReporterFilterTests(ExceptionReportTestMixin, LoggingCaptureMixin
         Callable settings which forbid to set attributes should not break
         the debug page (#23070).
         """
-        class CallableSettingWithSlots(object):
+        class CallableSettingWithSlots:
             __slots__ = []
 
             def __call__(self):

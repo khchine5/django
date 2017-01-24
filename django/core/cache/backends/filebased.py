@@ -2,8 +2,8 @@
 import errno
 import glob
 import hashlib
-import io
 import os
+import pickle
 import random
 import tempfile
 import time
@@ -12,11 +12,6 @@ import zlib
 from django.core.cache.backends.base import DEFAULT_TIMEOUT, BaseCache
 from django.core.files.move import file_move_safe
 from django.utils.encoding import force_bytes
-
-try:
-    from django.utils.six.moves import cPickle as pickle
-except ImportError:
-    import pickle
 
 
 class FileBasedCache(BaseCache):
@@ -36,7 +31,7 @@ class FileBasedCache(BaseCache):
     def get(self, key, default=None, version=None):
         fname = self._key_to_file(key, version)
         try:
-            with io.open(fname, 'rb') as f:
+            with open(fname, 'rb') as f:
                 if not self._is_expired(f):
                     return pickle.loads(zlib.decompress(f.read()))
         except IOError as e:
@@ -51,7 +46,7 @@ class FileBasedCache(BaseCache):
         fd, tmp_path = tempfile.mkstemp(dir=self._dir)
         renamed = False
         try:
-            with io.open(fd, 'wb') as f:
+            with open(fd, 'wb') as f:
                 expiry = self.get_backend_timeout(timeout)
                 f.write(pickle.dumps(expiry, pickle.HIGHEST_PROTOCOL))
                 f.write(zlib.compress(pickle.dumps(value, pickle.HIGHEST_PROTOCOL)))
@@ -78,7 +73,7 @@ class FileBasedCache(BaseCache):
     def has_key(self, key, version=None):
         fname = self._key_to_file(key, version)
         if os.path.exists(fname):
-            with io.open(fname, 'rb') as f:
+            with open(fname, 'rb') as f:
                 return not self._is_expired(f)
         return False
 

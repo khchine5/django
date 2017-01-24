@@ -1,6 +1,5 @@
 import cgi
 import errno
-import io
 import mimetypes
 import os
 import posixpath
@@ -10,6 +9,7 @@ import stat
 import sys
 import tempfile
 from os import path
+from urllib.request import urlretrieve
 
 import django
 from django.conf import settings
@@ -17,7 +17,6 @@ from django.core.management.base import BaseCommand, CommandError
 from django.core.management.utils import handle_extensions
 from django.template import Context, Engine
 from django.utils import archive
-from django.utils.six.moves.urllib.request import urlretrieve
 from django.utils.version import get_docs_version
 
 _drive_re = re.compile('^([a-z]):', re.I)
@@ -158,11 +157,11 @@ class TemplateCommand(BaseCommand):
                 # Only render the Python files, as we don't want to
                 # accidentally render Django templates files
                 if new_path.endswith(extensions) or filename in extra_files:
-                    with io.open(old_path, 'r', encoding='utf-8') as template_file:
+                    with open(old_path, 'r', encoding='utf-8') as template_file:
                         content = template_file.read()
                     template = Engine().from_string(content)
                     content = template.render(context)
-                    with io.open(new_path, 'w', encoding='utf-8') as new_file:
+                    with open(new_path, 'w', encoding='utf-8') as new_file:
                         new_file.write(content)
                 else:
                     shutil.copyfile(old_path, new_path)

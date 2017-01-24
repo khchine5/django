@@ -1,5 +1,6 @@
+import functools
+
 from django.core.exceptions import ImproperlyConfigured
-from django.utils import lru_cache
 from django.utils.functional import cached_property
 from django.utils.module_loading import import_string
 
@@ -9,7 +10,7 @@ from .exceptions import TemplateDoesNotExist
 from .library import import_library
 
 
-class Engine(object):
+class Engine:
     default_builtins = [
         'django.template.defaulttags',
         'django.template.defaultfilters',
@@ -52,7 +53,7 @@ class Engine(object):
         self.template_builtins = self.get_template_builtins(self.builtins)
 
     @staticmethod
-    @lru_cache.lru_cache()
+    @functools.lru_cache()
     def get_default():
         """
         When only one DjangoTemplates backend is configured, returns it.

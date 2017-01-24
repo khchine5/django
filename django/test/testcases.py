@@ -9,6 +9,8 @@ from contextlib import contextmanager
 from copy import copy
 from functools import wraps
 from unittest.util import safe_repr
+from urllib.parse import unquote, urljoin, urlparse, urlsplit
+from urllib.request import url2pathname
 
 from django.apps import apps
 from django.conf import settings
@@ -31,13 +33,8 @@ from django.test.utils import (
     CaptureQueriesContext, ContextList, compare_xml, modify_settings,
     override_settings,
 )
-from django.utils import six
 from django.utils.decorators import classproperty
 from django.utils.encoding import force_text
-from django.utils.six.moves.urllib.parse import (
-    unquote, urljoin, urlparse, urlsplit,
-)
-from django.utils.six.moves.urllib.request import url2pathname
 from django.views.static import serve
 
 __all__ = ('TestCase', 'TransactionTestCase',
@@ -87,7 +84,7 @@ class _AssertNumQueriesContext(CaptureQueriesContext):
         )
 
 
-class _AssertTemplateUsedContext(object):
+class _AssertTemplateUsedContext:
     def __init__(self, test_case, template_name):
         self.test_case = test_case
         self.template_name = template_name
@@ -133,7 +130,7 @@ class _AssertTemplateNotUsedContext(_AssertTemplateUsedContext):
         return '%s was rendered.' % self.template_name
 
 
-class _CursorFailure(object):
+class _CursorFailure:
     def __init__(self, cls_name, wrapped):
         self.cls_name = cls_name
         self.wrapped = wrapped
@@ -921,7 +918,7 @@ class TransactionTestCase(SimpleTestCase):
                          inhibit_post_migrate=inhibit_post_migrate)
 
     def assertQuerysetEqual(self, qs, values, transform=repr, ordered=True, msg=None):
-        items = six.moves.map(transform, qs)
+        items = map(transform, qs)
         if not ordered:
             return self.assertEqual(Counter(items), Counter(values), msg=msg)
         values = list(values)
@@ -1050,7 +1047,7 @@ class TestCase(TransactionTestCase):
         )
 
 
-class CheckCondition(object):
+class CheckCondition:
     """Descriptor class for deferred condition checking"""
     def __init__(self, *conditions):
         self.conditions = conditions
@@ -1337,7 +1334,7 @@ class LiveServerTestCase(TransactionTestCase):
         super(LiveServerTestCase, cls).tearDownClass()
 
 
-class SerializeMixin(object):
+class SerializeMixin:
     """
     Mixin to enforce serialization of TestCases that share a common resource.
 

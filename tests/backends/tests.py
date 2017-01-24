@@ -5,6 +5,7 @@ import threading
 import unittest
 import warnings
 from decimal import Decimal, Rounded
+from unittest import mock
 
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management.color import no_style
@@ -20,10 +21,9 @@ from django.db.models import Avg, StdDev, Sum, Variance
 from django.db.models.sql.constants import CURSOR
 from django.db.utils import ConnectionHandler
 from django.test import (
-    SimpleTestCase, TestCase, TransactionTestCase, mock, override_settings,
+    SimpleTestCase, TestCase, TransactionTestCase, override_settings,
     skipIfDBFeature, skipUnlessDBFeature,
 )
-from django.utils.six.moves import range
 
 from .models import (
     Article, Item, Object, ObjectReference, Person, Post, RawData, Reporter,
@@ -235,7 +235,7 @@ class PostgreSQLTests(TestCase):
         """Test PostgreSQL version detection"""
 
         # Helper mocks
-        class CursorMock(object):
+        class CursorMock:
             "Very simple mock of DB-API cursor"
             def execute(self, arg):
                 pass
@@ -249,7 +249,7 @@ class PostgreSQLTests(TestCase):
             def __exit__(self, type, value, traceback):
                 pass
 
-        class OlderConnectionMock(object):
+        class OlderConnectionMock:
             "Mock of psycopg2 (< 2.0.12) connection"
             def cursor(self):
                 return CursorMock()

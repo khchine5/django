@@ -7,10 +7,10 @@ import datetime
 import itertools
 import os
 import re
-import sys
 import uuid
 from decimal import Decimal, DecimalException
 from io import BytesIO
+from urllib.parse import urlsplit, urlunsplit
 
 from django.core import validators
 from django.core.exceptions import ValidationError
@@ -25,12 +25,11 @@ from django.forms.widgets import (
     SplitDateTimeWidget, SplitHiddenDateTimeWidget, TextInput, TimeInput,
     URLInput,
 )
-from django.utils import formats, six
+from django.utils import formats
 from django.utils.dateparse import parse_duration
 from django.utils.duration import duration_string
-from django.utils.encoding import force_str, force_text
+from django.utils.encoding import force_text
 from django.utils.ipv6 import clean_ipv6_address
-from django.utils.six.moves.urllib.parse import urlsplit, urlunsplit
 from django.utils.translation import ugettext_lazy as _, ungettext_lazy
 
 __all__ = (
@@ -44,7 +43,7 @@ __all__ = (
 )
 
 
-class Field(object):
+class Field:
     widget = TextInput  # Default widget to use when rendering this type of Field.
     hidden_widget = HiddenInput  # Default widget to use when rendering this as "hidden".
     default_validators = []  # Default set of validators
@@ -429,7 +428,7 @@ class DateField(BaseTemporalField):
         return super(DateField, self).to_python(value)
 
     def strptime(self, value, format):
-        return datetime.datetime.strptime(force_str(value), format).date()
+        return datetime.datetime.strptime(value, format).date()
 
 
 class TimeField(BaseTemporalField):
@@ -451,7 +450,7 @@ class TimeField(BaseTemporalField):
         return super(TimeField, self).to_python(value)
 
     def strptime(self, value, format):
-        return datetime.datetime.strptime(force_str(value), format).time()
+        return datetime.datetime.strptime(value, format).time()
 
 
 class DateTimeField(BaseTemporalField):
@@ -482,7 +481,7 @@ class DateTimeField(BaseTemporalField):
         return from_current_timezone(result)
 
     def strptime(self, value, format):
-        return datetime.datetime.strptime(force_str(value), format)
+        return datetime.datetime.strptime(value, format)
 
 
 class DurationField(Field):
@@ -522,7 +521,7 @@ class RegexField(CharField):
 
     def _set_regex(self, regex):
         if isinstance(regex, str):
-            regex = re.compile(regex, re.UNICODE)
+            regex = re.compile(regex)
         self._regex = regex
         if hasattr(self, '_regex_validator') and self._regex_validator in self.validators:
             self.validators.remove(self._regex_validator)
@@ -650,12 +649,12 @@ class ImageField(FileField):
             # Pillow doesn't detect the MIME type of all formats. In those
             # cases, content_type will be None.
             f.content_type = Image.MIME.get(image.format)
-        except Exception:
+        except Exception as exc:
             # Pillow doesn't recognize it as an image.
-            six.reraise(ValidationError, ValidationError(
+            raise ValidationError(
                 self.error_messages['invalid_image'],
                 code='invalid_image',
-            ), sys.exc_info()[2])
+            ) from exc
         if hasattr(f, 'seek') and callable(f.seek):
             f.seek(0)
         return f
@@ -755,7 +754,7 @@ class NullBooleanField(BooleanField):
         pass
 
 
-class CallableChoiceIterator(object):
+class CallableChoiceIterator:
     def __init__(self, choices_func):
         self.choices_func = choices_func
 

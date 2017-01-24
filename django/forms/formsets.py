@@ -6,7 +6,6 @@ from django.forms.widgets import HiddenInput
 from django.utils.functional import cached_property
 from django.utils.html import html_safe
 from django.utils.safestring import mark_safe
-from django.utils.six.moves import range
 from django.utils.translation import ugettext as _, ungettext
 
 __all__ = ('BaseFormSet', 'formset_factory', 'all_valid')
@@ -44,7 +43,7 @@ class ManagementForm(Form):
 
 
 @html_safe
-class BaseFormSet(object):
+class BaseFormSet:
     """
     A collection of instances of the same Form class.
     """
@@ -78,9 +77,6 @@ class BaseFormSet(object):
     def __bool__(self):
         """All formsets have a management form which is not included in the length"""
         return True
-
-    def __nonzero__(self):      # Python 2 compatibility
-        return type(self).__bool__(self)
 
     @cached_property
     def management_form(self):
@@ -445,7 +441,7 @@ def formset_factory(form, formset=BaseFormSet, extra=1, can_order=False,
              'min_num': min_num, 'max_num': max_num,
              'absolute_max': absolute_max, 'validate_min': validate_min,
              'validate_max': validate_max}
-    return type(form.__name__ + str('FormSet'), (formset,), attrs)
+    return type(form.__name__ + 'FormSet', (formset,), attrs)
 
 
 def all_valid(formsets):

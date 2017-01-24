@@ -13,7 +13,7 @@ def normalize_whitespace(string):
     return WHITESPACE.sub(' ', string)
 
 
-class Element(object):
+class Element:
     def __init__(self, name, attributes):
         self.name = name
         self.attributes = sorted(attributes)
@@ -80,9 +80,6 @@ class Element(object):
 
     def __hash__(self):
         return hash((self.name,) + tuple(a for a in self.attributes))
-
-    def __ne__(self, element):
-        return not self.__eq__(element)
 
     def _count(self, element, count=True):
         if not isinstance(element, str):

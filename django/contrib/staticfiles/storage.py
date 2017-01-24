@@ -4,6 +4,7 @@ import os
 import posixpath
 import re
 from collections import OrderedDict
+from urllib.parse import unquote, urldefrag, urlsplit, urlunsplit
 
 from django.conf import settings
 from django.contrib.staticfiles.utils import check_settings, matches_patterns
@@ -15,11 +16,6 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import FileSystemStorage, get_storage_class
 from django.utils.encoding import force_bytes, force_text
 from django.utils.functional import LazyObject
-from django.utils.six import iteritems
-from django.utils.six.moves import range
-from django.utils.six.moves.urllib.parse import (
-    unquote, urldefrag, urlsplit, urlunsplit,
-)
 
 
 class StaticFilesStorage(FileSystemStorage):
@@ -51,7 +47,7 @@ class StaticFilesStorage(FileSystemStorage):
         return super(StaticFilesStorage, self).path(name)
 
 
-class HashedFilesMixin(object):
+class HashedFilesMixin:
     default_template = """url("%s")"""
     max_post_process_passes = 5
     patterns = (
@@ -293,7 +289,7 @@ class HashedFilesMixin(object):
                 if name in adjustable_paths:
                     old_hashed_name = hashed_name
                     content = original_file.read().decode(settings.FILE_CHARSET)
-                    for extension, patterns in iteritems(self._patterns):
+                    for extension, patterns in self._patterns.items():
                         if matches_patterns(path, (extension,)):
                             for pattern, template in patterns:
                                 converter = self.url_converter(name, hashed_files, template)
@@ -438,7 +434,7 @@ class ManifestFilesMixin(HashedFilesMixin):
         return urlunsplit(unparsed_name)
 
 
-class _MappingCache(object):
+class _MappingCache:
     """
     A small dict-like wrapper for a given cache backend instance.
     """

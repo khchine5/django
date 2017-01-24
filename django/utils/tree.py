@@ -5,10 +5,10 @@ ORM.
 
 import copy
 
-from django.utils.encoding import force_str, force_text
+from django.utils.encoding import force_text
 
 
-class Node(object):
+class Node:
     """
     A single internal node in the tree graph. A Node should be viewed as a
     connection (the root) with the children being either leaf nodes or other
@@ -45,10 +45,10 @@ class Node(object):
 
     def __str__(self):
         template = '(NOT (%s: %s))' if self.negated else '(%s: %s)'
-        return force_str(template % (self.connector, ', '.join(force_text(c) for c in self.children)))
+        return template % (self.connector, ', '.join(force_text(c) for c in self.children))
 
     def __repr__(self):
-        return str("<%s: %s>") % (self.__class__.__name__, self)
+        return "<%s: %s>" % (self.__class__.__name__, self)
 
     def __deepcopy__(self, memodict):
         """
@@ -70,9 +70,6 @@ class Node(object):
         For truth value testing.
         """
         return bool(self.children)
-
-    def __nonzero__(self):      # Python 2 compatibility
-        return type(self).__bool__(self)
 
     def __contains__(self, other):
         """

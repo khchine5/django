@@ -11,12 +11,11 @@ from django.db.models.sql.constants import (
 from django.db.models.sql.query import Query, get_order_dir
 from django.db.transaction import TransactionManagementError
 from django.db.utils import DatabaseError
-from django.utils.six.moves import zip
 
 FORCE = object()
 
 
-class SQLCompiler(object):
+class SQLCompiler:
     def __init__(self, query, connection, using):
         self.query = query
         self.connection = connection
@@ -876,14 +875,8 @@ class SQLCompiler(object):
         try:
             cursor.execute(sql, params)
         except Exception:
-            try:
-                # Might fail for server-side cursors (e.g. connection closed)
-                cursor.close()
-            except Exception:
-                # Ignore clean up errors and raise the original error instead.
-                # Python 2 doesn't chain exceptions. Remove this error
-                # silencing when dropping Python 2 compatibility.
-                pass
+            # Might fail for server-side cursors (e.g. connection closed)
+            cursor.close()
             raise
 
         if result_type == CURSOR:

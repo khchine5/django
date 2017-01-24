@@ -9,14 +9,13 @@ been reviewed for security issues. DON'T USE IT FOR PRODUCTION USE!
 
 import logging
 import socket
+import socketserver
 import sys
 from wsgiref import simple_server
 
 from django.core.exceptions import ImproperlyConfigured
 from django.core.wsgi import get_wsgi_application
-from django.utils import six
 from django.utils.module_loading import import_string
-from django.utils.six.moves import socketserver
 
 __all__ = ('WSGIServer', 'WSGIRequestHandler')
 
@@ -43,16 +42,11 @@ def get_internal_wsgi_application():
 
     try:
         return import_string(app_path)
-    except ImportError as e:
-        msg = (
-            "WSGI application '%(app_path)s' could not be loaded; "
-            "Error importing module: '%(exception)s'" % ({
-                'app_path': app_path,
-                'exception': e,
-            })
-        )
-        six.reraise(ImproperlyConfigured, ImproperlyConfigured(msg),
-                    sys.exc_info()[2])
+    except ImportError as err:
+        raise ImproperlyConfigured(
+            "WSGI application '%s' could not be loaded; "
+            "Error importing module." % app_path
+        ) from err
 
 
 def is_broken_pipe_error():
@@ -60,7 +54,7 @@ def is_broken_pipe_error():
     return issubclass(exc_type, socket.error) and exc_value.args[0] == 32
 
 
-class WSGIServer(simple_server.WSGIServer, object):
+class WSGIServer(simple_server.WSGIServer):
     """BaseHTTPServer that implements the Python WSGI protocol"""
 
     request_queue_size = 10
@@ -83,15 +77,14 @@ class WSGIServer(simple_server.WSGIServer, object):
             super(WSGIServer, self).handle_error(request, client_address)
 
 
-# Inheriting from object required on Python 2.
-class ServerHandler(simple_server.ServerHandler, object):
+class ServerHandler(simple_server.ServerHandler):
     def handle_error(self):
         # Ignore broken pipe errors, otherwise pass on
         if not is_broken_pipe_error():
             super(ServerHandler, self).handle_error()
 
 
-class WSGIRequestHandler(simple_server.WSGIRequestHandler, object):
+class WSGIRequestHandler(simple_server.WSGIRequestHandler):
     def address_string(self):
         # Short-circuit parent method to not call socket.getfqdn
         return self.client_address[0]
@@ -103,7 +96,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler, object):
         }
         if args[1][0] == '4':
             # 0x16 = Handshake, 0x03 = SSL 3.0 or TLS 1.x
-            if args[0].startswith(str('\x16\x03')):
+            if args[0].startswith('\x16\x03'):
                 extra['status_code'] = 500
                 logger.error(
                     "You're accessing the development server over HTTPS, but "
@@ -161,7 +154,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler, object):
 def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=WSGIServer):
     server_address = (addr, port)
     if threading:
-        httpd_cls = type(str('WSGIServer'), (socketserver.ThreadingMixIn, server_cls), {})
+        httpd_cls = type('WSGIServer', (socketserver.ThreadingMixIn, server_cls), {})
     else:
         httpd_cls = server_cls
     httpd = httpd_cls(server_address, WSGIRequestHandler, ipv6=ipv6)

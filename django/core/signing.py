@@ -14,7 +14,7 @@ signing.loads(s) checks the signature and returns the deserialized object.
 If the signature fails, a BadSignature exception is raised.
 
 >>> signing.loads("ImhlbGxvIg:1QaUZC:YIye-ze3TTx7gtSv422nZA4sgmk")
-u'hello'
+'hello'
 >>> signing.loads("ImhlbGxvIg:1QaUZC:YIye-ze3TTx7gtSv422nZA4sgmk-modified")
 ...
 BadSignature: Signature failed: ImhlbGxvIg:1QaUZC:YIye-ze3TTx7gtSv422nZA4sgmk-modified
@@ -43,7 +43,7 @@ import zlib
 from django.conf import settings
 from django.utils import baseconv
 from django.utils.crypto import constant_time_compare, salted_hmac
-from django.utils.encoding import force_bytes, force_str, force_text
+from django.utils.encoding import force_bytes, force_text
 from django.utils.module_loading import import_string
 
 _SEP_UNSAFE = re.compile(r'^[A-z0-9-_=]*$')
@@ -82,7 +82,7 @@ def get_cookie_signer(salt='django.core.signing.get_cookie_signer'):
     return Signer(b'django.http.cookies' + key, salt=salt)
 
 
-class JSONSerializer(object):
+class JSONSerializer:
     """
     Simple wrapper around json to be used in signing.dumps and
     signing.loads.
@@ -147,30 +147,26 @@ def loads(s, key=None, salt='django.core.signing', serializer=JSONSerializer, ma
     return serializer().loads(data)
 
 
-class Signer(object):
+class Signer:
 
     def __init__(self, key=None, sep=':', salt=None):
         # Use of native strings in all versions of Python
         self.key = key or settings.SECRET_KEY
-        self.sep = force_str(sep)
+        self.sep = sep
         if _SEP_UNSAFE.match(self.sep):
             raise ValueError(
                 'Unsafe Signer separator: %r (cannot be empty or consist of '
                 'only A-z0-9-_=)' % sep,
             )
-        self.salt = force_str(salt or '%s.%s' % (self.__class__.__module__, self.__class__.__name__))
+        self.salt = salt or '%s.%s' % (self.__class__.__module__, self.__class__.__name__)
 
     def signature(self, value):
-        signature = base64_hmac(self.salt + 'signer', value, self.key)
-        # Convert the signature from bytes to str only on Python 3
-        return force_str(signature)
+        return force_text(base64_hmac(self.salt + 'signer', value, self.key))
 
     def sign(self, value):
-        value = force_str(value)
-        return str('%s%s%s') % (value, self.sep, self.signature(value))
+        return '%s%s%s' % (value, self.sep, self.signature(value))
 
     def unsign(self, signed_value):
-        signed_value = force_str(signed_value)
         if self.sep not in signed_value:
             raise BadSignature('No "%s" found in value' % self.sep)
         value, sig = signed_value.rsplit(self.sep, 1)
@@ -185,8 +181,7 @@ class TimestampSigner(Signer):
         return baseconv.base62.encode(int(time.time()))
 
     def sign(self, value):
-        value = force_str(value)
-        value = str('%s%s%s') % (value, self.sep, self.timestamp())
+        value = '%s%s%s' % (force_text(value), self.sep, self.timestamp())
         return super(TimestampSigner, self).sign(value)
 
     def unsign(self, value, max_age=None):

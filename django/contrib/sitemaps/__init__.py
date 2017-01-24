@@ -1,11 +1,12 @@
+from urllib.parse import urlencode
+from urllib.request import urlopen
+
 from django.apps import apps as django_apps
 from django.conf import settings
 from django.core import paginator
 from django.core.exceptions import ImproperlyConfigured
 from django.urls import NoReverseMatch, reverse
 from django.utils import translation
-from django.utils.six.moves.urllib.parse import urlencode
-from django.utils.six.moves.urllib.request import urlopen
 
 PING_URL = "https://www.google.com/webmasters/tools/ping"
 
@@ -49,7 +50,7 @@ def _get_sitemap_full_url(sitemap_url):
     return 'http://%s%s' % (current_site.domain, sitemap_url)
 
 
-class Sitemap(object):
+class Sitemap:
     # This limit is defined by Google. See the index documentation at
     # http://www.sitemaps.org/protocol.html#index.
     limit = 50000

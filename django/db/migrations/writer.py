@@ -7,17 +7,10 @@ from django.apps import apps
 from django.db import migrations
 from django.db.migrations.loader import MigrationLoader
 from django.db.migrations.serializer import serializer_factory
-from django.utils._os import upath
 from django.utils.encoding import force_text
 from django.utils.inspect import get_func_args
 from django.utils.module_loading import module_dir
 from django.utils.timezone import now
-
-try:
-    import enum
-except ImportError:
-    # No support on Python 2 if enum34 isn't installed.
-    enum = None
 
 
 class SettingsReference(str):
@@ -34,7 +27,7 @@ class SettingsReference(str):
         self.setting_name = setting_name
 
 
-class OperationWriter(object):
+class OperationWriter:
     def __init__(self, operation, indentation=2):
         self.operation = operation
         self.buff = []
@@ -134,7 +127,7 @@ class OperationWriter(object):
         return '\n'.join(self.buff)
 
 
-class MigrationWriter(object):
+class MigrationWriter:
     """
     Takes a Migration instance and is able to produce the contents
     of the migration file from it.
@@ -235,7 +228,7 @@ class MigrationWriter(object):
             pass
         else:
             try:
-                return upath(module_dir(migrations_module))
+                return module_dir(migrations_module)
             except ValueError:
                 pass
 
@@ -256,7 +249,7 @@ class MigrationWriter(object):
                 continue
             else:
                 try:
-                    base_dir = upath(module_dir(base_module))
+                    base_dir = module_dir(base_module)
                 except ValueError:
                     continue
                 else:

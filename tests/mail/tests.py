@@ -12,6 +12,7 @@ from email import message_from_binary_file, message_from_bytes
 from email.header import Header
 from email.mime.text import MIMEText
 from email.utils import parseaddr
+from io import StringIO
 from smtplib import SMTP, SMTPAuthenticationError, SMTPException
 from ssl import SSLError
 
@@ -24,13 +25,11 @@ from django.core.mail.backends import console, dummy, filebased, locmem, smtp
 from django.core.mail.message import BadHeaderError, sanitize_address
 from django.test import SimpleTestCase, override_settings
 from django.test.utils import requires_tz_support
-from django.utils._os import upath
 from django.utils.encoding import force_bytes, force_text
-from django.utils.six import StringIO
 from django.utils.translation import ugettext_lazy
 
 
-class HeadersCheckMixin(object):
+class HeadersCheckMixin:
 
     def assertMessageHasHeaders(self, message, headers):
         """
@@ -411,7 +410,7 @@ class MailTests(HeadersCheckMixin, SimpleTestCase):
                 email = EmailMessage('subject', 'body', 'from@example.com', ['to@example.com'])
                 self.assertEqual(mimetypes.guess_type(basename)[0], real_mimetype)
                 self.assertEqual(email.attachments, [])
-                file_path = os.path.join(os.path.dirname(upath(__file__)), 'attachments', basename)
+                file_path = os.path.join(os.path.dirname(__file__), 'attachments', basename)
                 email.attach_file(file_path, mimetype=mimetype)
                 self.assertEqual(len(email.attachments), 1)
                 self.assertIn(basename, email.attachments[0])
@@ -577,7 +576,7 @@ class MailTests(HeadersCheckMixin, SimpleTestCase):
         s = msg.message().as_bytes()
         self.assertIn(b'Content-Transfer-Encoding: 8bit', s)
         s = msg.message().as_string()
-        self.assertIn(str('Content-Transfer-Encoding: 8bit'), s)
+        self.assertIn('Content-Transfer-Encoding: 8bit', s)
 
         msg = EmailMessage(
             'Subject', 'Body with non latin characters: А Б В Г Д Е Ж Ѕ З И І К Л М Н О П.', 'bounce@example.com',
@@ -586,7 +585,7 @@ class MailTests(HeadersCheckMixin, SimpleTestCase):
         s = msg.message().as_bytes()
         self.assertIn(b'Content-Transfer-Encoding: 8bit', s)
         s = msg.message().as_string()
-        self.assertIn(str('Content-Transfer-Encoding: 8bit'), s)
+        self.assertIn('Content-Transfer-Encoding: 8bit', s)
 
     def test_dont_base64_encode_message_rfc822(self):
         # Ticket #18967
@@ -609,7 +608,7 @@ class MailTests(HeadersCheckMixin, SimpleTestCase):
         parent_s = parent_msg.message().as_string()
 
         # The child message header is not base64 encoded
-        self.assertIn(str('Child Subject'), parent_s)
+        self.assertIn('Child Subject', parent_s)
 
         # Feature test: try attaching email.Message object directly to the mail.
         parent_msg = EmailMessage(
@@ -620,7 +619,7 @@ class MailTests(HeadersCheckMixin, SimpleTestCase):
         parent_s = parent_msg.message().as_string()
 
         # The child message header is not base64 encoded
-        self.assertIn(str('Child Subject'), parent_s)
+        self.assertIn('Child Subject', parent_s)
 
         # Feature test: try attaching Django's EmailMessage object directly to the mail.
         parent_msg = EmailMessage(
@@ -631,7 +630,7 @@ class MailTests(HeadersCheckMixin, SimpleTestCase):
         parent_s = parent_msg.message().as_string()
 
         # The child message header is not base64 encoded
-        self.assertIn(str('Child Subject'), parent_s)
+        self.assertIn('Child Subject', parent_s)
 
     def test_sanitize_address(self):
         """
@@ -701,14 +700,14 @@ class PythonGlobalState(SimpleTestCase):
 
     def test_8bit_latin(self):
         txt = MIMEText('Body with latin characters: àáä.', 'plain', 'utf-8')
-        self.assertIn(str('Content-Transfer-Encoding: base64'), txt.as_string())
+        self.assertIn('Content-Transfer-Encoding: base64', txt.as_string())
 
     def test_8bit_non_latin(self):
         txt = MIMEText('Body with non latin characters: А Б В Г Д Е Ж Ѕ З И І К Л М Н О П.', 'plain', 'utf-8')
-        self.assertIn(str('Content-Transfer-Encoding: base64'), txt.as_string())
+        self.assertIn('Content-Transfer-Encoding: base64', txt.as_string())
 
 
-class BaseEmailBackendTests(HeadersCheckMixin, object):
+class BaseEmailBackendTests(HeadersCheckMixin):
     email_backend = None
 
     def setUp(self):
@@ -1092,7 +1091,7 @@ class ConsoleBackendTests(BaseEmailBackendTests, SimpleTestCase):
         self.stream = sys.stdout = StringIO()
 
     def get_mailbox_content(self):
-        messages = self.stream.getvalue().split(str('\n' + ('-' * 79) + '\n'))
+        messages = self.stream.getvalue().split('\n' + ('-' * 79) + '\n')
         return [message_from_bytes(force_bytes(m)) for m in messages if m]
 
     def test_console_stream_kwarg(self):
@@ -1128,9 +1127,9 @@ class FakeSMTPChannel(smtpd.SMTPChannel):
             # This is only the first part of the login process. But it's enough
             # for our tests.
             challenge = base64.b64encode(b'somerandomstring13579')
-            self.push(str('334 %s' % challenge.decode()))
+            self.push('334 %s' % challenge.decode())
         else:
-            self.push(str('502 Error: login "%s" not implemented' % arg))
+            self.push('502 Error: login "%s" not implemented' % arg)
 
 
 class FakeSMTPServer(smtpd.SMTPServer, threading.Thread):

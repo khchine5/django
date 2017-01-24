@@ -3,6 +3,7 @@
 import copy
 import io
 import os
+import pickle
 import re
 import shutil
 import tempfile
@@ -10,6 +11,7 @@ import threading
 import time
 import unittest
 import warnings
+from unittest import mock
 
 from django.conf import settings
 from django.core import management, signals
@@ -30,10 +32,10 @@ from django.template.context_processors import csrf
 from django.template.response import TemplateResponse
 from django.test import (
     RequestFactory, SimpleTestCase, TestCase, TransactionTestCase,
-    ignore_warnings, mock, override_settings,
+    ignore_warnings, override_settings,
 )
 from django.test.signals import setting_changed
-from django.utils import six, timezone, translation
+from django.utils import timezone, translation
 from django.utils.cache import (
     get_cache_key, learn_cache_key, patch_cache_control,
     patch_response_headers, patch_vary_headers,
@@ -43,11 +45,6 @@ from django.utils.encoding import force_text
 from django.views.decorators.cache import cache_page
 
 from .models import Poll, expensive_calculation
-
-try:    # Use the same idiom as in cache backends
-    from django.utils.six.moves import cPickle as pickle
-except ImportError:
-    import pickle
 
 
 # functions/classes for complex data type tests
@@ -60,14 +57,9 @@ class C:
         return 24
 
 
-class Unpicklable(object):
+class Unpicklable:
     def __getstate__(self):
         raise pickle.PickleError()
-
-
-class UnpicklableType(object):
-    # Unpicklable using the default pickling protocol on Python 2.
-    __slots__ = 'a',
 
 
 @override_settings(CACHES={
@@ -255,7 +247,7 @@ def caches_setting_for_tests(base=None, exclude=None, **params):
     return setting
 
 
-class BaseCacheTests(object):
+class BaseCacheTests:
     # A common set of tests to apply to all cache backends
 
     def setUp(self):
@@ -978,7 +970,7 @@ class DBCacheTests(BaseCacheTests, TransactionTestCase):
         self._perform_cull_test(caches['zero_cull'], 50, 18)
 
     def test_second_call_doesnt_crash(self):
-        out = six.StringIO()
+        out = io.StringIO()
         management.call_command('createcachetable', stdout=out)
         self.assertEqual(out.getvalue(), "Cache table 'test cache table' already exists.\n" * len(settings.CACHES))
 
@@ -988,7 +980,7 @@ class DBCacheTests(BaseCacheTests, TransactionTestCase):
         LOCATION='createcachetable_dry_run_mode'
     ))
     def test_createcachetable_dry_run_mode(self):
-        out = six.StringIO()
+        out = io.StringIO()
         management.call_command('createcachetable', dry_run=True, stdout=out)
         output = out.getvalue()
         self.assertTrue(output.startswith("CREATE TABLE"))
@@ -999,7 +991,7 @@ class DBCacheTests(BaseCacheTests, TransactionTestCase):
         specifying the table name).
         """
         self.drop_table()
-        out = six.StringIO()
+        out = io.StringIO()
         management.call_command(
             'createcachetable',
             'test cache table',
@@ -1014,7 +1006,7 @@ class DBCacheWithTimeZoneTests(DBCacheTests):
     pass
 
 
-class DBCacheRouter(object):
+class DBCacheRouter:
     """A router that puts the cache table on the 'other' database."""
 
     def db_for_read(self, model, **hints):
@@ -1065,7 +1057,7 @@ class CreateCacheTableForDBCacheTests(TestCase):
                                     verbosity=0, interactive=False)
 
 
-class PicklingSideEffect(object):
+class PicklingSideEffect:
 
     def __init__(self, cache):
         self.cache = cache
@@ -1363,10 +1355,6 @@ class FileBasedCacheTests(BaseCacheTests, TestCase):
         cache.set('foo', 'bar')
         os.path.exists(self.dirname)
 
-    def test_cache_write_unpicklable_type(self):
-        # This fails if not using the highest pickling protocol on Python 2.
-        cache.set('unpicklable', UnpicklableType())
-
     def test_get_ignores_enoent(self):
         cache.set('foo', 'bar')
         os.unlink(cache._key_to_file('foo'))
@@ -1374,7 +1362,7 @@ class FileBasedCacheTests(BaseCacheTests, TestCase):
         self.assertEqual(cache.get('foo', 'baz'), 'baz')
 
     def test_get_does_not_ignore_non_enoent_errno_values(self):
-        with mock.patch.object(io, 'open', side_effect=IOError):
+        with mock.patch('builtins.open', side_effect=IOError):
             with self.assertRaises(IOError):
                 cache.get('foo')
 

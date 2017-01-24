@@ -3,7 +3,6 @@ from datetime import datetime
 
 from django.test import SimpleTestCase
 from django.utils import html, safestring
-from django.utils._os import upath
 from django.utils.encoding import force_text
 from django.utils.functional import lazystr
 
@@ -98,7 +97,7 @@ class TestUtilsHtml(SimpleTestCase):
 
         # Test with more lengthy content (also catching performance regressions)
         for filename in ('strip_tags1.html', 'strip_tags2.txt'):
-            path = os.path.join(os.path.dirname(upath(__file__)), 'files', filename)
+            path = os.path.join(os.path.dirname(__file__), 'files', filename)
             with open(path, 'r') as fp:
                 content = force_text(fp.read())
                 start = datetime.now()
@@ -167,7 +166,7 @@ class TestUtilsHtml(SimpleTestCase):
 
     def test_html_safe(self):
         @html.html_safe
-        class HtmlClass(object):
+        class HtmlClass:
             def __str__(self):
                 return "<h1>I'm a html class!</h1>"
 
@@ -177,7 +176,7 @@ class TestUtilsHtml(SimpleTestCase):
         self.assertEqual(force_text(html_obj), html_obj.__html__())
 
     def test_html_safe_subclass(self):
-        class BaseClass(object):
+        class BaseClass:
             def __html__(self):
                 # defines __html__ on its own
                 return 'some html content'
@@ -198,7 +197,7 @@ class TestUtilsHtml(SimpleTestCase):
         msg = "can't apply @html_safe to HtmlClass because it defines __html__()."
         with self.assertRaisesMessage(ValueError, msg):
             @html.html_safe
-            class HtmlClass(object):
+            class HtmlClass:
                 def __html__(self):
                     return "<h1>I'm a html class!</h1>"
 
@@ -206,5 +205,5 @@ class TestUtilsHtml(SimpleTestCase):
         msg = "can't apply @html_safe to HtmlClass because it doesn't define __str__()."
         with self.assertRaisesMessage(ValueError, msg):
             @html.html_safe
-            class HtmlClass(object):
+            class HtmlClass:
                 pass

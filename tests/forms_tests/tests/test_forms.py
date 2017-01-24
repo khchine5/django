@@ -19,11 +19,9 @@ from django.forms.utils import ErrorList
 from django.http import QueryDict
 from django.template import Context, Template
 from django.test import SimpleTestCase
-from django.test.utils import str_prefix
 from django.utils.datastructures import MultiValueDict
 from django.utils.encoding import force_text
-from django.utils.html import format_html
-from django.utils.safestring import SafeData, mark_safe
+from django.utils.safestring import mark_safe
 
 
 class Person(Form):
@@ -2029,22 +2027,6 @@ Password: <input type="password" name="password" required /></li>
         form = PersonForm({})
         self.assertEqual(form['name'].value(), 'John Doe')
 
-    def test_boundfield_rendering(self):
-        """
-        Python 2 issue: Rendering a BoundField with bytestring content
-        doesn't lose it's safe string status (#22950).
-        """
-        class CustomWidget(TextInput):
-            def render(self, name, value, attrs=None, choices=None,
-                       renderer=None, extra_context=None):
-                return format_html(str('<input{} />'), ' id=custom')
-
-        class SampleForm(Form):
-            name = CharField(widget=CustomWidget)
-
-        f = SampleForm(data={'name': 'bar'})
-        self.assertIsInstance(force_text(f['name']), SafeData)
-
     def test_custom_boundfield(self):
         class CustomField(CharField):
             def get_bound_field(self, form, name):
@@ -2519,9 +2501,7 @@ Password: <input type="password" name="password" required />
         # Case 3: POST with valid data (the success message).)
         self.assertEqual(
             my_function('POST', {'username': 'adrian', 'password1': 'secret', 'password2': 'secret'}),
-            str_prefix(
-                "VALID: [('password1', %(_)s'secret'), ('password2', %(_)s'secret'), ('username', %(_)s'adrian')]"
-            )
+            "VALID: [('password1', 'secret'), ('password2', 'secret'), ('username', 'adrian')]"
         )
 
     def test_templates_with_forms(self):
@@ -2954,10 +2934,8 @@ Good luck picking a username that doesn&#39;t already exist.</p>
         with self.assertRaisesMessage(ValidationError, "'Enter a complete value.'"):
             f.clean(['+61'])
         self.assertEqual('+61.287654321 ext. 123 (label: )', f.clean(['+61', '287654321', '123']))
-        self.assertRaisesRegex(
-            ValidationError,
-            r"'Enter a complete value\.', u?'Enter an extension\.'", f.clean, ['', '', '', 'Home']
-        )
+        with self.assertRaisesMessage(ValidationError, "'Enter a complete value.', 'Enter an extension.'"):
+            f.clean(['', '', '', 'Home'])
         with self.assertRaisesMessage(ValidationError, "'Enter a valid country code.'"):
             f.clean(['61', '287654321', '123', 'Home'])
 
@@ -2970,7 +2948,7 @@ Good luck picking a username that doesn&#39;t already exist.</p>
         with self.assertRaisesMessage(ValidationError, "'Enter a complete value.'"):
             f.clean(['+61'])
         self.assertEqual('+61.287654321 ext. 123 (label: )', f.clean(['+61', '287654321', '123']))
-        with self.assertRaisesRegex(ValidationError, r"'Enter a complete value\.', u?'Enter an extension\.'"):
+        with self.assertRaisesMessage(ValidationError, "'Enter a complete value.', 'Enter an extension.'"):
             f.clean(['', '', '', 'Home'])
         with self.assertRaisesMessage(ValidationError, "'Enter a valid country code.'"):
             f.clean(['61', '287654321', '123', 'Home'])

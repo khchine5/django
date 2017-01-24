@@ -1,5 +1,6 @@
 import os
 import tempfile
+from io import StringIO
 from wsgiref.util import FileWrapper
 
 from django import forms
@@ -17,7 +18,6 @@ from django.forms.models import BaseModelFormSet
 from django.http import HttpResponse, StreamingHttpResponse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
-from django.utils.six import StringIO
 
 from .forms import MediaActionForm
 from .models import (
@@ -971,8 +971,7 @@ site.register(RelatedWithUUIDPKModel)
 #     related ForeignKey object not registered in admin
 #     related OneToOne object registered in admin
 #     related OneToOne object not registered in admin
-# when deleting Book so as exercise all four troublesome (w.r.t escaping
-# and calling force_text to avoid problems on Python 2.3) paths through
+# when deleting Book so as exercise all four paths through
 # contrib.admin.utils's get_deleted_objects function.
 site.register(Book, inlines=[ChapterInline])
 site.register(Promo)

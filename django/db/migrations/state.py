@@ -80,7 +80,7 @@ def get_related_models_recursive(model):
     return seen - {(model._meta.app_label, model._meta.model_name)}
 
 
-class ProjectState(object):
+class ProjectState:
     """
     Represents the entire project's overall state.
     This is the item that is passed around - we do it here rather than at the
@@ -233,9 +233,6 @@ class ProjectState(object):
             return False
         return all(model == other.models[key] for key, model in self.models.items())
 
-    def __ne__(self, other):
-        return not (self == other)
-
 
 class AppConfigStub(AppConfig):
     """
@@ -359,7 +356,7 @@ class StateApps(Apps):
             pass
 
 
-class ModelState(object):
+class ModelState:
     """
     Represents a Django Model. We don't use the actual Model class
     as it's not designed to have its options changed - instead, we
@@ -457,8 +454,6 @@ class ModelState(object):
                     options[name] = set(normalize_together(it))
                 else:
                     options[name] = model._meta.original_attrs[name]
-        # Force-convert all options to str (#23226)
-        options = cls.force_text_recursive(options)
         # If we're ignoring relationships, remove all field-listing model
         # options (that option basically just means "make a stub model")
         if exclude_rels:
@@ -536,21 +531,6 @@ class ModelState(object):
             managers,
         )
 
-    @classmethod
-    def force_text_recursive(cls, value):
-        if isinstance(value, list):
-            return [cls.force_text_recursive(x) for x in value]
-        elif isinstance(value, tuple):
-            return tuple(cls.force_text_recursive(x) for x in value)
-        elif isinstance(value, set):
-            return set(cls.force_text_recursive(x) for x in value)
-        elif isinstance(value, dict):
-            return {
-                cls.force_text_recursive(k): cls.force_text_recursive(v)
-                for k, v in value.items()
-            }
-        return value
-
     def construct_managers(self):
         "Deep-clone the managers using deconstruction"
         # Sort all managers by their creation counter
@@ -581,7 +561,7 @@ class ModelState(object):
         # First, make a Meta object
         meta_contents = {'app_label': self.app_label, "apps": apps}
         meta_contents.update(self.options)
-        meta = type(str("Meta"), tuple(), meta_contents)
+        meta = type("Meta", tuple(), meta_contents)
         # Then, work out our bases
         try:
             bases = tuple(
@@ -598,7 +578,7 @@ class ModelState(object):
         # Restore managers
         body.update(self.construct_managers())
         # Then, make a Model object (apps.register_model is called in __new__)
-        return type(str(self.name), bases, body)
+        return type(self.name, bases, body)
 
     def get_field_by_name(self, name):
         for fname, field in self.fields:
@@ -626,6 +606,3 @@ class ModelState(object):
             (self.bases == other.bases) and
             (self.managers == other.managers)
         )
-
-    def __ne__(self, other):
-        return not (self == other)

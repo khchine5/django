@@ -1,10 +1,10 @@
 import importlib
 import unittest
+from io import StringIO
 
 from django.core import management, serializers
 from django.core.serializers.base import DeserializationError
 from django.test import SimpleTestCase, TestCase, TransactionTestCase
-from django.utils.six import StringIO
 
 from .models import Author
 from .tests import SerializersTestBase, SerializersTransactionTestBase
@@ -18,7 +18,7 @@ except ImportError:
 YAML_IMPORT_ERROR_MESSAGE = r'No module named yaml'
 
 
-class YamlImportModuleMock(object):
+class YamlImportModuleMock:
     """Provides a wrapped import_module function to simulate yaml ImportError
 
     In order to run tests that verify the behavior of the YAML serializer

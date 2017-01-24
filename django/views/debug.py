@@ -1,3 +1,4 @@
+import functools
 import re
 import sys
 import types
@@ -7,9 +8,9 @@ from django.http import HttpResponse, HttpResponseNotFound
 from django.template import Context, Engine, TemplateDoesNotExist
 from django.template.defaultfilters import force_escape, pprint
 from django.urls import Resolver404, resolve
-from django.utils import lru_cache, timezone
+from django.utils import timezone
 from django.utils.datastructures import MultiValueDict
-from django.utils.encoding import force_bytes, force_text
+from django.utils.encoding import force_text
 from django.utils.module_loading import import_string
 from django.utils.translation import ugettext as _
 
@@ -22,7 +23,7 @@ HIDDEN_SETTINGS = re.compile('API|TOKEN|KEY|SECRET|PASS|SIGNATURE', flags=re.IGN
 CLEANSED_SUBSTITUTE = '********************'
 
 
-class CallableSettingWrapper(object):
+class CallableSettingWrapper:
     """ Object to wrap callable appearing in settings
 
     * Not to call in the debug page (#21345).
@@ -83,7 +84,7 @@ def technical_500_response(request, exc_type, exc_value, tb, status_code=500):
         return HttpResponse(html, status=status_code, content_type='text/html')
 
 
-@lru_cache.lru_cache()
+@functools.lru_cache()
 def get_default_exception_reporter_filter():
     # Instantiate the default filter for the first time and cache it.
     return import_string(settings.DEFAULT_EXCEPTION_REPORTER_FILTER)()
@@ -94,7 +95,7 @@ def get_exception_reporter_filter(request):
     return getattr(request, 'exception_reporter_filter', default_filter)
 
 
-class ExceptionReporterFilter(object):
+class ExceptionReporterFilter:
     """
     Base for all exception reporter filter classes. All overridable hooks
     contain lenient default behaviors.
@@ -229,7 +230,7 @@ class SafeExceptionReporterFilter(ExceptionReporterFilter):
         return cleansed.items()
 
 
-class ExceptionReporter(object):
+class ExceptionReporter:
     """
     A class to organize and coordinate reporting on exceptions.
     """
@@ -504,7 +505,7 @@ def technical_404_response(request, exception):
         'root_urlconf': settings.ROOT_URLCONF,
         'request_path': error_url,
         'urlpatterns': tried,
-        'reason': force_bytes(exception, errors='replace'),
+        'reason': str(exception),
         'request': request,
         'settings': get_safe_settings(),
         'raising_view_name': caller,

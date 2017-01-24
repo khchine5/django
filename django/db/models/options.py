@@ -13,7 +13,6 @@ from django.db.models.fields import AutoField
 from django.db.models.fields.proxy import OrderWrt
 from django.db.models.fields.related import OneToOneField
 from django.db.models.query_utils import PathInfo
-from django.utils import six
 from django.utils.datastructures import ImmutableList, OrderedSet
 from django.utils.deprecation import RemovedInDjango21Warning
 from django.utils.encoding import force_text
@@ -67,7 +66,7 @@ def make_immutable_fields_list(name, data):
     return ImmutableList(data, warning=IMMUTABLE_WARNING % name)
 
 
-class Options(object):
+class Options:
     FORWARD_PROPERTIES = {
         'fields', 'many_to_many', 'concrete_fields', 'local_concrete_fields',
         '_forward_fields_map', 'managers', 'managers_map', 'base_manager',
@@ -228,7 +227,7 @@ class Options(object):
             if self.parents:
                 # Promote the first parent link in lieu of adding yet another
                 # field.
-                field = next(six.itervalues(self.parents))
+                field = next(iter(self.parents.values()))
                 # Look for a local field with the same name as the
                 # first parent link. If a local field has already been
                 # created, use it instead of promoting the parent

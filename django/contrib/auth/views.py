@@ -1,4 +1,5 @@
 import warnings
+from urllib.parse import urlparse, urlunparse
 
 from django.conf import settings
 # Avoid shadowing the login() and logout() views below.
@@ -20,7 +21,6 @@ from django.utils.decorators import method_decorator
 from django.utils.deprecation import RemovedInDjango21Warning
 from django.utils.encoding import force_text
 from django.utils.http import is_safe_url, urlsafe_base64_decode
-from django.utils.six.moves.urllib.parse import urlparse, urlunparse
 from django.utils.translation import ugettext_lazy as _
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
@@ -31,7 +31,7 @@ from django.views.generic.edit import FormView
 UserModel = get_user_model()
 
 
-class SuccessURLAllowedHostsMixin(object):
+class SuccessURLAllowedHostsMixin:
     success_url_allowed_hosts = set()
 
     def get_success_url_allowed_hosts(self):
@@ -352,7 +352,7 @@ def password_reset_complete(request,
 #   prompts for a new password
 # - PasswordResetCompleteView shows a success message for the above
 
-class PasswordContextMixin(object):
+class PasswordContextMixin:
     extra_context = None
 
     def get_context_data(self, **kwargs):

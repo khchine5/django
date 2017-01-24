@@ -2,7 +2,7 @@ import os
 from io import BytesIO, StringIO, UnsupportedOperation
 
 from django.core.files.utils import FileProxyMixin
-from django.utils.encoding import force_str, force_text
+from django.utils.encoding import force_text
 
 
 class File(FileProxyMixin):
@@ -20,13 +20,10 @@ class File(FileProxyMixin):
         return force_text(self.name or '')
 
     def __repr__(self):
-        return force_str("<%s: %s>" % (self.__class__.__name__, self or "None"))
+        return "<%s: %s>" % (self.__class__.__name__, self or "None")
 
     def __bool__(self):
         return bool(self.name)
-
-    def __nonzero__(self):      # Python 2 compatibility
-        return type(self).__bool__(self)
 
     def __len__(self):
         return self.size
@@ -148,9 +145,6 @@ class ContentFile(File):
 
     def __bool__(self):
         return True
-
-    def __nonzero__(self):      # Python 2 compatibility
-        return type(self).__bool__(self)
 
     def open(self, mode=None):
         self.seek(0)

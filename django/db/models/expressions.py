@@ -8,7 +8,7 @@ from django.db.models.query_utils import Q
 from django.utils.functional import cached_property
 
 
-class Combinable(object):
+class Combinable:
     """
     Provides the ability to combine one or two objects with
     some connector. For example F('foo') + F('bar').
@@ -60,9 +60,6 @@ class Combinable(object):
     def __truediv__(self, other):
         return self._combine(other, self.DIV, False)
 
-    def __div__(self, other):  # Python 2 compatibility
-        return type(self).__truediv__(self, other)
-
     def __mod__(self, other):
         return self._combine(other, self.MOD, False)
 
@@ -103,9 +100,6 @@ class Combinable(object):
     def __rtruediv__(self, other):
         return self._combine(other, self.DIV, True)
 
-    def __rdiv__(self, other):  # Python 2 compatibility
-        return type(self).__rtruediv__(self, other)
-
     def __rmod__(self, other):
         return self._combine(other, self.MOD, True)
 
@@ -123,7 +117,7 @@ class Combinable(object):
         )
 
 
-class BaseExpression(object):
+class BaseExpression:
     """
     Base class for all query expressions.
     """

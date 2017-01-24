@@ -1,8 +1,9 @@
 """
 Module for abstract serializer/unserializer base classes.
 """
+from io import StringIO
+
 from django.db import models
-from django.utils import six
 
 
 class SerializerDoesNotExist(KeyError):
@@ -27,7 +28,7 @@ class DeserializationError(Exception):
         return cls("%s: (%s:pk=%s) field_value was '%s'" % (original_exc, model, fk, field_value))
 
 
-class ProgressBar(object):
+class ProgressBar:
     progress_width = 75
 
     def __init__(self, output, total_count):
@@ -50,7 +51,7 @@ class ProgressBar(object):
         self.output.flush()
 
 
-class Serializer(object):
+class Serializer:
     """
     Abstract serializer base class.
     """
@@ -59,7 +60,7 @@ class Serializer(object):
     # internal Django use.
     internal_use_only = False
     progress_class = ProgressBar
-    stream_class = six.StringIO
+    stream_class = StringIO
 
     def serialize(self, queryset, **options):
         """
@@ -158,7 +159,7 @@ class Serializer(object):
             return self.stream.getvalue()
 
 
-class Deserializer(six.Iterator):
+class Deserializer:
     """
     Abstract base deserializer class.
     """
@@ -169,7 +170,7 @@ class Deserializer(six.Iterator):
         """
         self.options = options
         if isinstance(stream_or_string, str):
-            self.stream = six.StringIO(stream_or_string)
+            self.stream = StringIO(stream_or_string)
         else:
             self.stream = stream_or_string
 
@@ -181,7 +182,7 @@ class Deserializer(six.Iterator):
         raise NotImplementedError('subclasses of Deserializer must provide a __next__() method')
 
 
-class DeserializedObject(object):
+class DeserializedObject:
     """
     A deserialized model.
 

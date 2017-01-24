@@ -22,11 +22,11 @@ For definitions of the different versions of RSS, see:
 http://web.archive.org/web/20110718035220/http://diveintomark.org/archives/2004/02/04/incompatible-rss
 """
 import datetime
+from io import StringIO
+from urllib.parse import urlparse
 
 from django.utils import datetime_safe
 from django.utils.encoding import force_text, iri_to_uri
-from django.utils.six import StringIO
-from django.utils.six.moves.urllib.parse import urlparse
 from django.utils.timezone import utc
 from django.utils.xmlutils import SimplerXMLGenerator
 
@@ -79,7 +79,7 @@ def get_tag_uri(url, date):
     return 'tag:%s%s:%s/%s' % (bits.hostname, d, bits.path, bits.fragment)
 
 
-class SyndicationFeed(object):
+class SyndicationFeed:
     "Base class for all syndication feeds. Subclasses should provide write()"
     def __init__(self, title, link, description, language=None, author_email=None,
                  author_name=None, author_link=None, subtitle=None, categories=None,
@@ -209,7 +209,7 @@ class SyndicationFeed(object):
         return latest_date or datetime.datetime.utcnow().replace(tzinfo=utc)
 
 
-class Enclosure(object):
+class Enclosure:
     "Represents an RSS enclosure"
     def __init__(self, url, length, mime_type):
         "All args are expected to be Python Unicode objects"

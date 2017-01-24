@@ -4,16 +4,14 @@ django.contrib.staticfiles.testing.StaticLiveServerTestCase instead of
 django.test.LiveServerTestCase.
 """
 
-import contextlib
 import os
+from urllib.request import urlopen
 
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.core.exceptions import ImproperlyConfigured
 from django.test import modify_settings, override_settings
-from django.utils._os import upath
-from django.utils.six.moves.urllib.request import urlopen
 
-TEST_ROOT = os.path.dirname(upath(__file__))
+TEST_ROOT = os.path.dirname(__file__)
 TEST_SETTINGS = {
     'MEDIA_URL': '/media/',
     'STATIC_URL': '/static/',
@@ -86,5 +84,5 @@ class StaticLiveServerView(LiveServerBase):
         StaticLiveServerTestCase use of staticfiles' serve() allows it
         to discover app's static assets without having to collectstatic first.
         """
-        with contextlib.closing(self.urlopen('/static/test/file.txt')) as f:
+        with self.urlopen('/static/test/file.txt') as f:
             self.assertEqual(f.read().rstrip(b'\r\n'), b'In static directory.')

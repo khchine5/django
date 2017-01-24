@@ -3,10 +3,9 @@ import os
 
 from django.template.engine import Engine
 from django.test.utils import override_settings
-from django.utils._os import upath
 from django.utils.safestring import mark_safe
 
-ROOT = os.path.dirname(os.path.abspath(upath(__file__)))
+ROOT = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(ROOT, 'templates')
 
 
@@ -142,7 +141,7 @@ class OtherClass:
         return 'OtherClass.method'
 
 
-class TestObj(object):
+class TestObj:
     def is_true(self):
         return True
 
@@ -153,19 +152,19 @@ class TestObj(object):
         raise ShouldNotExecuteException()
 
 
-class SilentGetItemClass(object):
+class SilentGetItemClass:
     def __getitem__(self, key):
         raise SomeException
 
 
-class SilentAttrClass(object):
+class SilentAttrClass:
     def b(self):
         raise SomeException
     b = property(b)
 
 
 class UTF8Class:
-    "Class whose __str__ returns non-ASCII data on Python 2"
+    "Class whose __str__ returns non-ASCII data"
     def __str__(self):
         return 'ŠĐĆŽćžšđ'
 

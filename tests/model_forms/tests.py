@@ -17,8 +17,6 @@ from django.forms.models import (
 )
 from django.template import Context, Template
 from django.test import SimpleTestCase, TestCase, skipUnlessDBFeature
-from django.utils import six
-from django.utils._os import upath
 
 from .models import (
     Article, ArticleStatus, Author, Author1, Award, BetterWriter, BigInt, Book,
@@ -2222,7 +2220,7 @@ class FileAndImageFieldTests(TestCase):
                 fields = '__all__'
 
         # Grab an image for testing.
-        filename = os.path.join(os.path.dirname(upath(__file__)), "test.png")
+        filename = os.path.join(os.path.dirname(__file__), 'test.png')
         with open(filename, "rb") as fp:
             img = fp.read()
 
@@ -2261,9 +2259,9 @@ class FileAndImageFieldTests(TestCase):
         # it comes to validation. This specifically tests that #6302 is fixed for
         # both file fields and image fields.
 
-        with open(os.path.join(os.path.dirname(upath(__file__)), "test.png"), 'rb') as fp:
+        with open(os.path.join(os.path.dirname(__file__), 'test.png'), 'rb') as fp:
             image_data = fp.read()
-        with open(os.path.join(os.path.dirname(upath(__file__)), "test2.png"), 'rb') as fp:
+        with open(os.path.join(os.path.dirname(__file__), 'test2.png'), 'rb') as fp:
             image_data2 = fp.read()
 
         f = ImageFileForm(
@@ -2722,7 +2720,7 @@ class ModelFormInheritanceTests(SimpleTestCase):
                 model = Writer
                 fields = '__all__'
 
-        class Mixin(object):
+        class Mixin:
             age = None
 
         class Form(forms.Form):
@@ -2732,12 +2730,12 @@ class ModelFormInheritanceTests(SimpleTestCase):
             foo = forms.IntegerField()
 
         self.assertEqual(list(ModelForm().fields.keys()), ['name'])
-        self.assertEqual(list(type(str('NewForm'), (Mixin, Form), {})().fields.keys()), [])
-        self.assertEqual(list(type(str('NewForm'), (Form2, Mixin, Form), {})().fields.keys()), ['foo'])
-        self.assertEqual(list(type(str('NewForm'), (Mixin, ModelForm, Form), {})().fields.keys()), ['name'])
-        self.assertEqual(list(type(str('NewForm'), (ModelForm, Mixin, Form), {})().fields.keys()), ['name'])
-        self.assertEqual(list(type(str('NewForm'), (ModelForm, Form, Mixin), {})().fields.keys()), ['name', 'age'])
-        self.assertEqual(list(type(str('NewForm'), (ModelForm, Form), {'age': None})().fields.keys()), ['name'])
+        self.assertEqual(list(type('NewForm', (Mixin, Form), {})().fields.keys()), [])
+        self.assertEqual(list(type('NewForm', (Form2, Mixin, Form), {})().fields.keys()), ['foo'])
+        self.assertEqual(list(type('NewForm', (Mixin, ModelForm, Form), {})().fields.keys()), ['name'])
+        self.assertEqual(list(type('NewForm', (ModelForm, Mixin, Form), {})().fields.keys()), ['name'])
+        self.assertEqual(list(type('NewForm', (ModelForm, Form, Mixin), {})().fields.keys()), ['name', 'age'])
+        self.assertEqual(list(type('NewForm', (ModelForm, Form), {'age': None})().fields.keys()), ['name'])
 
     def test_field_removal_name_clashes(self):
         """
@@ -2954,7 +2952,7 @@ class CustomMetaclass(ModelFormMetaclass):
         return new
 
 
-class CustomMetaclassForm(six.with_metaclass(CustomMetaclass, forms.ModelForm)):
+class CustomMetaclassForm(forms.ModelForm, metaclass=CustomMetaclass):
     pass
 
 

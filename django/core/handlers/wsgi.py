@@ -8,18 +8,15 @@ from django.conf import settings
 from django.core import signals
 from django.core.handlers import base
 from django.urls import set_script_prefix
-from django.utils.encoding import (
-    force_str, force_text, repercent_broken_unicode,
-)
+from django.utils.encoding import force_text, repercent_broken_unicode
 from django.utils.functional import cached_property
 
-# encode() and decode() expect the charset to be a native string.
-ISO_8859_1, UTF_8 = str('iso-8859-1'), str('utf-8')
+ISO_8859_1, UTF_8 = 'iso-8859-1', 'utf-8'
 
 _slashes_re = re.compile(br'/+')
 
 
-class LimitedStream(object):
+class LimitedStream:
     '''
     LimitedStream wraps another stream in order to not allow reading from it
     past specified amount of bytes.
@@ -156,10 +153,10 @@ class WSGIHandler(base.BaseHandler):
         response._handler_class = self.__class__
 
         status = '%d %s' % (response.status_code, response.reason_phrase)
-        response_headers = [(str(k), str(v)) for k, v in response.items()]
+        response_headers = list(response.items())
         for c in response.cookies.values():
-            response_headers.append((str('Set-Cookie'), str(c.output(header=''))))
-        start_response(force_str(status), response_headers)
+            response_headers.append(('Set-Cookie', c.output(header='')))
+        start_response(status, response_headers)
         if getattr(response, 'file_to_stream', None) is not None and environ.get('wsgi.file_wrapper'):
             response = environ['wsgi.file_wrapper'](response.file_to_stream)
         return response
@@ -211,9 +208,9 @@ def get_bytes_from_wsgi(environ, key, default):
     """
     Get a value from the WSGI environ dictionary as bytes.
 
-    key and default should be str objects.
+    key and default should be strings.
     """
-    value = environ.get(str(key), str(default))
+    value = environ.get(key, default)
     # Non-ASCII values in the WSGI environ are arbitrarily decoded with
     # ISO-8859-1. This is wrong for Django websites where UTF-8 is the default.
     # Re-encode to recover the original bytestring.

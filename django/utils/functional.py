@@ -2,8 +2,6 @@ import copy
 import operator
 from functools import total_ordering, wraps
 
-from django.utils import six
-
 
 # You can't trivially replace this with `functools.partial` because this binds
 # to classes and returns bound instances, whereas functools.partial (on
@@ -14,7 +12,7 @@ def curry(_curried_func, *args, **kwargs):
     return _curried
 
 
-class cached_property(object):
+class cached_property:
     """
     Decorator that converts a method with a single self argument into a
     property cached on the instance.
@@ -34,7 +32,7 @@ class cached_property(object):
         return res
 
 
-class Promise(object):
+class Promise:
     """
     This is just a base class for the proxy class created in
     the closure of the lazy function. It can be used to recognize
@@ -128,11 +126,6 @@ def lazy(func, *resultclasses):
             # a __str__() method from the proxied class.
             return str(self.__cast())
 
-        def __ne__(self, other):
-            if isinstance(other, Promise):
-                other = other.__cast()
-            return self.__cast() != other
-
         def __eq__(self, other):
             if isinstance(other, Promise):
                 other = other.__cast()
@@ -193,7 +186,7 @@ def keep_lazy(*resultclasses):
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            for arg in list(args) + list(six.itervalues(kwargs)):
+            for arg in list(args) + list(kwargs.values()):
                 if isinstance(arg, Promise):
                     break
             else:
@@ -221,7 +214,7 @@ def new_method_proxy(func):
     return inner
 
 
-class LazyObject(object):
+class LazyObject:
     """
     A wrapper for another class that can be used to delay instantiation of the
     wrapped class.

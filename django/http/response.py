@@ -4,20 +4,17 @@ import re
 import sys
 import time
 from email.header import Header
+from http.client import responses
+from urllib.parse import urlparse
 
 from django.conf import settings
 from django.core import signals, signing
 from django.core.exceptions import DisallowedRedirect
 from django.core.serializers.json import DjangoJSONEncoder
 from django.http.cookie import SimpleCookie
-from django.utils import six, timezone
-from django.utils.encoding import (
-    force_bytes, force_str, force_text, iri_to_uri,
-)
+from django.utils import timezone
+from django.utils.encoding import force_bytes, force_text, iri_to_uri
 from django.utils.http import cookie_date
-from django.utils.six.moves import map
-from django.utils.six.moves.http_client import responses
-from django.utils.six.moves.urllib.parse import urlparse
 
 _charset_from_content_type_re = re.compile(r';\s*charset=(?P<charset>[^\s;]+)', re.I)
 
@@ -26,7 +23,7 @@ class BadHeaderError(ValueError):
     pass
 
 
-class HttpResponseBase(six.Iterator):
+class HttpResponseBase:
     """
     An HTTP response base class with dictionary-accessed headers.
 
@@ -127,8 +124,7 @@ class HttpResponseBase(six.Iterator):
                 value = value.decode(charset)
         except UnicodeError as e:
             if mime_encode:
-                # Wrapping in str() is a workaround for #12422 under Python 2.
-                value = str(Header(value, 'utf-8', maxlinelen=sys.maxsize).encode())
+                value = Header(value, 'utf-8', maxlinelen=sys.maxsize).encode()
             else:
                 e.reason += ', HTTP response headers must be in %s format' % charset
                 raise
@@ -171,7 +167,6 @@ class HttpResponseBase(six.Iterator):
         - an aware ``datetime.datetime`` object in any time zone.
         If it is a ``datetime.datetime`` object then ``max_age`` will be calculated.
         """
-        value = force_str(value)
         self.cookies[key] = value
         if expires is not None:
             if isinstance(expires, datetime.datetime):

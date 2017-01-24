@@ -1,7 +1,7 @@
 from django.contrib.gis.gdal.error import GDALException
 
 
-class OGRGeomType(object):
+class OGRGeomType:
     "Encapsulates OGR Geometry Types."
 
     wkb25bit = -2147483648
@@ -67,9 +67,6 @@ class OGRGeomType(object):
             return self.num == other
         else:
             return False
-
-    def __ne__(self, other):
-        return not (self == other)
 
     @property
     def name(self):

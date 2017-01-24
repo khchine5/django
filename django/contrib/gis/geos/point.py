@@ -4,7 +4,6 @@ from django.contrib.gis import gdal
 from django.contrib.gis.geos import prototypes as capi
 from django.contrib.gis.geos.error import GEOSException
 from django.contrib.gis.geos.geometry import GEOSGeometry
-from django.utils.six.moves import range
 
 
 class Point(GEOSGeometry):
@@ -57,7 +56,7 @@ class Point(GEOSGeometry):
             return capi.create_point(None)
 
         if ndim < 2 or ndim > 3:
-            raise TypeError('Invalid point dimension: %s' % str(ndim))
+            raise TypeError('Invalid point dimension: %s' % ndim)
 
         cs = capi.create_cs(c_uint(1), c_uint(ndim))
         i = iter(coords)

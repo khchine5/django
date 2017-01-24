@@ -12,6 +12,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from io import StringIO
+from unittest import mock
 
 import django
 from django import conf, get_version
@@ -23,13 +25,11 @@ from django.db import ConnectionHandler
 from django.db.migrations.exceptions import MigrationSchemaMissing
 from django.db.migrations.recorder import MigrationRecorder
 from django.test import (
-    LiveServerTestCase, SimpleTestCase, TestCase, mock, override_settings,
+    LiveServerTestCase, SimpleTestCase, TestCase, override_settings,
 )
-from django.utils._os import npath, upath
 from django.utils.encoding import force_text
-from django.utils.six import StringIO
 
-custom_templates_dir = os.path.join(os.path.dirname(upath(__file__)), 'custom_templates')
+custom_templates_dir = os.path.join(os.path.dirname(__file__), 'custom_templates')
 
 PY36 = sys.version_info >= (3, 6)
 SYSTEM_CHECK_MSG = 'System check identified no issues'
@@ -101,9 +101,6 @@ class AdminScriptTestCase(unittest.TestCase):
             if sys.platform.startswith('java'):
                 # Jython produces module$py.class files
                 os.remove(re.sub(r'\.py$', '$py.class', full_name))
-            else:
-                # CPython produces module.pyc files
-                os.remove(full_name + 'c')
         except OSError:
             pass
         # Also remove a __pycache__ directory, if it exists
@@ -128,7 +125,7 @@ class AdminScriptTestCase(unittest.TestCase):
     def run_test(self, script, args, settings_file=None, apps=None):
         base_dir = os.path.dirname(self.test_dir)
         # The base dir for Django's tests is one level up.
-        tests_dir = os.path.dirname(os.path.dirname(upath(__file__)))
+        tests_dir = os.path.dirname(os.path.dirname(__file__))
         # The base dir for Django is one level above the test dir. We don't use
         # `import django` to figure that out, so we don't pick up a Django
         # from site-packages or similar.
@@ -146,14 +143,13 @@ class AdminScriptTestCase(unittest.TestCase):
 
         # Set the test environment
         if settings_file:
-            test_environ['DJANGO_SETTINGS_MODULE'] = str(settings_file)
+            test_environ['DJANGO_SETTINGS_MODULE'] = settings_file
         elif 'DJANGO_SETTINGS_MODULE' in test_environ:
             del test_environ['DJANGO_SETTINGS_MODULE']
         python_path = [base_dir, django_dir, tests_dir]
         python_path.extend(ext_backend_base_dirs)
-        # Use native strings for better compatibility
-        test_environ[str(python_path_var_name)] = npath(os.pathsep.join(python_path))
-        test_environ[str('PYTHONWARNINGS')] = str('')
+        test_environ[python_path_var_name] = os.pathsep.join(python_path)
+        test_environ['PYTHONWARNINGS'] = ''
 
         # Move to the test directory and run
         os.chdir(self.test_dir)
@@ -168,7 +164,7 @@ class AdminScriptTestCase(unittest.TestCase):
         return out, err
 
     def run_django_admin(self, args, settings_file=None):
-        script_dir = os.path.abspath(os.path.join(os.path.dirname(upath(django.__file__)), 'bin'))
+        script_dir = os.path.abspath(os.path.join(os.path.dirname(django.__file__), 'bin'))
         return self.run_test(os.path.join(script_dir, 'django-admin.py'), args, settings_file)
 
     def run_manage(self, args, settings_file=None):
@@ -178,7 +174,7 @@ class AdminScriptTestCase(unittest.TestCase):
             except OSError:
                 pass
 
-        conf_dir = os.path.dirname(upath(conf.__file__))
+        conf_dir = os.path.dirname(conf.__file__)
         template_manage_py = os.path.join(conf_dir, 'project_template', 'manage.py-tpl')
 
         test_manage_py = os.path.join(self.test_dir, 'manage.py')
@@ -1397,7 +1393,7 @@ class ManageRunserverEmptyAllowedHosts(AdminScriptTestCase):
 class ManageTestserver(AdminScriptTestCase):
     from django.core.management.commands.testserver import Command as TestserverCommand
 
-    @mock.patch.object(TestserverCommand, 'handle')
+    @mock.patch.object(TestserverCommand, 'handle', return_value='')
     def test_testserver_handle_params(self, mock_handle):
         out = StringIO()
         call_command('testserver', 'blah.json', stdout=out)

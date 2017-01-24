@@ -1,4 +1,5 @@
 """Translation helper functions."""
+import functools
 import gettext as gettext_module
 import os
 import re
@@ -13,8 +14,6 @@ from django.conf.locale import LANG_INFO
 from django.core.exceptions import AppRegistryNotReady
 from django.core.signals import setting_changed
 from django.dispatch import receiver
-from django.utils import lru_cache
-from django.utils._os import upath
 from django.utils.encoding import force_text
 from django.utils.safestring import SafeData, mark_safe
 from django.utils.translation import LANGUAGE_SESSION_KEY
@@ -102,7 +101,6 @@ class DjangoTranslation(gettext_module.GNUTranslations):
         gettext_module.GNUTranslations.__init__(self)
         if domain is not None:
             self.domain = domain
-        self.set_output_charset('utf-8')  # For Python 2 gettext() (#25720)
 
         self.__language = language
         self.__to_language = to_language(language)
@@ -155,7 +153,7 @@ class DjangoTranslation(gettext_module.GNUTranslations):
 
     def _init_translation_catalog(self):
         """Creates a base catalog using global django translations."""
-        settingsfile = upath(sys.modules[settings.__module__].__file__)
+        settingsfile = sys.modules[settings.__module__].__file__
         localedir = os.path.join(os.path.dirname(settingsfile), 'locale')
         translation = self._new_gnu_trans(localedir)
         self.merge(translation)
@@ -308,8 +306,7 @@ def do_translate(message, translation_function):
     """
     global _default
 
-    # str() is allowing a bytestring message to remain bytestring on Python 2
-    eol_message = message.replace(str('\r\n'), str('\n')).replace(str('\r'), str('\n'))
+    eol_message = message.replace('\r\n', '\n').replace('\r', '\n')
 
     if len(eol_message) == 0:
         # Returns an empty value of the corresponding type if an empty message
@@ -328,11 +325,7 @@ def do_translate(message, translation_function):
 
 
 def gettext(message):
-    """
-    Returns a string of the translation of the message.
-
-    Returns a string on Python 3 and an UTF-8-encoded bytestring on Python 2.
-    """
+    """Return a string of the translation of the message."""
     return do_translate(message, 'gettext')
 
 
@@ -374,8 +367,6 @@ def ngettext(singular, plural, number):
     """
     Returns a string of the translation of either the singular or plural,
     based on the number.
-
-    Returns a string on Python 3 and an UTF-8-encoded bytestring on Python 2.
     """
     return do_ntranslate(singular, plural, number, 'ngettext')
 
@@ -399,11 +390,11 @@ def all_locale_paths():
     Returns a list of paths to user-provides languages files.
     """
     globalpath = os.path.join(
-        os.path.dirname(upath(sys.modules[settings.__module__].__file__)), 'locale')
+        os.path.dirname(sys.modules[settings.__module__].__file__), 'locale')
     return [globalpath] + list(settings.LOCALE_PATHS)
 
 
-@lru_cache.lru_cache(maxsize=1000)
+@functools.lru_cache(maxsize=1000)
 def check_for_language(lang_code):
     """
     Checks whether there is a global language file for the given language
@@ -423,7 +414,7 @@ def check_for_language(lang_code):
     return False
 
 
-@lru_cache.lru_cache()
+@functools.lru_cache()
 def get_languages():
     """
     Cache of settings.LANGUAGES in an OrderedDict for easy lookups by key.
@@ -431,7 +422,7 @@ def get_languages():
     return OrderedDict(settings.LANGUAGES)
 
 
-@lru_cache.lru_cache(maxsize=1000)
+@functools.lru_cache(maxsize=1000)
 def get_supported_language_variant(lang_code, strict=False):
     """
     Returns the language-code that's listed in supported languages, possibly

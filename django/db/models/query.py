@@ -21,7 +21,7 @@ from django.db.models.fields import AutoField
 from django.db.models.functions import Trunc
 from django.db.models.query_utils import InvalidQuery, Q
 from django.db.models.sql.constants import CURSOR
-from django.utils import six, timezone
+from django.utils import timezone
 from django.utils.functional import cached_property, partition
 from django.utils.version import get_version
 
@@ -32,7 +32,7 @@ REPR_OUTPUT_SIZE = 20
 EmptyResultSet = sql.EmptyResultSet
 
 
-class BaseIterable(object):
+class BaseIterable:
     def __init__(self, queryset, chunked_fetch=False):
         self.queryset = queryset
         self.chunked_fetch = chunked_fetch
@@ -152,7 +152,7 @@ class FlatValuesListIterable(BaseIterable):
             yield row[0]
 
 
-class QuerySet(object):
+class QuerySet:
     """
     Represents a lazy database lookup for a set of objects.
     """
@@ -252,9 +252,6 @@ class QuerySet(object):
     def __bool__(self):
         self._fetch_all()
         return bool(self._result_cache)
-
-    def __nonzero__(self):      # Python 2 compatibility
-        return type(self).__bool__(self)
 
     def __getitem__(self, k):
         """
@@ -480,7 +477,7 @@ class QuerySet(object):
                 obj, created = self._create_object_from_params(lookup, params)
                 if created:
                     return obj, created
-            for k, v in six.iteritems(defaults):
+            for k, v in defaults.items():
                 setattr(obj, k, v() if callable(v) else v)
             obj.save(using=self.db)
         return obj, False
@@ -501,7 +498,7 @@ class QuerySet(object):
                 return self.get(**lookup), False
             except self.model.DoesNotExist:
                 pass
-            six.reraise(*exc_info)
+            raise exc_info[0](exc_info[1]).with_traceback(exc_info[2])
 
     def _extract_model_params(self, defaults, **kwargs):
         """
@@ -1170,7 +1167,7 @@ class InstanceCheckMeta(type):
         return isinstance(instance, QuerySet) and instance.query.is_empty()
 
 
-class EmptyQuerySet(six.with_metaclass(InstanceCheckMeta)):
+class EmptyQuerySet(metaclass=InstanceCheckMeta):
     """
     Marker class usable for checking if a queryset is empty by .none():
         isinstance(qs.none(), EmptyQuerySet) -> True
@@ -1180,7 +1177,7 @@ class EmptyQuerySet(six.with_metaclass(InstanceCheckMeta)):
         raise TypeError("EmptyQuerySet can't be instantiated")
 
 
-class RawQuerySet(object):
+class RawQuerySet:
     """
     Provides an iterator which converts the results of raw SQL queries into
     annotated model instances.
@@ -1298,7 +1295,7 @@ class RawQuerySet(object):
         return model_fields
 
 
-class Prefetch(object):
+class Prefetch:
     def __init__(self, lookup, queryset=None, to_attr=None):
         # `prefetch_through` is the path we traverse to perform the prefetch.
         self.prefetch_through = lookup
@@ -1623,7 +1620,7 @@ def prefetch_one_level(instances, prefetcher, lookup, level):
     return all_related_objects, additional_lookups
 
 
-class RelatedPopulator(object):
+class RelatedPopulator:
     """
     RelatedPopulator is used for select_related() object instantiation.
 

@@ -7,7 +7,6 @@ from zipimport import zipimporter
 
 from django.test import SimpleTestCase, TestCase, modify_settings
 from django.test.utils import extend_sys_path
-from django.utils._os import upath
 from django.utils.module_loading import (
     autodiscover_modules, import_string, module_has_submodule,
 )
@@ -58,7 +57,7 @@ class DefaultLoader(unittest.TestCase):
 
 class EggLoader(unittest.TestCase):
     def setUp(self):
-        self.egg_dir = '%s/eggs' % os.path.dirname(upath(__file__))
+        self.egg_dir = '%s/eggs' % os.path.dirname(__file__)
 
     def tearDown(self):
         sys.path_importer_cache.clear()
@@ -146,11 +145,11 @@ class AutodiscoverModulesTestCase(SimpleTestCase):
         autodiscover_modules('missing_module')
 
     def test_autodiscover_modules_found_but_bad_module(self):
-        with self.assertRaisesRegex(ImportError, "No module named '?a_package_name_that_does_not_exist'?"):
+        with self.assertRaisesMessage(ImportError, "No module named 'a_package_name_that_does_not_exist'"):
             autodiscover_modules('bad_module')
 
     def test_autodiscover_modules_several_one_bad_module(self):
-        with self.assertRaisesRegex(ImportError, "No module named '?a_package_name_that_does_not_exist'?"):
+        with self.assertRaisesMessage(ImportError, "No module named 'a_package_name_that_does_not_exist'"):
             autodiscover_modules('good_module', 'bad_module')
 
     def test_autodiscover_modules_several_found(self):
@@ -179,7 +178,7 @@ class AutodiscoverModulesTestCase(SimpleTestCase):
         self.assertEqual(site._registry, {'lorem': 'ipsum'})
 
 
-class ProxyFinder(object):
+class ProxyFinder:
     def __init__(self):
         self._cache = {}
 
@@ -208,7 +207,7 @@ class ProxyFinder(object):
                 fd.close()
 
 
-class TestFinder(object):
+class TestFinder:
     def __init__(self, *args, **kwargs):
         self.importer = zipimporter(*args, **kwargs)
 
@@ -219,7 +218,7 @@ class TestFinder(object):
         return TestLoader(importer)
 
 
-class TestLoader(object):
+class TestLoader:
     def __init__(self, importer):
         self.importer = importer
 

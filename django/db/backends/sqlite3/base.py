@@ -1,12 +1,10 @@
 """
-SQLite3 backend for django.
-
-Works with either the pysqlite2 module or the sqlite3 module in the
-standard library.
+SQLite3 backend for the sqlite3 module in the standard library.
 """
 import decimal
 import re
 import warnings
+from sqlite3 import dbapi2 as Database
 
 import pytz
 
@@ -20,15 +18,6 @@ from django.utils.dateparse import (
 )
 from django.utils.encoding import force_text
 
-try:
-    try:
-        from pysqlite2 import dbapi2 as Database
-    except ImportError:
-        from sqlite3 import dbapi2 as Database
-except ImportError as exc:
-    raise ImproperlyConfigured("Error loading either pysqlite2 or sqlite3 modules (tried in that order): %s" % exc)
-
-# Some of these import sqlite3, so import them after checking if it's installed.
 from .client import DatabaseClient                          # isort:skip
 from .creation import DatabaseCreation                      # isort:skip
 from .features import DatabaseFeatures                      # isort:skip
@@ -45,13 +34,13 @@ def decoder(conv_func):
     return lambda s: conv_func(s.decode('utf-8'))
 
 
-Database.register_converter(str("bool"), decoder(lambda s: s == '1'))
-Database.register_converter(str("time"), decoder(parse_time))
-Database.register_converter(str("date"), decoder(parse_date))
-Database.register_converter(str("datetime"), decoder(parse_datetime))
-Database.register_converter(str("timestamp"), decoder(parse_datetime))
-Database.register_converter(str("TIMESTAMP"), decoder(parse_datetime))
-Database.register_converter(str("decimal"), decoder(backend_utils.typecast_decimal))
+Database.register_converter("bool", decoder(lambda s: s == '1'))
+Database.register_converter("time", decoder(parse_time))
+Database.register_converter("date", decoder(parse_date))
+Database.register_converter("datetime", decoder(parse_datetime))
+Database.register_converter("timestamp", decoder(parse_datetime))
+Database.register_converter("TIMESTAMP", decoder(parse_datetime))
+Database.register_converter("decimal", decoder(backend_utils.typecast_decimal))
 
 Database.register_adapter(decimal.Decimal, backend_utils.rev_typecast_decimal)
 

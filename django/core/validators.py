@@ -1,12 +1,12 @@
 import os
 import re
+from urllib.parse import urlsplit, urlunsplit
 
 from django.core.exceptions import ValidationError
 from django.utils.deconstruct import deconstructible
 from django.utils.encoding import force_text
 from django.utils.functional import SimpleLazyObject
 from django.utils.ipv6 import is_valid_ipv6_address
-from django.utils.six.moves.urllib.parse import urlsplit, urlunsplit
 from django.utils.translation import ugettext_lazy as _, ungettext_lazy
 
 # These values, if given to validate(), will trigger the self.required check.
@@ -26,7 +26,7 @@ def _lazy_re_compile(regex, flags=0):
 
 
 @deconstructible
-class RegexValidator(object):
+class RegexValidator:
     regex = ''
     message = _('Enter a valid value.')
     code = 'invalid'
@@ -67,9 +67,6 @@ class RegexValidator(object):
             (self.code == other.code) and
             (self.inverse_match == other.inverse_match)
         )
-
-    def __ne__(self, other):
-        return not (self == other)
 
 
 @deconstructible
@@ -165,7 +162,7 @@ def validate_integer(value):
 
 
 @deconstructible
-class EmailValidator(object):
+class EmailValidator:
     message = _('Enter a valid email address.')
     code = 'invalid'
     user_regex = _lazy_re_compile(
@@ -244,7 +241,7 @@ validate_slug = RegexValidator(
     'invalid'
 )
 
-slug_unicode_re = _lazy_re_compile(r'^[-\w]+\Z', re.U)
+slug_unicode_re = _lazy_re_compile(r'^[-\w]+\Z')
 validate_unicode_slug = RegexValidator(
     slug_unicode_re,
     _("Enter a valid 'slug' consisting of Unicode letters, numbers, underscores, or hyphens."),
@@ -308,7 +305,7 @@ validate_comma_separated_integer_list = int_list_validator(
 
 
 @deconstructible
-class BaseValidator(object):
+class BaseValidator:
     message = _('Ensure this value is %(limit_value)s (it is %(show_value)s).')
     code = 'limit_value'
 
@@ -387,7 +384,7 @@ class MaxLengthValidator(BaseValidator):
 
 
 @deconstructible
-class DecimalValidator(object):
+class DecimalValidator:
     """
     Validate that the input does not exceed the maximum number of digits
     expected, otherwise raise ValidationError.
@@ -456,7 +453,7 @@ class DecimalValidator(object):
 
 
 @deconstructible
-class FileExtensionValidator(object):
+class FileExtensionValidator:
     message = _(
         "File extension '%(extension)s' is not allowed. "
         "Allowed extensions are: '%(allowed_extensions)s'."

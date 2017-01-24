@@ -8,7 +8,7 @@ from django.contrib.gis.db.backends.postgis.pgraster import to_pgraster
 from django.contrib.gis.geometry.backend import Geometry
 
 
-class PostGISAdapter(object):
+class PostGISAdapter:
     def __init__(self, obj, geography=False):
         """
         Initialize on the spatial object.
@@ -58,9 +58,9 @@ class PostGISAdapter(object):
         """
         if self.is_geometry:
             # Psycopg will figure out whether to use E'\\000' or '\000'.
-            return str('%s(%s)' % (
+            return '%s(%s)' % (
                 'ST_GeogFromWKB' if self.geography else 'ST_GeomFromEWKB',
-                self._adapter.getquoted().decode())
+                self._adapter.getquoted().decode()
             )
         else:
             # For rasters, add explicit type cast to WKB string.

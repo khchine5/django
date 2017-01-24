@@ -1,20 +1,18 @@
 """
 Tests for django.core.servers.
 """
-import contextlib
 import errno
 import os
 import socket
+from urllib.error import HTTPError
+from urllib.request import urlopen
 
 from django.test import LiveServerTestCase, override_settings
-from django.utils._os import upath
 from django.utils.http import urlencode
-from django.utils.six.moves.urllib.error import HTTPError
-from django.utils.six.moves.urllib.request import urlopen
 
 from .models import Person
 
-TEST_ROOT = os.path.dirname(upath(__file__))
+TEST_ROOT = os.path.dirname(__file__)
 TEST_SETTINGS = {
     'MEDIA_URL': '/media/',
     'MEDIA_ROOT': os.path.join(TEST_ROOT, 'media'),
@@ -58,11 +56,11 @@ class LiveServerViews(LiveServerBase):
         self.assertEqual(err.exception.code, 404, 'Expected 404 response')
 
     def test_view(self):
-        with contextlib.closing(self.urlopen('/example_view/')) as f:
+        with self.urlopen('/example_view/') as f:
             self.assertEqual(f.read(), b'example view')
 
     def test_static_files(self):
-        with contextlib.closing(self.urlopen('/static/example_static_file.txt')) as f:
+        with self.urlopen('/static/example_static_file.txt') as f:
             self.assertEqual(f.read().rstrip(b'\r\n'), b'example static file')
 
     def test_no_collectstatic_emulation(self):
@@ -76,11 +74,11 @@ class LiveServerViews(LiveServerBase):
         self.assertEqual(err.exception.code, 404, 'Expected 404 response')
 
     def test_media_files(self):
-        with contextlib.closing(self.urlopen('/media/example_media_file.txt')) as f:
+        with self.urlopen('/media/example_media_file.txt') as f:
             self.assertEqual(f.read().rstrip(b'\r\n'), b'example media file')
 
     def test_environ(self):
-        with contextlib.closing(self.urlopen('/environ_view/?%s' % urlencode({'q': 'тест'}))) as f:
+        with self.urlopen('/environ_view/?%s' % urlencode({'q': 'тест'})) as f:
             self.assertIn(b"QUERY_STRING: 'q=%D1%82%D0%B5%D1%81%D1%82'", f.read())
 
 
@@ -90,7 +88,7 @@ class LiveServerDatabase(LiveServerBase):
         """
         Fixtures are properly loaded and visible to the live server thread.
         """
-        with contextlib.closing(self.urlopen('/model_view/')) as f:
+        with self.urlopen('/model_view/') as f:
             self.assertEqual(f.read().splitlines(), [b'jane', b'robert'])
 
     def test_database_writes(self):
@@ -112,7 +110,7 @@ class LiveServerPort(LiveServerBase):
         Each LiveServerTestCase binds to a unique port or fails to start a
         server thread when run concurrently (#26011).
         """
-        TestCase = type(str("TestCase"), (LiveServerBase,), {})
+        TestCase = type("TestCase", (LiveServerBase,), {})
         try:
             TestCase.setUpClass()
         except socket.error as e:

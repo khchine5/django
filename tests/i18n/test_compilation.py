@@ -2,7 +2,9 @@ import gettext as gettext_module
 import os
 import stat
 import unittest
+from io import StringIO
 from subprocess import Popen
+from unittest import mock
 
 from django.core.management import (
     CommandError, call_command, execute_from_command_line,
@@ -10,11 +12,10 @@ from django.core.management import (
 from django.core.management.commands.makemessages import \
     Command as MakeMessagesCommand
 from django.core.management.utils import find_command
-from django.test import SimpleTestCase, mock, override_settings
+from django.test import SimpleTestCase, override_settings
 from django.test.utils import captured_stderr, captured_stdout
 from django.utils import translation
 from django.utils.encoding import force_text
-from django.utils.six import StringIO
 from django.utils.translation import ugettext
 
 from .utils import RunInTmpDirMixin, copytree
@@ -142,7 +143,7 @@ class CompilationErrorHandling(MessageCompilationTests):
         # po file contains invalid msgstr content (triggers non-ascii error content).
         # Make sure the output of msgfmt is unaffected by the current locale.
         env = os.environ.copy()
-        env.update({str('LANG'): str('C')})
+        env.update({'LANG': 'C'})
         with mock.patch('django.core.management.utils.Popen', lambda *args, **kwargs: Popen(*args, env=env, **kwargs)):
             cmd = MakeMessagesCommand()
             if cmd.gettext_version < (0, 18, 3):

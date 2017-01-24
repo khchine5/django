@@ -2,22 +2,20 @@ import base64
 import calendar
 import datetime
 import re
-import sys
 import unicodedata
 import warnings
 from binascii import Error as BinasciiError
 from email.utils import formatdate
+from urllib.parse import (
+    quote, quote_plus, unquote, unquote_plus, urlencode as original_urlencode,
+    urlparse,
+)
 
 from django.core.exceptions import TooManyFieldsSent
-from django.utils import six
 from django.utils.datastructures import MultiValueDict
 from django.utils.deprecation import RemovedInDjango21Warning
 from django.utils.encoding import force_bytes, force_str, force_text
 from django.utils.functional import keep_lazy_text
-from django.utils.six.moves.urllib.parse import (
-    quote, quote_plus, unquote, unquote_plus, urlencode as original_urlencode,
-    urlparse,
-)
 
 # based on RFC 7232, Appendix C
 ETAG_MATCH = re.compile(r'''
@@ -40,8 +38,8 @@ RFC1123_DATE = re.compile(r'^\w{3}, %s %s %s %s GMT$' % (__D, __M, __Y, __T))
 RFC850_DATE = re.compile(r'^\w{6,9}, %s-%s-%s %s GMT$' % (__D, __M, __Y2, __T))
 ASCTIME_DATE = re.compile(r'^\w{3} %s %s %s %s$' % (__M, __D2, __T, __Y))
 
-RFC3986_GENDELIMS = str(":/?#[]@")
-RFC3986_SUBDELIMS = str("!$&'()*+,;=")
+RFC3986_GENDELIMS = ":/?#[]@"
+RFC3986_SUBDELIMS = "!$&'()*+,;="
 
 FIELDS_MATCH = re.compile('[&;]')
 
@@ -163,8 +161,8 @@ def parse_http_date(date):
         sec = int(m.group('sec'))
         result = datetime.datetime(year, month, day, hour, min, sec)
         return calendar.timegm(result.utctimetuple())
-    except Exception:
-        six.reraise(ValueError, ValueError("%r is not a valid date" % date), sys.exc_info()[2])
+    except Exception as exc:
+        raise ValueError("%r is not a valid date" % date) from exc
 
 
 def parse_http_date_safe(date):
@@ -185,7 +183,7 @@ def base36_to_int(s):
     input won't fit into an int.
     """
     # To prevent overconsumption of server resources, reject any
-    # base36 string that is long than 13 base36 digits (13 digits
+    # base36 string that is longer than 13 base36 digits (13 digits
     # is sufficient to base36-encode any 64-bit integer)
     if len(s) > 13:
         raise ValueError("Base36 input too large")
@@ -365,7 +363,7 @@ def limited_parse_qsl(qs, keep_blank_values=False, encoding='utf-8',
     for name_value in pairs:
         if not name_value:
             continue
-        nv = name_value.split(str('='), 1)
+        nv = name_value.split('=', 1)
         if len(nv) != 2:
             # Handle case of a control-name with no equal sign
             if keep_blank_values:

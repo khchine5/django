@@ -33,7 +33,7 @@ class UpdateError(Exception):
     pass
 
 
-class SessionBase(object):
+class SessionBase:
     """
     Base class for all Session classes.
     """
@@ -130,15 +130,6 @@ class SessionBase(object):
 
     def items(self):
         return self._session.items()
-
-    def iterkeys(self):
-        return self._session.iterkeys()
-
-    def itervalues(self):
-        return self._session.itervalues()
-
-    def iteritems(self):
-        return self._session.iteritems()
 
     def clear(self):
         # To avoid unnecessary persistent storage accesses, we set up the

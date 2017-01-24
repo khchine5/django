@@ -1,15 +1,14 @@
+import html.entities
 import re
 import unicodedata
 from gzip import GzipFile
 from io import BytesIO
 
-from django.utils import six
 from django.utils.encoding import force_text
 from django.utils.functional import (
     SimpleLazyObject, keep_lazy, keep_lazy_text, lazy,
 )
 from django.utils.safestring import SafeText, mark_safe
-from django.utils.six.moves import html_entities
 from django.utils.translation import pgettext, ugettext as _, ugettext_lazy
 
 
@@ -20,8 +19,8 @@ def capfirst(x):
 
 
 # Set up regular expressions
-re_words = re.compile(r'<.*?>|((?:\w[-\w]*|&.*?;)+)', re.U | re.S)
-re_chars = re.compile(r'<.*?>|(.)', re.U | re.S)
+re_words = re.compile(r'<.*?>|((?:\w[-\w]*|&.*?;)+)', re.S)
+re_chars = re.compile(r'<.*?>|(.)', re.S)
 re_tag = re.compile(r'<(/)?([^ ]+?)(?:(\s*/)| .*?)?>', re.S)
 re_newlines = re.compile(r'\r\n|\r')  # Used in normalize_newlines
 re_camel_case = re.compile(r'(((?<=[a-z])[A-Z])|([A-Z](?![A-Z]|$)))')
@@ -292,7 +291,7 @@ def compress_string(s):
     return zbuf.getvalue()
 
 
-class StreamingBuffer(object):
+class StreamingBuffer:
     def __init__(self):
         self.vals = []
 
@@ -369,12 +368,12 @@ def _replace_entity(match):
                 c = int(text[1:], 16)
             else:
                 c = int(text)
-            return six.unichr(c)
+            return chr(c)
         except ValueError:
             return match.group(0)
     else:
         try:
-            return six.unichr(html_entities.name2codepoint[text])
+            return chr(html.entities.name2codepoint[text])
         except (ValueError, KeyError):
             return match.group(0)
 
@@ -418,8 +417,8 @@ def slugify(value, allow_unicode=False):
     value = force_text(value)
     if allow_unicode:
         value = unicodedata.normalize('NFKC', value)
-        value = re.sub(r'[^\w\s-]', '', value, flags=re.U).strip().lower()
-        return mark_safe(re.sub(r'[-\s]+', '-', value, flags=re.U))
+        value = re.sub(r'[^\w\s-]', '', value).strip().lower()
+        return mark_safe(re.sub(r'[-\s]+', '-', value))
     value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode('ascii')
     value = re.sub(r'[^\w\s-]', '', value).strip().lower()
     return mark_safe(re.sub(r'[-\s]+', '-', value))

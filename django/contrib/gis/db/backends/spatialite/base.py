@@ -1,12 +1,10 @@
-import sys
 from ctypes.util import find_library
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db.backends.sqlite3.base import (
-    Database, DatabaseWrapper as SQLiteDatabaseWrapper, SQLiteCursorWrapper,
+    DatabaseWrapper as SQLiteDatabaseWrapper, SQLiteCursorWrapper,
 )
-from django.utils import six
 
 from .client import SpatiaLiteClient
 from .features import DatabaseFeatures
@@ -24,11 +22,6 @@ class DatabaseWrapper(SQLiteDatabaseWrapper):
     ops_class = SpatiaLiteOperations
 
     def __init__(self, *args, **kwargs):
-        # Before we get too far, make sure pysqlite 2.5+ is installed.
-        if Database.version_info < (2, 5, 0):
-            raise ImproperlyConfigured('Only versions of pysqlite 2.5+ are '
-                                       'compatible with SpatiaLite and GeoDjango.')
-
         # Trying to find the location of the SpatiaLite library.
         # Here we are figuring out the path to the SpatiaLite library
         # (`libspatialite`). If it's not in the system library path (e.g., it
@@ -50,19 +43,18 @@ class DatabaseWrapper(SQLiteDatabaseWrapper):
             conn.enable_load_extension(True)
         except AttributeError:
             raise ImproperlyConfigured(
-                'The pysqlite library does not support C extension loading. '
-                'Both SQLite and pysqlite must be configured to allow '
-                'the loading of extensions to use SpatiaLite.')
+                'SpatiaLite requires SQLite to be configured to allow '
+                'extension loading.'
+            )
         # Loading the SpatiaLite library extension on the connection, and returning
         # the created cursor.
         cur = conn.cursor(factory=SQLiteCursorWrapper)
         try:
             cur.execute("SELECT load_extension(%s)", (self.spatialite_lib,))
-        except Exception as msg:
-            new_msg = (
-                'Unable to load the SpatiaLite library extension '
-                '"%s" because: %s') % (self.spatialite_lib, msg)
-            six.reraise(ImproperlyConfigured, ImproperlyConfigured(new_msg), sys.exc_info()[2])
+        except Exception as exc:
+            raise ImproperlyConfigured(
+                'Unable to load the SpatiaLite library extension "%s"' % self.spatialite_lib
+            ) from exc
         cur.close()
         return conn
 

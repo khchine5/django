@@ -1,18 +1,17 @@
 import sys
+from io import StringIO
 
 from django.apps import apps
 from django.conf import settings
 from django.core import serializers
 from django.db import router
-from django.utils.six import StringIO
-from django.utils.six.moves import input
 
 # The prefix to put on the default database name when creating
 # the test database.
 TEST_DATABASE_PREFIX = 'test_'
 
 
-class BaseDatabaseCreation(object):
+class BaseDatabaseCreation:
     """
     This class encapsulates all backend-specific differences that pertain to
     creation and destruction of the test database.

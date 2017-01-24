@@ -2,14 +2,14 @@
 Timezone-related classes and functions.
 """
 
+import functools
+from contextlib import ContextDecorator
 from datetime import datetime, timedelta, tzinfo
 from threading import local
 
 import pytz
 
 from django.conf import settings
-from django.utils import lru_cache
-from django.utils.decorators import ContextDecorator
 
 __all__ = [
     'utc', 'get_fixed_timezone',
@@ -69,7 +69,7 @@ def get_fixed_timezone(offset):
 
 # In order to avoid accessing settings at compile time,
 # wrap the logic in a function and cache the result.
-@lru_cache.lru_cache()
+@functools.lru_cache()
 def get_default_timezone():
     """
     Returns the default time zone as a tzinfo instance.

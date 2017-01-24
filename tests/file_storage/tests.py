@@ -7,6 +7,8 @@ import threading
 import time
 import unittest
 from datetime import datetime, timedelta
+from io import StringIO
+from urllib.request import urlopen
 
 from django.core.cache import cache
 from django.core.exceptions import SuspiciousFileOperation, SuspiciousOperation
@@ -21,9 +23,7 @@ from django.test import (
 )
 from django.test.utils import requires_tz_support
 from django.urls import NoReverseMatch, reverse_lazy
-from django.utils import six, timezone
-from django.utils._os import upath
-from django.utils.six.moves.urllib.request import urlopen
+from django.utils import timezone
 
 from .models import Storage, temp_storage, temp_storage_location
 
@@ -44,7 +44,7 @@ class GetStorageClassTests(SimpleTestCase):
         """
         get_storage_class raises an error if the requested import don't exist.
         """
-        with self.assertRaisesRegex(ImportError, "No module named '?storage'?"):
+        with self.assertRaisesMessage(ImportError, "No module named 'storage'"):
             get_storage_class('storage.NonExistingStorage')
 
     def test_get_nonexisting_storage_class(self):
@@ -58,8 +58,7 @@ class GetStorageClassTests(SimpleTestCase):
         """
         get_storage_class raises an error if the requested module don't exist.
         """
-        # Error message may or may not be the fully qualified path.
-        with self.assertRaisesRegex(ImportError, "No module named '?(django.core.files.)?non_existing_storage'?"):
+        with self.assertRaisesMessage(ImportError, "No module named 'django.core.files.non_existing_storage'"):
             get_storage_class('django.core.files.non_existing_storage.NonExistingStorage')
 
 
@@ -108,7 +107,7 @@ class FileStorageTests(SimpleTestCase):
         """
         storage = self.storage_class(location='')
         self.assertEqual(storage.base_location, '')
-        self.assertEqual(storage.location, upath(os.getcwd()))
+        self.assertEqual(storage.location, os.getcwd())
 
     def test_file_access_options(self):
         """
@@ -301,7 +300,7 @@ class FileStorageTests(SimpleTestCase):
             self.assertFalse(file.closed)
             self.assertFalse(file.file.closed)
 
-        file = InMemoryUploadedFile(six.StringIO('1'), '', 'test', 'text/plain', 1, 'utf8')
+        file = InMemoryUploadedFile(StringIO('1'), '', 'test', 'text/plain', 1, 'utf8')
         with file:
             self.assertFalse(file.closed)
             self.storage.save('path/to/test.file', file)
@@ -578,7 +577,7 @@ class DiscardingFalseContentStorageTests(FileStorageTests):
         When Storage.save() wraps a file-like object in File, it should include
         the name argument so that bool(file) evaluates to True (#26495).
         """
-        output = six.StringIO('content')
+        output = StringIO('content')
         self.storage.save('tests/stringio', output)
         self.assertTrue(self.storage.exists('tests/stringio'))
 
@@ -788,7 +787,7 @@ class FileFieldStorageTests(TestCase):
 
     def test_stringio(self):
         # Test passing StringIO instance as content argument to save
-        output = six.StringIO()
+        output = StringIO()
         output.write('content')
         output.seek(0)
 

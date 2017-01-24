@@ -1,6 +1,7 @@
 import errno
 import os
 from datetime import datetime
+from urllib.parse import urljoin
 
 from django.conf import settings
 from django.core.exceptions import SuspiciousFileOperation
@@ -8,19 +9,18 @@ from django.core.files import File, locks
 from django.core.files.move import file_move_safe
 from django.core.signals import setting_changed
 from django.utils import timezone
-from django.utils._os import abspathu, safe_join
+from django.utils._os import safe_join
 from django.utils.crypto import get_random_string
 from django.utils.deconstruct import deconstructible
 from django.utils.encoding import filepath_to_uri, force_text
 from django.utils.functional import LazyObject, cached_property
 from django.utils.module_loading import import_string
-from django.utils.six.moves.urllib.parse import urljoin
 from django.utils.text import get_valid_filename
 
 __all__ = ('Storage', 'FileSystemStorage', 'DefaultStorage', 'default_storage')
 
 
-class Storage(object):
+class Storage:
     """
     A base storage class, providing some default behaviors that all other
     storage systems can inherit or override, as necessary.
@@ -201,7 +201,7 @@ class FileSystemStorage(Storage):
 
     @cached_property
     def location(self):
-        return abspathu(self.base_location)
+        return os.path.abspath(self.base_location)
 
     @cached_property
     def base_url(self):

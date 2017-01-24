@@ -1,8 +1,10 @@
+from unittest import mock
+
 from django.apps.registry import Apps
 from django.db import models
 from django.db.models import signals
 from django.dispatch import receiver
-from django.test import TestCase, mock
+from django.test import TestCase
 from django.test.utils import isolate_apps
 
 from .models import Author, Book, Car, Person
@@ -122,7 +124,7 @@ class SignalTests(BaseSignalTest):
             )
 
         # #8285: signals can be any callable
-        class PostDeleteHandler(object):
+        class PostDeleteHandler:
             def __init__(self, data):
                 self.data = data
 
@@ -247,7 +249,7 @@ class SignalTests(BaseSignalTest):
         dispatching.
         """
 
-        class Handler(object):
+        class Handler:
             def __init__(self, param):
                 self.param = param
                 self._run = False

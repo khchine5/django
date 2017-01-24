@@ -1,13 +1,13 @@
 import datetime
 import decimal
+import enum
 import functools
 import math
 import os
 import re
 import sys
-import tokenize
-import unittest
 import uuid
+from unittest import mock
 
 import custom_migration_operations.more_operations
 import custom_migration_operations.operations
@@ -19,21 +19,14 @@ from django.db import migrations, models
 from django.db.migrations.writer import (
     MigrationWriter, OperationWriter, SettingsReference,
 )
-from django.test import SimpleTestCase, ignore_warnings, mock
-from django.utils import datetime_safe, six
-from django.utils._os import upath
+from django.test import SimpleTestCase
+from django.utils import datetime_safe
 from django.utils.deconstruct import deconstructible
-from django.utils.encoding import force_str
 from django.utils.functional import SimpleLazyObject
 from django.utils.timezone import FixedOffset, get_default_timezone, utc
 from django.utils.translation import ugettext_lazy as _
 
 from .models import FoodManager, FoodQuerySet
-
-try:
-    import enum
-except ImportError:
-    enum = None
 
 PY36 = sys.version_info >= (3, 6)
 
@@ -174,7 +167,7 @@ class WriterTests(SimpleTestCase):
     def safe_exec(self, string, value=None):
         d = {}
         try:
-            exec(force_str(string), globals(), d)
+            exec(string, globals(), d)
         except Exception as e:
             if value:
                 self.fail("Could not exec %r (from value %r): %s" % (string.strip(), value, e))
@@ -254,11 +247,10 @@ class WriterTests(SimpleTestCase):
         )
 
     def test_serialize_lazy_objects(self):
-        pattern = re.compile(r'^foo$', re.UNICODE)
+        pattern = re.compile(r'^foo$')
         lazy_pattern = SimpleLazyObject(lambda: pattern)
         self.assertEqual(self.serialize_round_trip(lazy_pattern), pattern)
 
-    @unittest.skipUnless(enum, "enum34 is required on Python 2")
     def test_serialize_enums(self):
         class TextEnum(enum.Enum):
             A = 'a-value'
@@ -411,7 +403,7 @@ class WriterTests(SimpleTestCase):
         """
         Make sure compiled regex can be serialized.
         """
-        regex = re.compile(r'^\w+$', re.U)
+        regex = re.compile(r'^\w+$')
         self.assertSerializedEqual(regex)
 
     def test_serialize_class_based_validators(self):
@@ -425,18 +417,18 @@ class WriterTests(SimpleTestCase):
         self.serialize_round_trip(validator)
 
         # Test with a compiled regex.
-        validator = RegexValidator(regex=re.compile(r'^\w+$', re.U))
+        validator = RegexValidator(regex=re.compile(r'^\w+$'))
         string = MigrationWriter.serialize(validator)[0]
-        self.assertEqual(string, "django.core.validators.RegexValidator(regex=re.compile('^\\\\w+$', 32))")
+        self.assertEqual(string, "django.core.validators.RegexValidator(regex=re.compile('^\\\\w+$'))")
         self.serialize_round_trip(validator)
 
         # Test a string regex with flag
-        validator = RegexValidator(r'^[0-9]+$', flags=re.U)
+        validator = RegexValidator(r'^[0-9]+$', flags=re.S)
         string = MigrationWriter.serialize(validator)[0]
         if PY36:
-            self.assertEqual(string, "django.core.validators.RegexValidator('^[0-9]+$', flags=re.RegexFlag(32))")
+            self.assertEqual(string, "django.core.validators.RegexValidator('^[0-9]+$', flags=re.RegexFlag(16))")
         else:
-            self.assertEqual(string, "django.core.validators.RegexValidator('^[0-9]+$', flags=32)")
+            self.assertEqual(string, "django.core.validators.RegexValidator('^[0-9]+$', flags=16)")
         self.serialize_round_trip(validator)
 
         # Test message and code
@@ -456,7 +448,7 @@ class WriterTests(SimpleTestCase):
         self.assertEqual(string, "migrations.test_writer.EmailValidator(message='hello')")
 
         validator = deconstructible(path="custom.EmailValidator")(EmailValidator)(message="hello")
-        with self.assertRaisesRegex(ImportError, "No module named '?custom'?"):
+        with self.assertRaisesMessage(ImportError, "No module named 'custom'"):
             MigrationWriter.serialize(validator)
 
         validator = deconstructible(path="django.core.validators.EmailValidator2")(EmailValidator)(message="hello")
@@ -484,7 +476,7 @@ class WriterTests(SimpleTestCase):
         """
         Neither py2 or py3 can serialize a reference in a local scope.
         """
-        class TestModel2(object):
+        class TestModel2:
             def upload_to(self):
                 return "somewhere dynamic"
             thing = models.FileField(upload_to=upload_to)
@@ -495,7 +487,7 @@ class WriterTests(SimpleTestCase):
         """
         Make sure user is seeing which module/function is the issue
         """
-        class TestModel2(object):
+        class TestModel2:
             def upload_to(self):
                 return "somewhere dynamic"
             thing = models.FileField(upload_to=upload_to)
@@ -541,7 +533,7 @@ class WriterTests(SimpleTestCase):
             'verbose_name_plural': 'My models',
         }
 
-        migration = type(str("Migration"), (migrations.Migration,), {
+        migration = type("Migration", (migrations.Migration,), {
             "operations": [
                 migrations.CreateModel("MyModel", tuple(fields.items()), options, (models.Model,)),
                 migrations.CreateModel("MyModel2", tuple(fields.items()), bases=(models.Model,)),
@@ -559,22 +551,7 @@ class WriterTests(SimpleTestCase):
         # Just make sure it runs for now, and that things look alright.
         result = self.safe_exec(output)
         self.assertIn("Migration", result)
-        # In order to preserve compatibility with Python 3.2 unicode literals
-        # prefix shouldn't be added to strings.
-        tokens = tokenize.generate_tokens(six.StringIO(str(output)).readline)
-        for token_type, token_source, (srow, scol), __, line in tokens:
-            if token_type == tokenize.STRING:
-                self.assertFalse(
-                    token_source.startswith('u'),
-                    "Unicode literal prefix found at %d:%d: %r" % (
-                        srow, scol, line.strip()
-                    )
-                )
 
-    # Silence warning on Python 2: Not importing directory
-    # 'tests/migrations/migrations_test_apps/without_init_file/migrations':
-    # missing __init__.py
-    @ignore_warnings(category=ImportWarning)
     def test_migration_path(self):
         test_apps = [
             'migrations.migrations_test_apps.normal',
@@ -582,7 +559,7 @@ class WriterTests(SimpleTestCase):
             'migrations.migrations_test_apps.without_init_file',
         ]
 
-        base_dir = os.path.dirname(os.path.dirname(upath(__file__)))
+        base_dir = os.path.dirname(os.path.dirname(__file__))
 
         for app in test_apps:
             with self.modify_settings(INSTALLED_APPS={'append': app}):
@@ -592,7 +569,7 @@ class WriterTests(SimpleTestCase):
                 self.assertEqual(writer.path, expected_path)
 
     def test_custom_operation(self):
-        migration = type(str("Migration"), (migrations.Migration,), {
+        migration = type("Migration", (migrations.Migration,), {
             "operations": [
                 custom_migration_operations.operations.TestOperation(),
                 custom_migration_operations.operations.CreateModel(),
@@ -614,7 +591,7 @@ class WriterTests(SimpleTestCase):
         """
         #24155 - Tests ordering of imports.
         """
-        migration = type(str("Migration"), (migrations.Migration,), {
+        migration = type("Migration", (migrations.Migration,), {
             "operations": [
                 migrations.AddField("mymodel", "myfield", models.DateTimeField(
                     default=datetime.datetime(2012, 1, 1, 1, 1, tzinfo=utc),
@@ -634,7 +611,7 @@ class WriterTests(SimpleTestCase):
         """
         Test comments at top of file.
         """
-        migration = type(str("Migration"), (migrations.Migration,), {
+        migration = type("Migration", (migrations.Migration,), {
             "operations": []
         })
         dt = datetime.datetime(2015, 7, 31, 4, 40, 0, 0, tzinfo=utc)
@@ -654,7 +631,7 @@ class WriterTests(SimpleTestCase):
         """
         django.db.models shouldn't be imported if unused.
         """
-        migration = type(str("Migration"), (migrations.Migration,), {
+        migration = type("Migration", (migrations.Migration,), {
             "operations": [
                 migrations.AlterModelOptions(
                     name='model',
@@ -670,7 +647,7 @@ class WriterTests(SimpleTestCase):
         # Yes, it doesn't make sense to use a class as a default for a
         # CharField. It does make sense for custom fields though, for example
         # an enumfield that takes the enum class as an argument.
-        class DeconstructibleInstances(object):
+        class DeconstructibleInstances:
             def deconstruct(self):
                 return ('DeconstructibleInstances', [], {})
 
