@@ -102,7 +102,7 @@ class URLValidator(RegexValidator):
     schemes = ['http', 'https', 'ftp', 'ftps']
 
     def __init__(self, schemes=None, **kwargs):
-        super(URLValidator, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         if schemes is not None:
             self.schemes = schemes
 
@@ -115,7 +115,7 @@ class URLValidator(RegexValidator):
 
         # Then check full URL
         try:
-            super(URLValidator, self).__call__(value)
+            super().__call__(value)
         except ValidationError as e:
             # Trivial case failed. Try for possible IDN domain
             if value:
@@ -128,7 +128,7 @@ class URLValidator(RegexValidator):
                 except UnicodeError:  # invalid domain part
                     raise e
                 url = urlunsplit((scheme, netloc, path, query, fragment))
-                super(URLValidator, self).__call__(url)
+                super().__call__(url)
             else:
                 raise
         else:
@@ -140,7 +140,6 @@ class URLValidator(RegexValidator):
                     validate_ipv6_address(potential_ip)
                 except ValidationError:
                     raise ValidationError(self.message, code=self.code)
-            url = value
 
         # The maximum length of a full host name is 253 characters per RFC 1034
         # section 3.1. It's defined to be 255 bytes or less, but this includes

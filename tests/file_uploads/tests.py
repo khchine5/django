@@ -1,5 +1,4 @@
 import base64
-import errno
 import hashlib
 import json
 import os
@@ -29,14 +28,14 @@ class FileUploadTests(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        super(FileUploadTests, cls).setUpClass()
+        super().setUpClass()
         if not os.path.isdir(MEDIA_ROOT):
             os.makedirs(MEDIA_ROOT)
 
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(MEDIA_ROOT)
-        super(FileUploadTests, cls).tearDownClass()
+        super().tearDownClass()
 
     def test_simple_upload(self):
         with open(__file__, 'rb') as fp:
@@ -476,7 +475,7 @@ class FileUploadTests(TestCase):
         class POSTAccessingHandler(client.ClientHandler):
             """A handler that'll access POST during an exception."""
             def handle_uncaught_exception(self, request, resolver, exc_info):
-                ret = super(POSTAccessingHandler, self).handle_uncaught_exception(request, resolver, exc_info)
+                ret = super().handle_uncaught_exception(request, resolver, exc_info)
                 request.POST  # evaluate
                 return ret
 
@@ -547,14 +546,14 @@ class DirectoryCreationTests(SimpleTestCase):
     """
     @classmethod
     def setUpClass(cls):
-        super(DirectoryCreationTests, cls).setUpClass()
+        super().setUpClass()
         if not os.path.isdir(MEDIA_ROOT):
             os.makedirs(MEDIA_ROOT)
 
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(MEDIA_ROOT)
-        super(DirectoryCreationTests, cls).tearDownClass()
+        super().tearDownClass()
 
     def setUp(self):
         self.obj = FileModel()
@@ -564,9 +563,8 @@ class DirectoryCreationTests(SimpleTestCase):
         """Permission errors are not swallowed"""
         os.chmod(MEDIA_ROOT, 0o500)
         self.addCleanup(os.chmod, MEDIA_ROOT, 0o700)
-        with self.assertRaises(OSError) as cm:
+        with self.assertRaises(PermissionError):
             self.obj.testfile.save('foo.txt', SimpleUploadedFile('foo.txt', b'x'), save=False)
-        self.assertEqual(cm.exception.errno, errno.EACCES)
 
     def test_not_a_directory(self):
         """The correct IOError is raised when the upload directory name exists but isn't a directory"""
