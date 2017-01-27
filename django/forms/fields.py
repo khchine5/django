@@ -229,7 +229,7 @@ class CharField(Field):
             self.validators.append(validators.MaxLengthValidator(int(max_length)))
 
     def to_python(self, value):
-        "Returns a Unicode object."
+        "Returns a string."
         if value in self.empty_values:
             return self.empty_value
         value = force_text(value)
@@ -390,17 +390,13 @@ class BaseTemporalField(Field):
             self.input_formats = input_formats
 
     def to_python(self, value):
-        # Try to coerce the value to unicode.
-        unicode_value = force_text(value, strings_only=True)
-        if isinstance(unicode_value, str):
-            value = unicode_value.strip()
-        # If unicode, try to strptime against each input format.
-        if isinstance(value, str):
-            for format in self.input_formats:
-                try:
-                    return self.strptime(value, format)
-                except (ValueError, TypeError):
-                    continue
+        value = value.strip()
+        # Try to strptime against each input format.
+        for format in self.input_formats:
+            try:
+                return self.strptime(value, format)
+            except (ValueError, TypeError):
+                continue
         raise ValidationError(self.error_messages['invalid'], code='invalid')
 
     def strptime(self, value, format):
@@ -799,7 +795,7 @@ class ChoiceField(Field):
     choices = property(_get_choices, _set_choices)
 
     def to_python(self, value):
-        "Returns a Unicode object."
+        "Return a string."
         if value in self.empty_values:
             return ''
         return force_text(value)
