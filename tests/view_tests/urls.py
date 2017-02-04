@@ -56,7 +56,7 @@ urlpatterns = [
     url(r'^$', views.index_page),
 
     # Default views
-    url(r'^non_existing_url/', partial(defaults.page_not_found, exception=None)),
+    url(r'^nonexistent_url/', partial(defaults.page_not_found, exception=None)),
     url(r'^server_error/', defaults.server_error),
 
     # a view that raises an exception for the debug view
@@ -96,8 +96,7 @@ urlpatterns += i18n_patterns(
 )
 
 urlpatterns += [
-    url(r'view_exception/(?P<n>[0-9]+)/$', views.view_exception, name='view_exception'),
-    url(r'template_exception/(?P<n>[0-9]+)/$', views.template_exception, name='template_exception'),
+    url(r'template_exception/$', views.template_exception, name='template_exception'),
     url(
         r'^raises_template_does_not_exist/(?P<path>.+)$',
         views.raises_template_does_not_exist,

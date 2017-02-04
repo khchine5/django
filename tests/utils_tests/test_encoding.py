@@ -2,14 +2,15 @@ import datetime
 import unittest
 from urllib.parse import quote_plus
 
+from django.test import SimpleTestCase
 from django.utils.encoding import (
-    escape_uri_path, filepath_to_uri, force_bytes, force_text, iri_to_uri,
-    smart_text, uri_to_iri,
+    DjangoUnicodeDecodeError, escape_uri_path, filepath_to_uri, force_bytes,
+    force_text, iri_to_uri, smart_text, uri_to_iri,
 )
 from django.utils.functional import SimpleLazyObject
 
 
-class TestEncodingUtils(unittest.TestCase):
+class TestEncodingUtils(SimpleTestCase):
     def test_force_text_exception(self):
         """
         Broken __str__ actually raises an error.
@@ -26,6 +27,14 @@ class TestEncodingUtils(unittest.TestCase):
         s = SimpleLazyObject(lambda: 'x')
         self.assertTrue(type(force_text(s)), str)
 
+    def test_force_text_DjangoUnicodeDecodeError(self):
+        msg = (
+            "'utf-8' codec can't decode byte 0xff in position 0: invalid "
+            "start byte. You passed in b'\\xff' (<class 'bytes'>)"
+        )
+        with self.assertRaisesMessage(DjangoUnicodeDecodeError, msg):
+            force_text(b'\xff')
+
     def test_force_bytes_exception(self):
         """
         force_bytes knows how to convert to bytes an exception
@@ -33,8 +42,8 @@ class TestEncodingUtils(unittest.TestCase):
         """
         error_msg = "This is an exception, voilà"
         exc = ValueError(error_msg)
-        result = force_bytes(exc)
-        self.assertEqual(result, error_msg.encode('utf-8'))
+        self.assertEqual(force_bytes(exc), error_msg.encode('utf-8'))
+        self.assertEqual(force_bytes(exc, encoding='ascii', errors='ignore'), b'This is an exception, voil')
 
     def test_force_bytes_strings_only(self):
         today = datetime.date.today()
