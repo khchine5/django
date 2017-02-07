@@ -220,7 +220,10 @@ bytestrings in certain code paths.
 Database backend API
 --------------------
 
-* ...
+* The ``DatabaseOperations.datetime_cast_date_sql()``,
+  ``datetime_cast_time_sql()``, ``datetime_trunc_sql()``, and
+  ``datetime_extract_sql()`` methods now return only the SQL to perform the
+  operation instead of SQL and a list of parameters.
 
 Dropped support for Oracle 11.2
 -------------------------------
@@ -427,7 +430,7 @@ these features.
   ``_apply_rel_filters()`` method is removed.
 
 * Using ``User.is_authenticated()`` and ``User.is_anonymous()`` as methods
-  rather than properties is no longer be supported.
+  rather than properties is no longer supported.
 
 * The  ``Model._meta.virtual_fields`` attribute is removed.
 
