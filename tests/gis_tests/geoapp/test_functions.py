@@ -118,8 +118,11 @@ class GISFunctionsTests(TestCase):
             City.objects.annotate(kml=functions.AsKML('name'))
 
         # Ensuring the KML is as expected.
-        ptown = City.objects.annotate(kml=functions.AsKML('point', precision=9)).get(name='Pueblo')
+        qs = City.objects.annotate(kml=functions.AsKML('point', precision=9))
+        ptown = qs.get(name='Pueblo')
         self.assertEqual('<Point><coordinates>-104.609252,38.255001</coordinates></Point>', ptown.kml)
+        # Same result if the queryset is evaluated again.
+        self.assertEqual(qs.get(name='Pueblo').kml, ptown.kml)
 
     @skipUnlessDBFeature("has_AsSVG_function")
     def test_assvg(self):
@@ -260,6 +263,19 @@ class GISFunctionsTests(TestCase):
             if isinstance(result, Area):
                 result = result.sq_m
             self.assertAlmostEqual((result - c.mpoly.area) / c.mpoly.area, 0)
+
+    @skipUnlessDBFeature("has_Area_function")
+    def test_area_lookups(self):
+        # Create projected countries so the test works on all backends.
+        CountryWebMercator.objects.bulk_create(
+            CountryWebMercator(name=c.name, mpoly=c.mpoly.transform(3857, clone=True))
+            for c in Country.objects.all()
+        )
+        qs = CountryWebMercator.objects.annotate(area=functions.Area('mpoly'))
+        self.assertEqual(qs.get(area__lt=Area(sq_km=500000)), CountryWebMercator.objects.get(name='New Zealand'))
+
+        with self.assertRaisesMessage(ValueError, 'AreaField only accepts Area measurement objects.'):
+            qs.get(area__lt=500000)
 
     @skipUnlessDBFeature("has_MakeValid_function")
     def test_make_valid(self):
