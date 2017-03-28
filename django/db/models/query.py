@@ -319,10 +319,9 @@ class QuerySet:
         if self.query.distinct_fields:
             raise NotImplementedError("aggregate() + distinct(fields) not implemented.")
         for arg in args:
-            # The default_alias property may raise a TypeError, so we use
-            # a try/except construct rather than hasattr in order to remain
-            # consistent between PY2 and PY3 (hasattr would swallow
-            # the TypeError on PY2).
+            # The default_alias property raises TypeError if default_alias
+            # can't be set automatically or AttributeError if it isn't an
+            # attribute.
             try:
                 arg.default_alias
             except (AttributeError, TypeError):
@@ -565,7 +564,17 @@ class QuerySet:
         if id_list is not None:
             if not id_list:
                 return {}
-            qs = self.filter(pk__in=id_list).order_by()
+            batch_size = connections[self.db].features.max_query_params
+            id_list = tuple(id_list)
+            # If the database has a limit on the number of query parameters
+            # (e.g. SQLite), retrieve objects in batches if necessary.
+            if batch_size and batch_size < len(id_list):
+                qs = ()
+                for offset in range(0, len(id_list), batch_size):
+                    batch = id_list[offset:offset + batch_size]
+                    qs += tuple(self.filter(pk__in=batch).order_by())
+            else:
+                qs = self.filter(pk__in=id_list).order_by()
         else:
             qs = self._clone()
         return {obj._get_pk_val(): obj for obj in qs}
@@ -870,16 +879,13 @@ class QuerySet:
         """
         annotations = OrderedDict()  # To preserve ordering of args
         for arg in args:
-            # The default_alias property may raise a TypeError, so we use
-            # a try/except construct rather than hasattr in order to remain
-            # consistent between PY2 and PY3 (hasattr would swallow
-            # the TypeError on PY2).
+            # The default_alias property may raise a TypeError.
             try:
                 if arg.default_alias in kwargs:
                     raise ValueError("The named annotation '%s' conflicts with the "
                                      "default name for another annotation."
                                      % arg.default_alias)
-            except (AttributeError, TypeError):
+            except TypeError:
                 raise TypeError("Complex annotations require an alias")
             annotations[arg.default_alias] = arg
         annotations.update(kwargs)
