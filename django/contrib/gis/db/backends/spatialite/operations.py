@@ -81,6 +81,7 @@ class SpatiaLiteOperations(BaseSpatialOperations, DatabaseOperations):
     def function_names(self):
         return {
             'Length': 'ST_Length',
+            'LineLocatePoint': 'ST_Line_Locate_Point',
             'NumPoints': 'ST_NPoints',
             'Reverse': 'ST_Reverse',
             'Scale': 'ScaleCoords',
@@ -92,7 +93,7 @@ class SpatiaLiteOperations(BaseSpatialOperations, DatabaseOperations):
     def unsupported_functions(self):
         unsupported = {'BoundingCircle', 'ForceRHR', 'MemSize'}
         if not self.lwgeom_version():
-            unsupported |= {'GeoHash', 'IsValid', 'MakeValid'}
+            unsupported |= {'Azimuth', 'GeoHash', 'IsValid', 'MakeValid'}
         return unsupported
 
     @cached_property

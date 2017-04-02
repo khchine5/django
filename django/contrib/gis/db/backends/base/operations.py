@@ -25,12 +25,12 @@ class BaseSpatialOperations:
 
     # Blacklist/set of known unsupported functions of the backend
     unsupported_functions = {
-        'Area', 'AsGeoJSON', 'AsGML', 'AsKML', 'AsSVG',
+        'Area', 'AsGeoJSON', 'AsGML', 'AsKML', 'AsSVG', 'Azimuth',
         'BoundingCircle', 'Centroid', 'Difference', 'Distance', 'Envelope',
-        'ForceRHR', 'GeoHash', 'Intersection', 'IsValid', 'Length', 'MakeValid',
-        'MemSize', 'NumGeometries', 'NumPoints', 'Perimeter', 'PointOnSurface',
-        'Reverse', 'Scale', 'SnapToGrid', 'SymDifference', 'Transform',
-        'Translate', 'Union',
+        'ForceRHR', 'GeoHash', 'Intersection', 'IsValid', 'Length',
+        'LineLocatePoint', 'MakeValid', 'MemSize', 'NumGeometries',
+        'NumPoints', 'Perimeter', 'PointOnSurface', 'Reverse', 'Scale',
+        'SnapToGrid', 'SymDifference', 'Transform', 'Translate', 'Union',
     }
 
     # Constructors

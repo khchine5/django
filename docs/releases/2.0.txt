@@ -62,7 +62,18 @@ Minor features
 :mod:`django.contrib.gis`
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* ...
+* Added MySQL support for the
+  :class:`~django.contrib.gis.db.models.functions.AsGeoJSON` function,
+  :class:`~django.contrib.gis.db.models.functions.GeoHash` function,
+  :class:`~django.contrib.gis.db.models.functions.IsValid` function, and
+  :lookup:`isvalid` lookup.
+
+* Added the :class:`~django.contrib.gis.db.models.functions.Azimuth` and
+  :class:`~django.contrib.gis.db.models.functions.LineLocatePoint` functions,
+  supported on PostGIS and SpatiaLite.
+
+* Any :class:`~django.contrib.gis.geos.GEOSGeometry` imported from GeoJSON now
+  has its SRID set.
 
 :mod:`django.contrib.messages`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -191,7 +202,9 @@ Signals
 Templates
 ~~~~~~~~~
 
-* ...
+* To increase the usefulness of :meth:`.Engine.get_default` in third-party
+  apps, it now returns the first engine if multiple ``DjangoTemplates`` engines
+  are configured in ``TEMPLATES`` rather than raising ``ImproperlyConfigured``.
 
 Tests
 ~~~~~
