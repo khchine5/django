@@ -374,6 +374,19 @@ class MailTests(HeadersCheckMixin, SimpleTestCase):
         self.assertEqual(payload[0].get_content_type(), 'multipart/alternative')
         self.assertEqual(payload[1].get_content_type(), 'application/pdf')
 
+    def test_attachments_two_tuple(self):
+        msg = EmailMessage(attachments=[('filename1', 'content1')])
+        filename, content, mimetype = self.get_decoded_attachments(msg)[0]
+        self.assertEqual(filename, 'filename1')
+        self.assertEqual(content, b'content1')
+        self.assertEqual(mimetype, 'application/octet-stream')
+
+    def test_attachments_MIMEText(self):
+        txt = MIMEText('content1')
+        msg = EmailMessage(attachments=[txt])
+        payload = msg.message().get_payload()
+        self.assertEqual(payload[0], txt)
+
     def test_non_ascii_attachment_filename(self):
         """Regression test for #14964"""
         headers = {"Date": "Fri, 09 Nov 2001 01:08:47 -0000", "Message-ID": "foo"}
