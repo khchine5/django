@@ -5,11 +5,13 @@ import re
 import sys
 import tempfile
 from io import StringIO
+from pathlib import Path
 
 from django.conf.urls import url
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError, connection
+from django.shortcuts import render
 from django.template import TemplateDoesNotExist
 from django.test import RequestFactory, SimpleTestCase, override_settings
 from django.test.utils import LoggingCaptureMixin, patch_logger
@@ -277,7 +279,7 @@ class ExceptionReporterTests(SimpleTestCase):
             exc_type, exc_value, tb = sys.exc_info()
         reporter = ExceptionReporter(request, exc_type, exc_value, tb)
         html = reporter.get_traceback_html()
-        self.assertIn('<h1>ValueError at /test_view/</h1>', html)
+        self.assertInHTML('<h1>ValueError at /test_view/</h1>', html)
         self.assertIn('<pre class="exception_value">Can&#39;t find my keys</pre>', html)
         self.assertIn('<th>Request Method:</th>', html)
         self.assertIn('<th>Request URL:</th>', html)
@@ -297,7 +299,7 @@ class ExceptionReporterTests(SimpleTestCase):
             exc_type, exc_value, tb = sys.exc_info()
         reporter = ExceptionReporter(None, exc_type, exc_value, tb)
         html = reporter.get_traceback_html()
-        self.assertIn('<h1>ValueError</h1>', html)
+        self.assertInHTML('<h1>ValueError</h1>', html)
         self.assertIn('<pre class="exception_value">Can&#39;t find my keys</pre>', html)
         self.assertNotIn('<th>Request Method:</th>', html)
         self.assertNotIn('<th>Request URL:</th>', html)
@@ -331,7 +333,7 @@ class ExceptionReporterTests(SimpleTestCase):
         request = self.rf.get('/test_view/')
         reporter = ExceptionReporter(request, None, None, None)
         html = reporter.get_traceback_html()
-        self.assertIn('<h1>Report at /test_view/</h1>', html)
+        self.assertInHTML('<h1>Report at /test_view/</h1>', html)
         self.assertIn('<pre class="exception_value">No exception message supplied</pre>', html)
         self.assertIn('<th>Request Method:</th>', html)
         self.assertIn('<th>Request URL:</th>', html)
@@ -374,7 +376,7 @@ class ExceptionReporterTests(SimpleTestCase):
         request = self.rf.get('/test_view/')
         reporter = ExceptionReporter(request, None, "I'm a little teapot", None)
         html = reporter.get_traceback_html()
-        self.assertIn('<h1>Report at /test_view/</h1>', html)
+        self.assertInHTML('<h1>Report at /test_view/</h1>', html)
         self.assertIn('<pre class="exception_value">I&#39;m a little teapot</pre>', html)
         self.assertIn('<th>Request Method:</th>', html)
         self.assertIn('<th>Request URL:</th>', html)
@@ -387,7 +389,7 @@ class ExceptionReporterTests(SimpleTestCase):
     def test_message_only(self):
         reporter = ExceptionReporter(None, None, "I'm a little teapot", None)
         html = reporter.get_traceback_html()
-        self.assertIn('<h1>Report</h1>', html)
+        self.assertInHTML('<h1>Report</h1>', html)
         self.assertIn('<pre class="exception_value">I&#39;m a little teapot</pre>', html)
         self.assertNotIn('<th>Request Method:</th>', html)
         self.assertNotIn('<th>Request URL:</th>', html)
@@ -455,7 +457,7 @@ class ExceptionReporterTests(SimpleTestCase):
             exc_type, exc_value, tb = sys.exc_info()
         reporter = ExceptionReporter(request, exc_type, exc_value, tb)
         html = reporter.get_traceback_html()
-        self.assertIn('<h1>%sError at /test_view/</h1>' % 'ModuleNotFound' if PY36 else 'Import', html)
+        self.assertInHTML('<h1>%sError at /test_view/</h1>' % ('ModuleNotFound' if PY36 else 'Import'), html)
 
     def test_ignore_traceback_evaluation_exceptions(self):
         """
@@ -542,7 +544,7 @@ class ExceptionReporterTests(SimpleTestCase):
 
         reporter = ExceptionReporter(request, exc_type, exc_value, tb)
         html = reporter.get_traceback_html()
-        self.assertIn('<h1>ValueError at /test_view/</h1>', html)
+        self.assertInHTML('<h1>ValueError at /test_view/</h1>', html)
         self.assertIn('<pre class="exception_value">Oops</pre>', html)
         self.assertIn('<h3 id="user-info">USER</h3>', html)
         self.assertIn('<p>[unable to retrieve the current user]</p>', html)
@@ -604,6 +606,26 @@ class PlainTextReportTests(SimpleTestCase):
         request = self.rf.get('/test_view/')
         reporter = ExceptionReporter(request, None, "I'm a little teapot", None)
         reporter.get_traceback_text()
+
+    @override_settings(DEBUG=True)
+    def test_template_exception(self):
+        request = self.rf.get('/test_view/')
+        try:
+            render(request, 'debug/template_error.html')
+        except Exception:
+            exc_type, exc_value, tb = sys.exc_info()
+        reporter = ExceptionReporter(request, exc_type, exc_value, tb)
+        text = reporter.get_traceback_text()
+        templ_path = Path(Path(__file__).parent.parent, 'templates', 'debug', 'template_error.html')
+        self.assertIn(
+            'Template error:\n'
+            'In template %(path)s, error at line 2\n'
+            '   \'cycle\' tag requires at least two arguments\n'
+            '   1 : Template with error:\n'
+            '   2 :  {%% cycle %%} \n'
+            '   3 : ' % {'path': templ_path},
+            text
+        )
 
     def test_request_with_items_key(self):
         """
