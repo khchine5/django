@@ -6,7 +6,6 @@ from django.db.backends.base.introspection import (
     BaseDatabaseIntrospection, FieldInfo, TableInfo,
 )
 from django.utils.deprecation import RemovedInDjango21Warning
-from django.utils.encoding import force_text
 
 
 class DatabaseIntrospection(BaseDatabaseIntrospection):
@@ -75,7 +74,7 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
             self.cache_bust_counter))
         description = []
         for desc in cursor.description:
-            name = force_text(desc[0])  # cx_Oracle always returns a 'str'
+            name = desc[0]
             internal_size, default = field_map[name]
             name = name % {}  # cx_Oracle, for some reason, doubles percent signs.
             description.append(FieldInfo(*(
@@ -90,13 +89,6 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
     def table_name_converter(self, name):
         """Table name comparison is case insensitive under Oracle."""
         return name.lower()
-
-    def _name_to_index(self, cursor, table_name):
-        """
-        Return a dictionary of {field_name: field_index} for the given table.
-        Indexes are 0-based.
-        """
-        return {d[0]: i for i, d in enumerate(self.get_table_description(cursor, table_name))}
 
     def get_relations(self, cursor, table_name):
         """
