@@ -1,0 +1,20 @@
+===========================
+Django 1.11.2 release notes
+===========================
+
+*Under development*
+
+Django 1.11.2 fixes several bugs in 1.11.1.
+
+Bugfixes
+========
+
+* Added detection for GDAL 2.1 and 2.0, and removed detection for unsupported
+  versions 1.7 and 1.8 (:ticket:`28181`).
+
+* Changed ``contrib.gis`` to raise ``ImproperlyConfigured`` rather than
+  ``GDALException`` if ``gdal`` isn't installed, to allow third-party apps to
+  catch that exception (:ticket:`28178`).
+
+* Fixed ``django.utils.http.is_safe_url()`` crash on invalid IPv6 URLs
+  (:ticket:`28142`).

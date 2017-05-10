@@ -11,13 +11,14 @@ from django.urls import reverse
 from django.utils.translation import (
     LANGUAGE_SESSION_KEY, get_language, override,
 )
+from django.views.i18n import get_formats
 
 from ..urls import locale_dir
 
 
 @override_settings(ROOT_URLCONF='view_tests.urls')
-class I18NTests(TestCase):
-    """ Tests django views in django/views/i18n.py """
+class SetLanguageTests(TestCase):
+    """Test the django.views.i18n.set_language view."""
 
     def _get_inactive_language_code(self):
         """Return language code for a language which is not activated."""
@@ -181,11 +182,16 @@ class I18NTests(TestCase):
 
 
 @override_settings(ROOT_URLCONF='view_tests.urls')
-class JsI18NTests(SimpleTestCase):
-    """
-    Tests views in django/views/i18n.py that need to change
-    settings.LANGUAGE_CODE.
-    """
+class I18NViewTests(SimpleTestCase):
+    """Test django.views.i18n views other than set_language."""
+    @override_settings(LANGUAGE_CODE='de')
+    def test_get_formats(self):
+        formats = get_formats()
+        # Test 3 possible types in get_formats: integer, string, and list.
+        self.assertEqual(formats['FIRST_DAY_OF_WEEK'], 0)
+        self.assertEqual(formats['DECIMAL_SEPARATOR'], '.')
+        self.assertEqual(formats['TIME_INPUT_FORMATS'], ['%H:%M:%S', '%H:%M:%S.%f', '%H:%M'])
+
     def test_jsi18n(self):
         """The javascript_catalog can be deployed with language settings"""
         for lang_code in ['es', 'fr', 'ru']:
@@ -217,6 +223,8 @@ class JsI18NTests(SimpleTestCase):
             data = json.loads(response.content.decode())
             self.assertIn('catalog', data)
             self.assertIn('formats', data)
+            self.assertEqual(data['formats']['TIME_INPUT_FORMATS'], ['%H:%M:%S', '%H:%M:%S.%f', '%H:%M'])
+            self.assertEqual(data['formats']['FIRST_DAY_OF_WEEK'], 0)
             self.assertIn('plural', data)
             self.assertEqual(data['catalog']['month name\x04May'], 'Mai')
             self.assertIn('DATETIME_FORMAT', data['formats'])
@@ -327,13 +335,6 @@ class JsI18NTests(SimpleTestCase):
             self.assertContains(response, 'emoji')
             self.assertContains(response, '\\ud83d\\udca9')
 
-
-@override_settings(ROOT_URLCONF='view_tests.urls')
-class JsI18NTestsMultiPackage(SimpleTestCase):
-    """
-    Tests views in django/views/i18n.py that need to change
-    settings.LANGUAGE_CODE and merge JS translation from several packages.
-    """
     @modify_settings(INSTALLED_APPS={'append': ['view_tests.app1', 'view_tests.app2']})
     def test_i18n_language_english_default(self):
         """
@@ -384,7 +385,7 @@ class JsI18NTestsMultiPackage(SimpleTestCase):
 
 
 @override_settings(ROOT_URLCONF='view_tests.urls')
-class JavascriptI18nTests(SeleniumTestCase):
+class I18nSeleniumTests(SeleniumTestCase):
 
     # The test cases use fixtures & translations from these apps.
     available_apps = [
@@ -408,6 +409,11 @@ class JavascriptI18nTests(SeleniumTestCase):
         self.assertEqual(elem.text, "1 Resultat")
         elem = self.selenium.find_element_by_id("npgettext_plur")
         self.assertEqual(elem.text, "455 Resultate")
+        elem = self.selenium.find_element_by_id("formats")
+        self.assertEqual(
+            elem.text,
+            "DATE_INPUT_FORMATS is an object; DECIMAL_SEPARATOR is a string; FIRST_DAY_OF_WEEK is a number;"
+        )
 
     @modify_settings(INSTALLED_APPS={'append': ['view_tests.app1', 'view_tests.app2']})
     @override_settings(LANGUAGE_CODE='fr')
