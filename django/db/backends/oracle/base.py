@@ -55,6 +55,7 @@ from .introspection import DatabaseIntrospection            # NOQA isort:skip
 from .operations import DatabaseOperations                  # NOQA isort:skip
 from .schema import DatabaseSchemaEditor                    # NOQA isort:skip
 from .utils import Oracle_datetime                          # NOQA isort:skip
+from .validation import DatabaseValidation                  # NOQA isort:skip
 
 
 class _UninitializedOperatorsDescriptor:
@@ -72,6 +73,7 @@ class _UninitializedOperatorsDescriptor:
 
 class DatabaseWrapper(BaseDatabaseWrapper):
     vendor = 'oracle'
+    display_name = 'Oracle'
     # This dictionary maps Field objects to their associated Oracle column
     # types, as strings. Column-type strings can contain format strings; they'll
     # be interpolated against the values of Field.__dict__ before being output.
@@ -113,6 +115,9 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'PositiveIntegerField': '%(qn_column)s >= 0',
         'PositiveSmallIntegerField': '%(qn_column)s >= 0',
     }
+
+    # Oracle doesn't support a database index on these columns.
+    _limited_data_types = ('clob', 'nclob', 'blob')
 
     operators = _UninitializedOperatorsDescriptor()
 
@@ -173,6 +178,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
     features_class = DatabaseFeatures
     introspection_class = DatabaseIntrospection
     ops_class = DatabaseOperations
+    validation_class = DatabaseValidation
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -446,7 +452,7 @@ class FormatStylePlaceholderCursor:
             query = query
         elif hasattr(params, 'keys'):
             # Handle params as dict
-            args = {k: ":%s" % k for k in params.keys()}
+            args = {k: ":%s" % k for k in params}
             query = query % args
         elif unify_by_values and len(params) > 0:
             # Handle params as a dict with unified query parameters by their

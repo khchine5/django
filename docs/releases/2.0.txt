@@ -166,6 +166,10 @@ Forms
   HTML attributes for the ``DateInput`` and ``TimeInput`` (or hidden)
   subwidgets.
 
+* The new :meth:`Form.errors.get_json_data()
+  <django.forms.Form.errors.get_json_data>` method returns form errors as
+  a dictionary suitable for including in a JSON response.
+
 Generic Views
 ~~~~~~~~~~~~~
 
@@ -181,6 +185,14 @@ Management Commands
 
 * :djadmin:`inspectdb` now translates MySQL's unsigned integer columns to
   ``PositiveIntegerField`` or ``PositiveSmallIntegerField``.
+
+* The new :option:`makemessages --add-location` option controls the comment
+  format in PO files.
+
+* :djadmin:`loaddata` can now :ref:`read from stdin <loading-fixtures-stdin>`.
+
+* The new :option:`diffsettings --output` option allows formatting the output
+  in a unified diff format.
 
 Migrations
 ~~~~~~~~~~
@@ -254,6 +266,10 @@ Database backend API
   ``datetime_cast_time_sql()``, ``datetime_trunc_sql()``, and
   ``datetime_extract_sql()`` methods now return only the SQL to perform the
   operation instead of SQL and a list of parameters.
+
+* Third-party database backends should add a ``DatabaseWrapper.display_name``
+  attribute with the name of the database that your backend works with. Django
+  may use it in various messages, such as in system checks.
 
 Dropped support for Oracle 11.2
 -------------------------------
@@ -338,6 +354,12 @@ Miscellaneous
   connection configuration queries. Previously, if a test opened a new database
   connection, those queries could be included as part of the
   ``assertNumQueries()`` count.
+
+* The ``PASSWORD_RESET_TIMEOUT_DAYS`` setting is more properly respected in
+  ``contrib.auth`` password reset. Previously, resets were allowed for one day
+  longer than expected. For example, with the default of
+  ``PASSWORD_RESET_TIMEOUT_DAYS = 3``, password reset tokens are now valid for
+  72 hours rather than 96 hours.
 
 .. _deprecated-features-2.0:
 

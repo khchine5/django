@@ -334,7 +334,7 @@ class QuerySet:
             query.add_annotation(aggregate_expr, alias, is_summary=True)
             if not query.annotations[alias].contains_aggregate:
                 raise TypeError("%s is not an aggregate expression" % alias)
-        return query.get_aggregation(self.db, kwargs.keys())
+        return query.get_aggregation(self.db, kwargs)
 
     def count(self):
         """
@@ -504,12 +504,14 @@ class QuerySet:
                 lookup[f.name] = lookup.pop(f.attname)
         params = {k: v for k, v in kwargs.items() if LOOKUP_SEP not in k}
         params.update(defaults)
+        property_names = self.model._meta._property_names
         invalid_params = []
         for param in params:
             try:
                 self.model._meta.get_field(param)
             except exceptions.FieldDoesNotExist:
-                if param != 'pk':  # It's okay to use a model's pk property.
+                # It's okay to use a model's property if it has a setter.
+                if not (param in property_names and getattr(self.model, param).fset):
                     invalid_params.append(param)
         if invalid_params:
             raise exceptions.FieldError(
@@ -1280,8 +1282,8 @@ class Prefetch:
         return obj_dict
 
     def add_prefix(self, prefix):
-        self.prefetch_through = LOOKUP_SEP.join([prefix, self.prefetch_through])
-        self.prefetch_to = LOOKUP_SEP.join([prefix, self.prefetch_to])
+        self.prefetch_through = prefix + LOOKUP_SEP + self.prefetch_through
+        self.prefetch_to = prefix + LOOKUP_SEP + self.prefetch_to
 
     def get_current_prefetch_to(self, level):
         return LOOKUP_SEP.join(self.prefetch_to.split(LOOKUP_SEP)[:level + 1])

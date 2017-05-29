@@ -103,6 +103,7 @@ class CursorWrapper:
 
 class DatabaseWrapper(BaseDatabaseWrapper):
     vendor = 'mysql'
+    display_name = 'MySQL'
     # This dictionary maps Field objects to their associated MySQL column
     # types, as strings. Column-type strings can contain format strings; they'll
     # be interpolated against the values of Field.__dict__ before being output.
@@ -141,6 +142,14 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             return dict(self._data_types, DateTimeField='datetime(6)', TimeField='time(6)')
         else:
             return self._data_types
+
+    # For these columns, MySQL doesn't:
+    # - accept default values and implicitly treats these columns as nullable
+    # - support a database index
+    _limited_data_types = (
+        'tinyblob', 'blob', 'mediumblob', 'longblob', 'tinytext', 'text',
+        'mediumtext', 'longtext', 'json',
+    )
 
     operators = {
         'exact': '= %s',

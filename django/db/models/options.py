@@ -192,7 +192,7 @@ class Options:
 
             # Any leftover attributes must be invalid.
             if meta_attrs != {}:
-                raise TypeError("'class Meta' got invalid attribute(s): %s" % ','.join(meta_attrs.keys()))
+                raise TypeError("'class Meta' got invalid attribute(s): %s" % ','.join(meta_attrs))
         else:
             self.verbose_name_plural = format_lazy('{}s', self.verbose_name)
         del self.meta
@@ -828,10 +828,7 @@ class Options:
 
     @cached_property
     def _property_names(self):
-        """
-        Return a set of the names of the properties defined on the model.
-        Internal helper for model initialization.
-        """
+        """Return a set of the names of the properties defined on the model."""
         return frozenset({
             attr for attr in
             dir(self.model) if isinstance(getattr(self.model, attr), property)

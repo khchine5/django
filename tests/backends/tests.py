@@ -55,6 +55,10 @@ class DatabaseWrapperTests(SimpleTestCase):
             instance_attr_value = getattr(conn, instance_attr_name)
             self.assertIsInstance(instance_attr_value, class_attr_value)
 
+    def test_initialization_display_name(self):
+        self.assertEqual(BaseDatabaseWrapper.display_name, 'unknown')
+        self.assertNotEqual(connection.display_name, 'unknown')
+
 
 class DummyBackendTest(SimpleTestCase):
 
@@ -751,7 +755,7 @@ class BackendTestCase(TransactionTestCase):
 
         self.assertIsInstance(connection.queries, list)
         self.assertIsInstance(connection.queries[0], dict)
-        self.assertCountEqual(connection.queries[0].keys(), ['sql', 'time'])
+        self.assertCountEqual(connection.queries[0], ['sql', 'time'])
 
         reset_queries()
         self.assertEqual(0, len(connection.queries))
