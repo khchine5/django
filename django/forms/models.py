@@ -1128,10 +1128,10 @@ class ModelChoiceField(ChoiceField):
     }
     iterator = ModelChoiceIterator
 
-    def __init__(self, queryset, empty_label="---------",
+    def __init__(self, queryset, *, empty_label="---------",
                  required=True, widget=None, label=None, initial=None,
                  help_text='', to_field_name=None, limit_choices_to=None,
-                 *args, **kwargs):
+                 **kwargs):
         if required and (initial is not None):
             self.empty_label = None
         else:
@@ -1139,8 +1139,10 @@ class ModelChoiceField(ChoiceField):
 
         # Call Field instead of ChoiceField __init__() because we don't need
         # ChoiceField.__init__().
-        Field.__init__(self, required, widget, label, initial, help_text,
-                       *args, **kwargs)
+        Field.__init__(
+            self, required=required, widget=widget, label=label,
+            initial=initial, help_text=help_text, **kwargs
+        )
         self.queryset = queryset
         self.limit_choices_to = limit_choices_to   # limit the queryset later.
         self.to_field_name = to_field_name
@@ -1236,12 +1238,8 @@ class ModelMultipleChoiceField(ModelChoiceField):
         'invalid_pk_value': _('"%(pk)s" is not a valid value.')
     }
 
-    def __init__(self, queryset, required=True, widget=None, label=None,
-                 initial=None, help_text='', *args, **kwargs):
-        super().__init__(
-            queryset, None, required, widget, label, initial, help_text,
-            *args, **kwargs
-        )
+    def __init__(self, queryset, **kwargs):
+        super().__init__(queryset, empty_label=None, **kwargs)
 
     def to_python(self, value):
         if not value:
@@ -1289,7 +1287,7 @@ class ModelMultipleChoiceField(ModelChoiceField):
                     params={'pk': pk},
                 )
         qs = self.queryset.filter(**{'%s__in' % key: value})
-        pks = set(str(getattr(o, key)) for o in qs)
+        pks = {str(getattr(o, key)) for o in qs}
         for val in value:
             if str(val) not in pks:
                 raise ValidationError(
@@ -1313,8 +1311,8 @@ class ModelMultipleChoiceField(ModelChoiceField):
             data = []
         if len(initial) != len(data):
             return True
-        initial_set = set(str(value) for value in self.prepare_value(initial))
-        data_set = set(str(value) for value in data)
+        initial_set = {str(value) for value in self.prepare_value(initial)}
+        data_set = {str(value) for value in data}
         return data_set != initial_set
 
 

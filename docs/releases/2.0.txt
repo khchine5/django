@@ -150,7 +150,8 @@ Email
 File Storage
 ~~~~~~~~~~~~
 
-* ...
+* :meth:`File.open() <django.core.files.File.open>` can be used as a context
+  manager, e.g. ``with file.open() as f:``.
 
 File Uploads
 ~~~~~~~~~~~~
@@ -194,6 +195,9 @@ Management Commands
 * The new :option:`diffsettings --output` option allows formatting the output
   in a unified diff format.
 
+* On Oracle, :djadmin:`inspectdb` can now introspect ``AutoField`` if the
+  column is created as an identity column.
+
 Migrations
 ~~~~~~~~~~
 
@@ -204,6 +208,16 @@ Models
 
 * The new :class:`~django.db.models.functions.StrIndex` database function
   finds the starting index of a string inside another string.
+
+* On Oracle, ``AutoField`` and ``BigAutoField`` are now created as `identity
+  columns`_.
+
+  .. _`identity columns`: https://docs.oracle.com/database/121/DRDAA/migr_tools_feat.htm#DRDAA109
+
+* The new ``chunk_size`` parameter of :meth:`.QuerySet.iterator` controls the
+  number of rows fetched by the Python database client when streaming results
+  from the database. For databases that don't support server-side cursors, it
+  controls the number of results Django fetches from the database adapter.
 
 Requests and Responses
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -233,6 +247,10 @@ Tests
 ~~~~~
 
 * Added threading support to :class:`~django.test.LiveServerTestCase`.
+
+* Added settings that allow customizing the test tablespace parameters for
+  Oracle: :setting:`DATAFILE_SIZE`, :setting:`DATAFILE_TMP_SIZE`,
+  :setting:`DATAFILE_EXTSIZE`, and :setting:`DATAFILE_TMP_EXTSIZE`.
 
 URLs
 ~~~~
@@ -270,6 +288,13 @@ Database backend API
 * Third-party database backends should add a ``DatabaseWrapper.display_name``
   attribute with the name of the database that your backend works with. Django
   may use it in various messages, such as in system checks.
+
+* To improve performance when streaming large result sets from the database,
+  :meth:`.QuerySet.iterator` now fetches 2000 rows at a time instead of 100.
+  The old behavior can be restored using the ``chunk_size`` parameter. For
+  example::
+
+      Book.objects.iterator(chunk_size=100)
 
 Dropped support for Oracle 11.2
 -------------------------------
@@ -313,6 +338,31 @@ If you wish to keep this restriction in the admin when editing users, set
 
     admin.site.unregister(User)
     admin.site.register(User, MyUserAdmin)
+
+``QuerySet.reverse()`` and ``last()`` are prohibited after slicing
+------------------------------------------------------------------
+
+Calling ``QuerySet.reverse()`` or ``last()`` on a sliced queryset leads to
+unexpected results due to the slice being applied after reordering. This is
+now prohibited, e.g.::
+
+    >>> Model.objects.all()[:2].reverse()
+    Traceback (most recent call last):
+    ...
+    TypeError: Cannot reverse a query once a slice has been taken.
+
+Form fields no longer accept optional arguments as positional arguments
+-----------------------------------------------------------------------
+
+To help prevent runtime errors due to incorrect ordering of form field
+arguments, optional arguments of built-in form fields are no longer accepted
+as positional arguments. For example::
+
+    forms.IntegerField(25, 10)
+
+raises an exception and should be replaced with::
+
+    forms.IntegerField(max_value=25, min_value=10)
 
 Miscellaneous
 -------------
@@ -360,6 +410,9 @@ Miscellaneous
   longer than expected. For example, with the default of
   ``PASSWORD_RESET_TIMEOUT_DAYS = 3``, password reset tokens are now valid for
   72 hours rather than 96 hours.
+
+* The default size of the Oracle test tablespace is increased from 20M to 50M
+  and the default autoextend size is increased from 10M to 25M.
 
 .. _deprecated-features-2.0:
 

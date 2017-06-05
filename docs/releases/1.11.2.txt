@@ -2,9 +2,17 @@
 Django 1.11.2 release notes
 ===========================
 
-*Under development*
+*June 1, 2017*
 
-Django 1.11.2 fixes several bugs in 1.11.1.
+Django 1.11.2 adds a minor feature and fixes several bugs in 1.11.1. Also, the
+latest string translations from Transifex are incorporated.
+
+Minor feature
+=============
+
+The new ``LiveServerTestCase.port`` attribute reallows the use case of binding
+to a specific port following the :ref:`bind to port zero
+<liveservertestcase-port-zero-change>` change in Django 1.11.
 
 Bugfixes
 ========
@@ -39,3 +47,18 @@ Bugfixes
 
 * Fixed ``MultipleObjectMixin.paginate_queryset()`` crash on Python 2 if the
   ``InvalidPage`` message contains non-ASCII (:ticket:`28204`).
+
+* Prevented ``Subquery`` from adding an unnecessary ``CAST`` which resulted in
+  invalid SQL (:ticket:`28199`).
+
+* Corrected detection of GDAL 2.1 on Windows (:ticket:`28181`).
+
+* Made date-based generic views return a 404 rather than crash when given an
+  out of range date (:ticket:`28209`).
+
+* Fixed a regression where ``file_move_safe()`` crashed when moving files to a
+  CIFS mount (:ticket:`28170`).
+
+* Moved the ``ImageField`` file extension validation added in Django 1.11 from
+  the model field to the form field to reallow the use case of storing images
+  without an extension (:ticket:`28242`).

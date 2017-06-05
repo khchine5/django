@@ -324,8 +324,8 @@ class BaseDatabaseSchemaEditor:
         unique_togethers must be doubly-nested, not the single-nested
         ["foo", "bar"] format.
         """
-        olds = set(tuple(fields) for fields in old_unique_together)
-        news = set(tuple(fields) for fields in new_unique_together)
+        olds = {tuple(fields) for fields in old_unique_together}
+        news = {tuple(fields) for fields in new_unique_together}
         # Deleted uniques
         for fields in olds.difference(news):
             self._delete_composed_index(model, fields, {'unique': True}, self.sql_delete_unique)
@@ -340,8 +340,8 @@ class BaseDatabaseSchemaEditor:
         index_togethers must be doubly-nested, not the single-nested
         ["foo", "bar"] format.
         """
-        olds = set(tuple(fields) for fields in old_index_together)
-        news = set(tuple(fields) for fields in new_index_together)
+        olds = {tuple(fields) for fields in old_index_together}
+        news = {tuple(fields) for fields in new_index_together}
         # Deleted indexes
         for fields in olds.difference(news):
             self._delete_composed_index(model, fields, {'index': True}, self.sql_delete_index)
@@ -710,14 +710,7 @@ class BaseDatabaseSchemaEditor:
         # will always come along and replace it.
         if not old_field.primary_key and new_field.primary_key:
             # First, drop the old PK
-            constraint_names = self._constraint_names(model, primary_key=True)
-            if strict and len(constraint_names) != 1:
-                raise ValueError("Found wrong number (%s) of PK constraints for %s" % (
-                    len(constraint_names),
-                    model._meta.db_table,
-                ))
-            for constraint_name in constraint_names:
-                self.execute(self._delete_constraint_sql(self.sql_delete_pk, model, constraint_name))
+            self._delete_primary_key(model, strict)
             # Make the new one
             self.execute(
                 self.sql_create_pk % {
@@ -978,3 +971,13 @@ class BaseDatabaseSchemaEditor:
                     continue
                 result.append(name)
         return result
+
+    def _delete_primary_key(self, model, strict=False):
+        constraint_names = self._constraint_names(model, primary_key=True)
+        if strict and len(constraint_names) != 1:
+            raise ValueError('Found wrong number (%s) of PK constraints for %s' % (
+                len(constraint_names),
+                model._meta.db_table,
+            ))
+        for constraint_name in constraint_names:
+            self.execute(self._delete_constraint_sql(self.sql_delete_pk, model, constraint_name))

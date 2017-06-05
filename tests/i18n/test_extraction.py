@@ -11,8 +11,9 @@ from admin_scripts.tests import AdminScriptTestCase
 from django.core import management
 from django.core.management import execute_from_command_line
 from django.core.management.base import CommandError
-from django.core.management.commands.makemessages import \
-    Command as MakeMessagesCommand
+from django.core.management.commands.makemessages import (
+    Command as MakeMessagesCommand,
+)
 from django.core.management.utils import find_command
 from django.test import SimpleTestCase, override_settings
 from django.test.utils import captured_stderr, captured_stdout
@@ -349,13 +350,13 @@ class BasicExtractorTests(ExtractorTests):
         cmd.locale_paths = []
         cmd.default_locale_path = os.path.join(self.test_dir, 'locale')
         found_files = cmd.find_files(self.test_dir)
-        found_exts = set([os.path.splitext(tfile.file)[1] for tfile in found_files])
+        found_exts = {os.path.splitext(tfile.file)[1] for tfile in found_files}
         self.assertEqual(found_exts.difference({'.py', '.html', '.txt'}), set())
 
         cmd.extensions = ['js']
         cmd.domain = 'djangojs'
         found_files = cmd.find_files(self.test_dir)
-        found_exts = set([os.path.splitext(tfile.file)[1] for tfile in found_files])
+        found_exts = {os.path.splitext(tfile.file)[1] for tfile in found_files}
         self.assertEqual(found_exts.difference({'.js'}), set())
 
     @mock.patch('django.core.management.commands.makemessages.popen_wrapper')
