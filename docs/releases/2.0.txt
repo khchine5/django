@@ -280,6 +280,9 @@ bytestrings in certain code paths.
 Database backend API
 --------------------
 
+This section describes changes that may be needed in third-party database
+backends.
+
 * The ``DatabaseOperations.datetime_cast_date_sql()``,
   ``datetime_cast_time_sql()``, ``datetime_trunc_sql()``, and
   ``datetime_extract_sql()`` methods now return only the SQL to perform the
@@ -289,12 +292,8 @@ Database backend API
   attribute with the name of the database that your backend works with. Django
   may use it in various messages, such as in system checks.
 
-* To improve performance when streaming large result sets from the database,
-  :meth:`.QuerySet.iterator` now fetches 2000 rows at a time instead of 100.
-  The old behavior can be restored using the ``chunk_size`` parameter. For
-  example::
-
-      Book.objects.iterator(chunk_size=100)
+* The first argument of ``SchemaEditor._alter_column_type_sql()`` is now
+  ``model`` rather than ``table``.
 
 Dropped support for Oracle 11.2
 -------------------------------
@@ -413,6 +412,17 @@ Miscellaneous
 
 * The default size of the Oracle test tablespace is increased from 20M to 50M
   and the default autoextend size is increased from 10M to 25M.
+
+* To improve performance when streaming large result sets from the database,
+  :meth:`.QuerySet.iterator` now fetches 2000 rows at a time instead of 100.
+  The old behavior can be restored using the ``chunk_size`` parameter. For
+  example::
+
+      Book.objects.iterator(chunk_size=100)
+
+* Providing unknown package names in the ``packages`` argument of the
+  :class:`~django.views.i18n.JavaScriptCatalog` view now raises ``ValueError``
+  instead of passing silently.
 
 .. _deprecated-features-2.0:
 
