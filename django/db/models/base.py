@@ -498,14 +498,10 @@ class Model(metaclass=ModelBase):
         return new
 
     def __repr__(self):
-        try:
-            u = str(self)
-        except (UnicodeEncodeError, UnicodeDecodeError):
-            u = '[Bad Unicode data]'
-        return '<%s: %s>' % (self.__class__.__name__, u)
+        return '<%s: %s>' % (self.__class__.__name__, self)
 
     def __str__(self):
-        return '%s object' % self.__class__.__name__
+        return '%s object (%s)' % (self.__class__.__name__, self.pk)
 
     def __eq__(self, other):
         if not isinstance(other, Model):
