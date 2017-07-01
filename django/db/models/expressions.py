@@ -1,5 +1,6 @@
 import copy
 import datetime
+from contextlib import suppress
 
 from django.core.exceptions import EmptyResultSet, FieldError
 from django.db.backends import utils as backend_utils
@@ -577,11 +578,9 @@ class Func(Expression):
 
     def as_sqlite(self, compiler, connection, **extra_context):
         sql, params = self.as_sql(compiler, connection, **extra_context)
-        try:
+        with suppress(FieldError):
             if self.output_field.get_internal_type() == 'DecimalField':
                 sql = 'CAST(%s AS NUMERIC)' % sql
-        except FieldError:
-            pass
         return sql, params
 
     def copy(self):
@@ -972,7 +971,7 @@ class Subquery(Expression):
         clone.queryset.query = clone.queryset.query.relabeled_clone(change_map)
         clone.queryset.query.external_aliases.update(
             alias for alias in change_map.values()
-            if alias not in clone.queryset.query.tables
+            if alias not in clone.queryset.query.alias_map
         )
         return clone
 

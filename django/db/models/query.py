@@ -6,6 +6,7 @@ import copy
 import sys
 import warnings
 from collections import OrderedDict, deque
+from contextlib import suppress
 
 from django.conf import settings
 from django.core import exceptions
@@ -322,6 +323,7 @@ class QuerySet:
         """
         if self.query.distinct_fields:
             raise NotImplementedError("aggregate() + distinct(fields) not implemented.")
+        self._validate_values_are_expressions(args + tuple(kwargs.values()), method_name='aggregate')
         for arg in args:
             # The default_alias property raises TypeError if default_alias
             # can't be set automatically or AttributeError if it isn't an
@@ -488,10 +490,8 @@ class QuerySet:
             return obj, True
         except IntegrityError:
             exc_info = sys.exc_info()
-            try:
+            with suppress(self.model.DoesNotExist):
                 return self.get(**lookup), False
-            except self.model.DoesNotExist:
-                pass
             raise exc_info[0](exc_info[1]).with_traceback(exc_info[2])
 
     def _extract_model_params(self, defaults, **kwargs):
@@ -839,7 +839,7 @@ class QuerySet:
             return self
         return self._combinator_query('difference', *other_qs)
 
-    def select_for_update(self, nowait=False, skip_locked=False):
+    def select_for_update(self, nowait=False, skip_locked=False, of=()):
         """
         Return a new QuerySet instance that will select objects with a
         FOR UPDATE lock.
@@ -851,6 +851,7 @@ class QuerySet:
         obj.query.select_for_update = True
         obj.query.select_for_update_nowait = nowait
         obj.query.select_for_update_skip_locked = skip_locked
+        obj.query.select_for_update_of = of
         return obj
 
     def select_related(self, *fields):
@@ -896,6 +897,7 @@ class QuerySet:
         Return a query set in which the returned objects have been annotated
         with extra data or aggregations.
         """
+        self._validate_values_are_expressions(args + tuple(kwargs.values()), method_name='annotate')
         annotations = OrderedDict()  # To preserve ordering of args
         for arg in args:
             # The default_alias property may raise a TypeError.
@@ -1146,6 +1148,17 @@ class QuerySet:
         """
         return self.query.has_filters()
 
+    @staticmethod
+    def _validate_values_are_expressions(values, method_name):
+        invalid_args = sorted(str(arg) for arg in values if not hasattr(arg, 'resolve_expression'))
+        if invalid_args:
+            raise TypeError(
+                'QuerySet.%s() received non-expression(s): %s.' % (
+                    method_name,
+                    ', '.join(invalid_args),
+                )
+            )
+
 
 class InstanceCheckMeta(type):
     def __instancecheck__(self, instance):
@@ -1256,12 +1269,10 @@ class RawQuerySet:
         columns = self.query.get_columns()
         # Adjust any column names which don't match field names
         for (query_name, model_name) in self.translations.items():
-            try:
+            # Ignore translations for nonexistent column names
+            with suppress(ValueError):
                 index = columns.index(query_name)
                 columns[index] = model_name
-            except ValueError:
-                # Ignore translations for nonexistent column names
-                pass
         return columns
 
     @cached_property
