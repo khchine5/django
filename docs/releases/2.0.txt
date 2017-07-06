@@ -189,7 +189,8 @@ Forms
 Generic Views
 ~~~~~~~~~~~~~
 
-* ...
+* The new :attr:`.ContextMixin.extra_context` attribute allows adding context
+  in ``View.as_view()``.
 
 Internationalization
 ~~~~~~~~~~~~~~~~~~~~
@@ -323,9 +324,10 @@ This section describes changes that may be needed in third-party database
 backends.
 
 * The ``DatabaseOperations.datetime_cast_date_sql()``,
-  ``datetime_cast_time_sql()``, ``datetime_trunc_sql()``, and
-  ``datetime_extract_sql()`` methods now return only the SQL to perform the
-  operation instead of SQL and a list of parameters.
+  ``datetime_cast_time_sql()``, ``datetime_trunc_sql()``,
+  ``datetime_extract_sql()``, and ``date_interval_sql()`` methods now return
+  only the SQL to perform the operation instead of SQL and a list of
+  parameters.
 
 * Third-party database backends should add a ``DatabaseWrapper.display_name``
   attribute with the name of the database that your backend works with. Django
