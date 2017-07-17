@@ -518,29 +518,10 @@ class FormatStylePlaceholderCursor:
         return VariableWrapper(self.cursor.arrayvar(*args))
 
     def __getattr__(self, attr):
-        if attr in self.__dict__:
-            return self.__dict__[attr]
-        else:
-            return getattr(self.cursor, attr)
+        return getattr(self.cursor, attr)
 
     def __iter__(self):
-        return CursorIterator(self.cursor)
-
-
-class CursorIterator:
-    """
-    Cursor iterator wrapper that invokes our custom row factory.
-    """
-
-    def __init__(self, cursor):
-        self.cursor = cursor
-        self.iter = iter(cursor)
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        return _rowfactory(next(self.iter), self.cursor)
+        return (_rowfactory(r, self.cursor) for r in self.cursor)
 
 
 def _rowfactory(row, cursor):

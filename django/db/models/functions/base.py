@@ -10,7 +10,7 @@ class Cast(Func):
     template = '%(function)s(%(expressions)s AS %(db_type)s)'
 
     mysql_types = {
-        fields.CharField: 'char',
+        fields.CharField: 'char(%(max_length)s)',
         fields.IntegerField: 'signed integer',
         fields.BigIntegerField: 'signed integer',
         fields.SmallIntegerField: 'signed integer',
@@ -24,14 +24,15 @@ class Cast(Func):
 
     def as_sql(self, compiler, connection, **extra_context):
         if 'db_type' not in extra_context:
-            extra_context['db_type'] = self._output_field.db_type(connection)
+            extra_context['db_type'] = self.output_field.db_type(connection)
         return super().as_sql(compiler, connection, **extra_context)
 
     def as_mysql(self, compiler, connection):
         extra_context = {}
-        output_field_class = type(self._output_field)
+        output_field_class = type(self.output_field)
         if output_field_class in self.mysql_types:
-            extra_context['db_type'] = self.mysql_types[output_field_class]
+            data = self.output_field.db_type_parameters(connection)
+            extra_context['db_type'] = self.mysql_types[output_field_class] % data
         return self.as_sql(compiler, connection, **extra_context)
 
     def as_postgresql(self, compiler, connection):
