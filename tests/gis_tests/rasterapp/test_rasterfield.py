@@ -125,10 +125,14 @@ class RasterFieldTest(TransactionTestCase):
         stx_pnt = GEOSGeometry('POINT (-95.370401017314293 29.704867409475465)', 4326)
         stx_pnt.transform(3086)
 
+        lookups = list(
+            (name, lookup)
+            for name, lookup in BaseSpatialField.get_lookups().items()
+            if issubclass(lookup, GISLookup)
+        )
+        self.assertNotEqual(lookups, [], 'No lookups found')
         # Loop through all the GIS lookups.
-        for name, lookup in BaseSpatialField.get_lookups().items():
-            if not isinstance(lookup, GISLookup):
-                continue
+        for name, lookup in lookups:
             # Construct lookup filter strings.
             combo_keys = [
                 field + name for field in [
@@ -165,16 +169,27 @@ class RasterFieldTest(TransactionTestCase):
                 # Set lookup values for all function based operators.
                 combo_values = [
                     rast, (rast, 0), (rast, 0), (stx_pnt, 0), stx_pnt,
-                    rast, rast, json.loads(JSON_RASTER)
+                    rast, json.loads(JSON_RASTER)
                 ]
             else:
                 # Override band lookup for these, as it's not supported.
                 combo_keys[2] = 'rastprojected__' + name
                 # Set lookup values for all other operators.
-                combo_values = [rast, rast, rast, stx_pnt, stx_pnt, rast, rast, json.loads(JSON_RASTER)]
+                combo_values = [rast, None, rast, stx_pnt, stx_pnt, rast, json.loads(JSON_RASTER)]
 
             # Create query filter combinations.
-            combos = [{x[0]: x[1]} for x in zip(combo_keys, combo_values)]
+            self.assertEqual(
+                len(combo_keys),
+                len(combo_values),
+                'Number of lookup names and values should be the same',
+            )
+            combos = list(x for x in zip(combo_keys, combo_values) if x[1])
+            self.assertEqual(
+                [(n, x) for n, x in enumerate(combos) if x in combos[:n]],
+                [],
+                'There are repeated test lookups',
+            )
+            combos = [{k: v} for k, v in combos]
 
             for combo in combos:
                 # Apply this query filter.
