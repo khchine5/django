@@ -261,7 +261,7 @@ class BaseExpression:
                 raise FieldError('Expression contains mixed types. You must set output_field.')
             return output_field
 
-    def convert_value(self, value, expression, connection, context):
+    def convert_value(self, value, expression, connection):
         """
         Expressions provide their own converters because users have the option
         of manually specifying the output_field which may be a different type
@@ -292,9 +292,7 @@ class BaseExpression:
         return clone
 
     def copy(self):
-        c = copy.copy(self)
-        c.copied = True
-        return c
+        return copy.copy(self)
 
     def get_group_by_cols(self):
         if not self.contains_aggregate:
@@ -533,7 +531,7 @@ class Func(Expression):
         args = self.arg_joiner.join(str(arg) for arg in self.source_expressions)
         extra = dict(self.extra, **self._get_repr_options())
         if extra:
-            extra = ', '.join(str(key) + '=' + str(val) for key, val in extra.items())
+            extra = ', '.join(str(key) + '=' + str(val) for key, val in sorted(extra.items()))
             return "{}({}, {})".format(self.__class__.__name__, args, extra)
         return "{}({})".format(self.__class__.__name__, args)
 

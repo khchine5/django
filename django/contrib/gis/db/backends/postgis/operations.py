@@ -15,7 +15,7 @@ from django.utils.version import get_version_tuple
 
 from .adapter import PostGISAdapter
 from .models import PostGISGeometryColumns, PostGISSpatialRefSys
-from .pgraster import from_pgraster, get_pgraster_srid, to_pgraster
+from .pgraster import from_pgraster
 
 # Identifier to mark raster lookups as bilateral.
 BILATERAL = 'bilateral'
@@ -42,17 +42,11 @@ class PostGISOperator(SpatialOperator):
         return super().as_sql(connection, lookup, template_params, *args)
 
     def check_raster(self, lookup, template_params):
-        # Get rhs value.
-        if isinstance(lookup.rhs, (tuple, list)):
-            rhs_val = lookup.rhs[0]
-            spheroid = lookup.rhs[-1] == 'spheroid'
-        else:
-            rhs_val = lookup.rhs
-            spheroid = False
+        spheroid = lookup.rhs_params and lookup.rhs_params[-1] == 'spheroid'
 
         # Check which input is a raster.
         lhs_is_raster = lookup.lhs.field.geom_type == 'RASTER'
-        rhs_is_raster = isinstance(rhs_val, GDALRaster)
+        rhs_is_raster = isinstance(lookup.rhs, GDALRaster)
 
         # Look for band indices and inject them if provided.
         if lookup.band_lhs is not None and lhs_is_raster:
@@ -90,7 +84,7 @@ class PostGISDistanceOperator(PostGISOperator):
         if not lookup.lhs.output_field.geography and lookup.lhs.output_field.geodetic(connection):
             template_params = self.check_raster(lookup, template_params)
             sql_template = self.sql_template
-            if len(lookup.rhs) == 3 and lookup.rhs[-1] == 'spheroid':
+            if len(lookup.rhs_params) == 2 and lookup.rhs_params[-1] == 'spheroid':
                 template_params.update({
                     'op': self.op,
                     'func': connection.ops.spatial_function_name('DistanceSpheroid'),
@@ -303,8 +297,6 @@ class PostGISOperations(BaseSpatialOperations, DatabaseOperations):
         # Get the srid for this object
         if value is None:
             value_srid = None
-        elif f.geom_type == 'RASTER' and isinstance(value, str):
-            value_srid = get_pgraster_srid(value)
         else:
             value_srid = value.srid
 
@@ -312,8 +304,6 @@ class PostGISOperations(BaseSpatialOperations, DatabaseOperations):
         # is not equal to the field srid.
         if value_srid is None or value_srid == f.srid:
             placeholder = '%s'
-        elif f.geom_type == 'RASTER' and isinstance(value, str):
-            placeholder = '%s((%%s)::raster, %s)' % (tranform_func, f.srid)
         else:
             placeholder = '%s(%%s, %s)' % (tranform_func, f.srid)
 
@@ -382,10 +372,6 @@ class PostGISOperations(BaseSpatialOperations, DatabaseOperations):
     def spatial_ref_sys(self):
         return PostGISSpatialRefSys
 
-    # Methods to convert between PostGIS rasters and dicts that are
-    # readable by GDALRaster.
     def parse_raster(self, value):
+        """Convert a PostGIS HEX String into a dict readable by GDALRaster."""
         return from_pgraster(value)
-
-    def deconstruct_raster(self, value):
-        return to_pgraster(value)

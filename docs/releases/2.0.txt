@@ -259,6 +259,9 @@ Models
   :meth:`~.QuerySet.select_for_update()` is used in conjunction with
   :meth:`~.QuerySet.select_related()`.
 
+* The new ``field_name`` parameter of :meth:`.QuerySet.in_bulk` allows fetching
+  results based on any unique model field.
+
 Requests and Responses
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -554,10 +557,31 @@ Miscellaneous
 * Renamed ``BaseExpression._output_field`` to ``output_field``. You may need
   to update custom expressions.
 
+* In older versions, forms and formsets combine their ``Media`` with widget
+  ``Media`` by concatenating the two. The combining now tries to :ref:`preserve
+  the relative order of elements in each list <form-media-asset-order>`.
+  ``MediaOrderConflictWarning`` is issued if the order can't be preserved.
+
 .. _deprecated-features-2.0:
 
 Features deprecated in 2.0
 ==========================
+
+``context`` argument of ``Field.from_db_value()`` and ``Expression.convert_value()``
+------------------------------------------------------------------------------------
+
+The ``context`` argument of ``Field.from_db_value()`` and
+``Expression.convert_value()`` is unused as it's always an empty dictionary.
+The signature of both methods is now::
+
+    (self, value, expression, connection)
+
+instead of::
+
+    (self, value, expression, connection, context)
+
+Support for the old signature in custom fields and expressions remains until
+Django 3.0.
 
 Miscellaneous
 -------------

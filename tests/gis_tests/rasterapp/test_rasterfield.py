@@ -7,8 +7,10 @@ from django.contrib.gis.gdal import GDALRaster
 from django.contrib.gis.geos import GEOSGeometry
 from django.contrib.gis.measure import D
 from django.contrib.gis.shortcuts import numpy
+from django.db import connection
 from django.db.models import Q
 from django.test import TransactionTestCase, skipUnlessDBFeature
+from django.test.utils import CaptureQueriesContext
 
 from ..data.rasters.textrasters import JSON_RASTER
 from .models import RasterModel, RasterRelatedModel
@@ -269,10 +271,9 @@ class RasterFieldTest(TransactionTestCase):
 
     def test_lookup_input_tuple_too_long(self):
         rast = GDALRaster(json.loads(JSON_RASTER))
-        qs = RasterModel.objects.filter(rast__bbcontains=(rast, 1, 2))
         msg = 'Tuple too long for lookup bbcontains.'
         with self.assertRaisesMessage(ValueError, msg):
-            qs.count()
+            RasterModel.objects.filter(rast__bbcontains=(rast, 1, 2))
 
     def test_lookup_input_band_not_allowed(self):
         rast = GDALRaster(json.loads(JSON_RASTER))
@@ -356,3 +357,10 @@ class RasterFieldTest(TransactionTestCase):
         msg = "Distance function requires a GeometryField in position 1, got RasterField."
         with self.assertRaisesMessage(TypeError, msg):
             RasterModel.objects.annotate(distance_from_point=Distance("rastprojected", point)).count()
+
+    def test_lhs_with_index_rhs_without_index(self):
+        with CaptureQueriesContext(connection) as queries:
+            RasterModel.objects.filter(rast__0__contains=json.loads(JSON_RASTER)).exists()
+        # It's easier to check the indexes in the generated SQL than to write
+        # tests that cover all index combinations.
+        self.assertRegex(queries[-1]['sql'], r'WHERE ST_Contains\([^)]*, 1, [^)]*, 1\)')
