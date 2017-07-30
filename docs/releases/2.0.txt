@@ -65,8 +65,8 @@ Minor features
 * Added MySQL support for the
   :class:`~django.contrib.gis.db.models.functions.AsGeoJSON` function,
   :class:`~django.contrib.gis.db.models.functions.GeoHash` function,
-  :class:`~django.contrib.gis.db.models.functions.IsValid` function, and
-  :lookup:`isvalid` lookup.
+  :class:`~django.contrib.gis.db.models.functions.IsValid` function,
+  :lookup:`isvalid` lookup, and :ref:`distance lookups <distance-lookups>`.
 
 * Added the :class:`~django.contrib.gis.db.models.functions.Azimuth` and
   :class:`~django.contrib.gis.db.models.functions.LineLocatePoint` functions,
@@ -219,7 +219,8 @@ Management Commands
 Migrations
 ~~~~~~~~~~
 
-* ...
+* The new :option:`squashmigrations --squashed-name`  option allows naming
+  the squashed migration.
 
 Models
 ~~~~~~
@@ -346,6 +347,12 @@ backends.
   ``DatabaseFeatures.has_select_for_update_of = True``. If the database
   requires that the arguments to ``OF`` be columns rather than tables, set
   ``DatabaseFeatures.select_for_update_of_column = True``.
+
+* Third-party database backends should add a
+  ``DatabaseOperations.cast_char_field_without_max_length`` attribute with the
+  database data type that will be used in the
+  :class:`~django.db.models.functions.Cast` function for a ``CharField`` if the
+  ``max_length`` argument isn't provided.
 
 Dropped support for Oracle 11.2
 -------------------------------

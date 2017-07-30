@@ -1,7 +1,7 @@
 import re
 
 from django.contrib.gis.db.models.fields import BaseSpatialField
-from django.db.models.expressions import Col, Expression
+from django.db.models.expressions import Expression
 from django.db.models.lookups import Lookup, Transform
 from django.db.models.sql.query import Query
 
@@ -55,30 +55,17 @@ class GISLookup(Lookup):
 
     def get_db_prep_lookup(self, value, connection):
         # get_db_prep_lookup is called by process_rhs from super class
-        return ('%s', [connection.ops.Adapter(value)] + (self.rhs_params or []))
+        return ('%s', [connection.ops.Adapter(value)])
 
     def process_rhs(self, compiler, connection):
         if isinstance(self.rhs, Query):
             # If rhs is some Query, don't touch it.
             return super().process_rhs(compiler, connection)
-
-        geom = self.rhs
-        if isinstance(self.rhs, Col):
-            # Make sure the F Expression destination field exists, and
-            # set an `srid` attribute with the same as that of the
-            # destination.
-            geo_fld = self.rhs.output_field
-            if not hasattr(geo_fld, 'srid'):
-                raise ValueError('No geographic field found in expression.')
-            self.rhs.srid = geo_fld.srid
-            sql, _ = compiler.compile(geom)
-            return connection.ops.get_geom_placeholder(self.lhs.output_field, geom, compiler) % sql, []
-        elif isinstance(self.rhs, Expression):
-            raise ValueError('Complex expressions not supported for spatial fields.')
-
+        if isinstance(self.rhs, Expression):
+            self.rhs = self.rhs.resolve_expression(compiler.query)
         rhs, rhs_params = super().process_rhs(compiler, connection)
-        rhs = connection.ops.get_geom_placeholder(self.lhs.output_field, geom, compiler)
-        return rhs, rhs_params
+        placeholder = connection.ops.get_geom_placeholder(self.lhs.output_field, self.rhs, compiler)
+        return placeholder % rhs, rhs_params
 
     def get_rhs_op(self, connection, rhs):
         # Unlike BuiltinLookup, the GIS get_rhs_op() implementation should return
@@ -267,18 +254,16 @@ class RelateLookup(GISLookup):
     sql_template = '%(func)s(%(lhs)s, %(rhs)s, %%s)'
     pattern_regex = re.compile(r'^[012TF\*]{9}$')
 
-    def get_db_prep_lookup(self, value, connection):
-        if len(self.rhs_params) != 1:
-            raise ValueError('relate must be passed a two-tuple')
+    def process_rhs(self, compiler, connection):
         # Check the pattern argument
+        pattern = self.rhs_params[0]
         backend_op = connection.ops.gis_operators[self.lookup_name]
         if hasattr(backend_op, 'check_relate_argument'):
-            backend_op.check_relate_argument(self.rhs_params[0])
-        else:
-            pattern = self.rhs_params[0]
-            if not isinstance(pattern, str) or not self.pattern_regex.match(pattern):
-                raise ValueError('Invalid intersection matrix pattern "%s".' % pattern)
-        return super().get_db_prep_lookup(value, connection)
+            backend_op.check_relate_argument(pattern)
+        elif not isinstance(pattern, str) or not self.pattern_regex.match(pattern):
+            raise ValueError('Invalid intersection matrix pattern "%s".' % pattern)
+        sql, params = super().process_rhs(compiler, connection)
+        return sql, params + [pattern]
 
 
 @BaseSpatialField.register_lookup
@@ -305,22 +290,13 @@ class DistanceLookupBase(GISLookup):
         if len(self.rhs_params) > 1 and self.rhs_params[1] != 'spheroid':
             self.process_band_indices()
 
-    def process_rhs(self, compiler, connection):
-        params = [connection.ops.Adapter(self.rhs)]
-        # Getting the distance parameter in the units of the field.
+    def process_distance(self, compiler, connection):
         dist_param = self.rhs_params[0]
-        if hasattr(dist_param, 'resolve_expression'):
-            dist_param = dist_param.resolve_expression(compiler.query)
-            sql, expr_params = compiler.compile(dist_param)
-            self.template_params['value'] = sql
-            params.extend(expr_params)
-        else:
-            params += connection.ops.get_distance(
-                self.lhs.output_field, self.rhs_params,
-                self.lookup_name,
-            )
-        rhs = connection.ops.get_geom_placeholder(self.lhs.output_field, params[0], compiler)
-        return (rhs, params)
+        return (
+            compiler.compile(dist_param.resolve_expression(compiler.query))
+            if hasattr(dist_param, 'resolve_expression') else
+            ('%s', connection.ops.get_distance(self.lhs.output_field, self.rhs_params, self.lookup_name))
+        )
 
 
 @BaseSpatialField.register_lookup
@@ -328,22 +304,44 @@ class DWithinLookup(DistanceLookupBase):
     lookup_name = 'dwithin'
     sql_template = '%(func)s(%(lhs)s, %(rhs)s, %%s)'
 
+    def process_rhs(self, compiler, connection):
+        dist_sql, dist_params = self.process_distance(compiler, connection)
+        self.template_params['value'] = dist_sql
+        rhs_sql, params = super().process_rhs(compiler, connection)
+        return rhs_sql, params + dist_params
+
+
+class DistanceLookupFromFunction(DistanceLookupBase):
+    def as_sql(self, compiler, connection):
+        spheroid = (len(self.rhs_params) == 2 and self.rhs_params[-1] == 'spheroid') or None
+        distance_expr = connection.ops.distance_expr_for_lookup(self.lhs, self.rhs, spheroid=spheroid)
+        sql, params = compiler.compile(distance_expr.resolve_expression(compiler.query))
+        dist_sql, dist_params = self.process_distance(compiler, connection)
+        return (
+            '%(func)s %(op)s %(dist)s' % {'func': sql, 'op': self.op, 'dist': dist_sql},
+            params + dist_params,
+        )
+
 
 @BaseSpatialField.register_lookup
-class DistanceGTLookup(DistanceLookupBase):
+class DistanceGTLookup(DistanceLookupFromFunction):
     lookup_name = 'distance_gt'
+    op = '>'
 
 
 @BaseSpatialField.register_lookup
-class DistanceGTELookup(DistanceLookupBase):
+class DistanceGTELookup(DistanceLookupFromFunction):
     lookup_name = 'distance_gte'
+    op = '>='
 
 
 @BaseSpatialField.register_lookup
-class DistanceLTLookup(DistanceLookupBase):
+class DistanceLTLookup(DistanceLookupFromFunction):
     lookup_name = 'distance_lt'
+    op = '<'
 
 
 @BaseSpatialField.register_lookup
-class DistanceLTELookup(DistanceLookupBase):
+class DistanceLTELookup(DistanceLookupFromFunction):
     lookup_name = 'distance_lte'
+    op = '<='

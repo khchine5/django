@@ -656,6 +656,13 @@ class Field(RegisterLookupMixin):
         """
         return self.db_type(connection)
 
+    def cast_db_type(self, connection):
+        """Return the data type to use in the Cast() function."""
+        db_type = connection.ops.cast_data_types.get(self.get_internal_type())
+        if db_type:
+            return db_type % self.db_type_parameters(connection)
+        return self.db_type(connection)
+
     def db_parameters(self, connection):
         """
         Extension of db_type(), providing a range of different return values
@@ -1058,6 +1065,11 @@ class CharField(Field):
             ]
         else:
             return []
+
+    def cast_db_type(self, connection):
+        if self.max_length is None:
+            return connection.ops.cast_char_field_without_max_length
+        return super().cast_db_type(connection)
 
     def get_internal_type(self):
         return "CharField"

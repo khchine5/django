@@ -15,6 +15,16 @@ class DatabaseOperations(BaseDatabaseOperations):
         PositiveSmallIntegerField=(0, 65535),
         PositiveIntegerField=(0, 4294967295),
     )
+    cast_data_types = {
+        'CharField': 'char(%(max_length)s)',
+        'IntegerField': 'signed integer',
+        'BigIntegerField': 'signed integer',
+        'SmallIntegerField': 'signed integer',
+        'FloatField': 'signed',
+        'PositiveIntegerField': 'unsigned integer',
+        'PositiveSmallIntegerField': 'unsigned integer',
+    }
+    cast_char_field_without_max_length = 'char'
 
     def date_extract_sql(self, lookup_type, field_name):
         # http://dev.mysql.com/doc/mysql/en/date-and-time-functions.html
