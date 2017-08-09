@@ -1,4 +1,5 @@
 import collections
+import functools
 import re
 import warnings
 from itertools import chain
@@ -50,6 +51,7 @@ class SQLCompiler:
         order_by = self.get_order_by()
         self.where, self.having = self.query.where.split_having()
         extra_select = self.get_extra_select(order_by, self.select)
+        self.has_extra_select = bool(extra_select)
         group_by = self.get_group_by(self.select + extra_select, order_by)
         return extra_select, order_by, group_by
 
@@ -817,8 +819,8 @@ class SQLCompiler:
                 related_field_name = f.related_query_name()
                 fields_found.add(related_field_name)
 
-                _, _, _, joins, _ = self.query.setup_joins([related_field_name], opts, root_alias)
-                alias = joins[-1]
+                join_info = self.query.setup_joins([related_field_name], opts, root_alias)
+                alias = join_info.joins[-1]
                 from_parent = issubclass(model, opts.model) and model is not opts.model
                 klass_info = {
                     'model': model,
@@ -921,28 +923,33 @@ class SQLCompiler:
                 backend_converters = self.connection.ops.get_db_converters(expression)
                 field_converters = expression.get_db_converters(self.connection)
                 if backend_converters or field_converters:
-                    converters[i] = (backend_converters + field_converters, expression)
+                    convs = []
+                    for conv in (backend_converters + field_converters):
+                        if func_supports_parameter(conv, 'context'):
+                            warnings.warn(
+                                'Remove the context parameter from %s.%s(). Support for it '
+                                'will be removed in Django 3.0.' % (
+                                    conv.__self__.__class__.__name__,
+                                    conv.__name__,
+                                ),
+                                RemovedInDjango30Warning,
+                            )
+                            conv = functools.partial(conv, context={})
+                        convs.append(conv)
+                    converters[i] = (convs, expression)
         return converters
 
-    def apply_converters(self, row, converters):
-        row = list(row)
-        for pos, (convs, expression) in converters.items():
-            value = row[pos]
-            for converter in convs:
-                if func_supports_parameter(converter, 'context'):
-                    warnings.warn(
-                        'Remove the context parameter from %s.%s(). Support for it '
-                        'will be removed in Django 3.0.' % (
-                            converter.__self__.__class__.__name__,
-                            converter.__name__,
-                        ),
-                        RemovedInDjango30Warning,
-                    )
-                    value = converter(value, expression, self.connection, {})
-                else:
-                    value = converter(value, expression, self.connection)
-            row[pos] = value
-        return tuple(row)
+    def apply_converters(self, rows, converters):
+        connection = self.connection
+        converters = list(converters.items())
+        for row in rows:
+            row = list(row)
+            for pos, (convs, expression) in converters:
+                value = row[pos]
+                for converter in convs:
+                    value = converter(value, expression, connection)
+                row[pos] = value
+            yield tuple(row)
 
     def results_iter(self, results=None):
         """Return an iterator over the results from executing this query."""
@@ -950,11 +957,10 @@ class SQLCompiler:
             results = self.execute_sql(MULTI)
         fields = [s[0] for s in self.select[0:self.col_count]]
         converters = self.get_converters(fields)
-        for rows in results:
-            for row in rows:
-                if converters:
-                    row = self.apply_converters(row, converters)
-                yield row
+        rows = chain.from_iterable(results)
+        if converters:
+            rows = self.apply_converters(rows, converters)
+        return rows
 
     def has_results(self):
         """
@@ -1020,7 +1026,7 @@ class SQLCompiler:
 
         result = cursor_iter(
             cursor, self.connection.features.empty_fetchmany_value,
-            self.col_count,
+            self.col_count if self.has_extra_select else None,
             chunk_size,
         )
         if not chunked_fetch and not self.connection.features.can_use_chunked_reads:
@@ -1389,6 +1395,6 @@ def cursor_iter(cursor, sentinel, col_count, itersize):
     """
     try:
         for rows in iter((lambda: cursor.fetchmany(itersize)), sentinel):
-            yield [r[0:col_count] for r in rows]
+            yield rows if col_count is None else [r[:col_count] for r in rows]
     finally:
         cursor.close()

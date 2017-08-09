@@ -3,6 +3,7 @@ The main QuerySet implementation. This provides the public API for the ORM.
 """
 
 import copy
+import operator
 import sys
 import warnings
 from collections import OrderedDict, deque
@@ -101,8 +102,9 @@ class ValuesIterable(BaseIterable):
         # extra(select=...) cols are always at the start of the row.
         names = extra_names + field_names + annotation_names
 
+        indexes = range(len(names))
         for row in compiler.results_iter():
-            yield dict(zip(names, row))
+            yield {names[i]: row[i] for i in indexes}
 
 
 class ValuesListIterable(BaseIterable):
@@ -116,10 +118,8 @@ class ValuesListIterable(BaseIterable):
         query = queryset.query
         compiler = query.get_compiler(queryset.db)
 
-        if not query.extra_select and not query.annotation_select:
-            for row in compiler.results_iter():
-                yield tuple(row)
-        else:
+        results = compiler.results_iter()
+        if queryset._fields:
             field_names = list(query.values_select)
             extra_names = list(query.extra_select)
             annotation_names = list(query.annotation_select)
@@ -127,15 +127,13 @@ class ValuesListIterable(BaseIterable):
             # extra(select=...) cols are always at the start of the row.
             names = extra_names + field_names + annotation_names
 
-            if queryset._fields:
+            fields = list(queryset._fields) + [f for f in annotation_names if f not in queryset._fields]
+            if fields != names:
                 # Reorder according to fields.
-                fields = list(queryset._fields) + [f for f in annotation_names if f not in queryset._fields]
-            else:
-                fields = names
-
-            for row in compiler.results_iter():
-                data = dict(zip(names, row))
-                yield tuple(data[f] for f in fields)
+                index_map = {name: idx for idx, name in enumerate(names)}
+                rowfactory = operator.itemgetter(*[index_map[f] for f in fields])
+                results = map(rowfactory, results)
+        return results
 
 
 class FlatValuesListIterable(BaseIterable):
@@ -1223,23 +1221,16 @@ class RawQuerySet:
 
         try:
             model_init_names, model_init_pos, annotation_fields = self.resolve_model_init_order()
-
-            # Find out which model's fields are not present in the query.
-            skip = set()
-            for field in self.model._meta.fields:
-                if field.attname not in model_init_names:
-                    skip.add(field.attname)
-            if skip:
-                if self.model._meta.pk.attname in skip:
-                    raise InvalidQuery('Raw query must include the primary key')
+            if self.model._meta.pk.attname not in model_init_names:
+                raise InvalidQuery('Raw query must include the primary key')
             model_cls = self.model
             fields = [self.model_fields.get(c) for c in self.columns]
             converters = compiler.get_converters([
                 f.get_col(f.model._meta.db_table) if f else None for f in fields
             ])
+            if converters:
+                query = compiler.apply_converters(query, converters)
             for values in query:
-                if converters:
-                    values = compiler.apply_converters(values, converters)
                 # Associate fields to values
                 model_init_values = [values[pos] for pos in model_init_pos]
                 instance = model_cls.from_db(db, model_init_names, model_init_values)
@@ -1675,21 +1666,10 @@ class RelatedPopulator:
             ]
             self.reorder_for_init = None
         else:
-            model_init_attnames = [
-                f.attname for f in klass_info['model']._meta.concrete_fields
-            ]
-            reorder_map = []
-            for idx in select_fields:
-                field = select[idx][0].target
-                init_pos = model_init_attnames.index(field.attname)
-                reorder_map.append((init_pos, field.attname, idx))
-            reorder_map.sort()
-            self.init_list = [v[1] for v in reorder_map]
-            pos_list = [row_pos for _, _, row_pos in reorder_map]
-
-            def reorder_for_init(row):
-                return [row[row_pos] for row_pos in pos_list]
-            self.reorder_for_init = reorder_for_init
+            attname_indexes = {select[idx][0].target.attname: idx for idx in select_fields}
+            model_init_attnames = (f.attname for f in klass_info['model']._meta.concrete_fields)
+            self.init_list = [attname for attname in model_init_attnames if attname in attname_indexes]
+            self.reorder_for_init = operator.itemgetter(*[attname_indexes[attname] for attname in self.init_list])
 
         self.model_cls = klass_info['model']
         self.pk_idx = self.init_list.index(self.model_cls._meta.pk.attname)
