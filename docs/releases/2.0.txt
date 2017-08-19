@@ -17,16 +17,22 @@ project.
 Python compatibility
 ====================
 
-Django 2.0 supports Python 3.5+. Since Django 1.11, support for Python 2.7 and
-3.4 is removed. We **highly recommend** and only officially support the latest
-release of each series.
+Django 2.0 supports Python 3.4, 3.5, and 3.6. We **highly recommend** and only
+officially support the latest release of each series.
+
+The Django 1.11.x series is the last to support Python 2.7.
+
+Django 2.0 will be the last release series to support Python 3.4. If you plan
+a deployment of Python 3.4 beyond the end-of-life for Django 2.0 (April 2019),
+stick with Django 1.11 LTS (supported until April 2020) instead. Note, however,
+that the end-of-life for Python 3.4 is March 2019.
 
 Third-party library support for older version of Django
 =======================================================
 
 Following the release of Django 2.0, we suggest that third-party app authors
 drop support for all versions of Django prior to 1.11. At that time, you should
-be able run your package's tests using ``python -Wd`` so that deprecation
+be able to run your package's tests using ``python -Wd`` so that deprecation
 warnings do appear. After making the deprecation warning fixes, your app should
 be compatible with Django 2.0.
 
@@ -109,7 +115,7 @@ Minor features
   operation.
 
 * :class:`django.contrib.postgres.indexes.GinIndex` now supports the
-  ``fast_update`` and ``gin_pending_list_limit`` parameters.
+  ``fastupdate`` and ``gin_pending_list_limit`` parameters.
 
 :mod:`django.contrib.redirects`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -263,6 +269,14 @@ Models
 * The new ``field_name`` parameter of :meth:`.QuerySet.in_bulk` allows fetching
   results based on any unique model field.
 
+* :meth:`.CursorWrapper.callproc()` now takes an optional dictionary of keyword
+  parameters, if the backend supports this feature. Of Django's built-in
+  backends, only Oracle supports it.
+
+* The new ``filter`` argument for built-in aggregates allows :ref:`adding
+  different conditionals <conditional-aggregation>` to multiple aggregations
+  over the same fields or relations.
+
 Requests and Responses
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -304,7 +318,12 @@ URLs
 Validators
 ~~~~~~~~~~
 
-* ...
+* The new :class:`.ProhibitNullCharactersValidator` disallows the null
+  character in the input of the :class:`~django.forms.CharField` form field
+  and its subclasses. Null character input was observed from vulnerability
+  scanning tools. Most databases silently discard null characters, but
+  psycopg2 2.7+ raises an exception when trying to save a null character to
+  a char/text field with PostgreSQL.
 
 .. _backwards-incompatible-2.0:
 

@@ -1,13 +1,26 @@
 import copy
 import datetime
 from contextlib import suppress
+from decimal import Decimal
 
 from django.core.exceptions import EmptyResultSet, FieldError
-from django.db.backends import utils as backend_utils
 from django.db.models import fields
 from django.db.models.query_utils import Q
 from django.utils.deconstruct import deconstructible
 from django.utils.functional import cached_property
+
+
+class SQLiteNumericMixin:
+    """
+    Some expressions with output_field=DecimalField() must be cast to
+    numeric to be properly filtered.
+    """
+    def as_sqlite(self, compiler, connection, **extra_context):
+        sql, params = self.as_sql(compiler, connection, **extra_context)
+        with suppress(FieldError):
+            if self.output_field.get_internal_type() == 'DecimalField':
+                sql = 'CAST(%s AS NUMERIC)' % sql
+        return sql, params
 
 
 class Combinable:
@@ -131,8 +144,18 @@ class BaseExpression:
         if output_field is not None:
             self.output_field = output_field
 
+    def __getstate__(self):
+        # This method required only for Python 3.4.
+        state = self.__dict__.copy()
+        state.pop('convert_value', None)
+        return state
+
     def get_db_converters(self, connection):
-        return [self.convert_value] + self.output_field.get_db_converters(connection)
+        return (
+            []
+            if self.convert_value is self._convert_value_noop else
+            [self.convert_value]
+        ) + self.output_field.get_db_converters(connection)
 
     def get_source_expressions(self):
         return []
@@ -261,7 +284,12 @@ class BaseExpression:
                 raise FieldError('Expression contains mixed types. You must set output_field.')
             return output_field
 
-    def convert_value(self, value, expression, connection):
+    @staticmethod
+    def _convert_value_noop(value, expression, connection):
+        return value
+
+    @cached_property
+    def convert_value(self):
         """
         Expressions provide their own converters because users have the option
         of manually specifying the output_field which may be a different type
@@ -269,15 +297,13 @@ class BaseExpression:
         """
         field = self.output_field
         internal_type = field.get_internal_type()
-        if value is None:
-            return value
-        elif internal_type == 'FloatField':
-            return float(value)
+        if internal_type == 'FloatField':
+            return lambda value, expression, connection: None if value is None else float(value)
         elif internal_type.endswith('IntegerField'):
-            return int(value)
+            return lambda value, expression, connection: None if value is None else int(value)
         elif internal_type == 'DecimalField':
-            return backend_utils.typecast_decimal(value)
-        return value
+            return lambda value, expression, connection: None if value is None else Decimal(value)
+        return self._convert_value_noop
 
     def get_lookup(self, lookup):
         return self.output_field.get_lookup(lookup)
@@ -352,7 +378,7 @@ class Expression(BaseExpression, Combinable):
     pass
 
 
-class CombinedExpression(Expression):
+class CombinedExpression(SQLiteNumericMixin, Expression):
 
     def __init__(self, lhs, connector, rhs, output_field=None):
         super().__init__(output_field=output_field)
@@ -506,7 +532,7 @@ class OuterRef(F):
         return self
 
 
-class Func(Expression):
+class Func(SQLiteNumericMixin, Expression):
     """An SQL function call."""
     function = None
     template = '%(function)s(%(expressions)s)'
@@ -573,13 +599,6 @@ class Func(Expression):
         arg_joiner = arg_joiner or data.get('arg_joiner', self.arg_joiner)
         data['expressions'] = data['field'] = arg_joiner.join(sql_parts)
         return template % data, params
-
-    def as_sqlite(self, compiler, connection, **extra_context):
-        sql, params = self.as_sql(compiler, connection, **extra_context)
-        with suppress(FieldError):
-            if self.output_field.get_internal_type() == 'DecimalField':
-                sql = 'CAST(%s AS NUMERIC)' % sql
-        return sql, params
 
     def copy(self):
         copy = super().copy()

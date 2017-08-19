@@ -229,6 +229,10 @@ class BaseDatabaseFeatures:
     supports_select_difference = True
     supports_slicing_ordering_in_compound = False
 
+    # Does the database support SQL 2003 FILTER (WHERE ...) in aggregate
+    # expressions?
+    supports_aggregate_filter_clause = False
+
     # Does the backend support indexing a TextField?
     supports_index_on_text_field = True
 
@@ -239,6 +243,9 @@ class BaseDatabaseFeatures:
     # functionality of the procedure isn't important.
     create_test_procedure_without_params_sql = None
     create_test_procedure_with_int_param_sql = None
+
+    # Does the backend support keyword parameters for cursor.callproc()?
+    supports_callproc_kwargs = False
 
     def __init__(self, connection):
         self.connection = connection

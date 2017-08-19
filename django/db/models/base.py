@@ -370,14 +370,23 @@ class ModelBase(type):
         return cls._meta.default_manager
 
 
+class ModelStateFieldsCacheDescriptor:
+    def __get__(self, instance, cls=None):
+        if instance is None:
+            return self
+        res = instance.fields_cache = {}
+        return res
+
+
 class ModelState:
     """Store model instance state."""
-    def __init__(self, db=None):
-        self.db = db
-        # If true, uniqueness validation checks will consider this a new, as-yet-unsaved object.
-        # Necessary for correct validation of new instances of objects with explicit (non-auto) PKs.
-        # This impacts validation only; it has no effect on the actual save.
-        self.adding = True
+    db = None
+    # If true, uniqueness validation checks will consider this a new, unsaved
+    # object. Necessary for correct validation of new instances of objects with
+    # explicit (non-auto) PKs. This impacts validation only; it has no effect
+    # on the actual save.
+    adding = True
+    fields_cache = ModelStateFieldsCacheDescriptor()
 
 
 class Model(metaclass=ModelBase):
@@ -521,10 +530,14 @@ class Model(metaclass=ModelBase):
         return hash(self.pk)
 
     def __reduce__(self):
-        data = self.__dict__
+        data = self.__getstate__()
         data[DJANGO_VERSION_PICKLE_KEY] = get_version()
         class_id = self._meta.app_label, self._meta.object_name
         return model_unpickle, (class_id,), data
+
+    def __getstate__(self):
+        """Hook to allow choosing the attributes to pickle."""
+        return self.__dict__
 
     def __setstate__(self, state):
         msg = None
@@ -607,12 +620,12 @@ class Model(metaclass=ModelBase):
                 continue
             setattr(self, field.attname, getattr(db_instance, field.attname))
             # Throw away stale foreign key references.
-            if field.is_relation and field.get_cache_name() in self.__dict__:
-                rel_instance = getattr(self, field.get_cache_name())
+            if field.is_relation and field.is_cached(self):
+                rel_instance = field.get_cached_value(self)
                 local_val = getattr(db_instance, field.attname)
                 related_val = None if rel_instance is None else getattr(rel_instance, field.target_field.attname)
                 if local_val != related_val or (local_val is None and related_val is None):
-                    del self.__dict__[field.get_cache_name()]
+                    field.delete_cached_value(self)
         self._state.db = db_instance._state.db
 
     def serializable_value(self, field_name):
@@ -646,13 +659,9 @@ class Model(metaclass=ModelBase):
         # a ForeignKey or OneToOneField on this model. If the field is
         # nullable, allowing the save() would result in silent data loss.
         for field in self._meta.concrete_fields:
-            if field.is_relation:
-                # If the related field isn't cached, then an instance hasn't
-                # been assigned and there's no need to worry about this check.
-                try:
-                    getattr(self, field.get_cache_name())
-                except AttributeError:
-                    continue
+            # If the related field isn't cached, then an instance hasn't
+            # been assigned and there's no need to worry about this check.
+            if field.is_relation and field.is_cached(self):
                 obj = getattr(self, field.name, None)
                 # A pk may have been assigned manually to a model instance not
                 # saved to the database (or auto-generated in a case like
@@ -663,7 +672,7 @@ class Model(metaclass=ModelBase):
                 if obj and obj.pk is None:
                     # Remove the object from a related instance cache.
                     if not field.remote_field.multiple:
-                        delattr(obj, field.remote_field.get_cache_name())
+                        field.remote_field.delete_cached_value(obj)
                     raise ValueError(
                         "save() prohibited to prevent data loss due to "
                         "unsaved related object '%s'." % field.name
@@ -773,9 +782,8 @@ class Model(metaclass=ModelBase):
                 # the related object cache, in case it's been accidentally
                 # populated. A fresh instance will be re-built from the
                 # database if necessary.
-                cache_name = field.get_cache_name()
-                if hasattr(self, cache_name):
-                    delattr(self, cache_name)
+                if field.is_cached(self):
+                    field.delete_cached_value(self)
 
     def _save_table(self, raw=False, cls=None, force_insert=False,
                     force_update=False, using=None, update_fields=None):

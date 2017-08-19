@@ -461,16 +461,12 @@ class Query:
         compiler = outer_query.get_compiler(using)
         result = compiler.execute_sql(SINGLE)
         if result is None:
-            result = [None for q in outer_query.annotation_select.items()]
+            result = [None] * len(outer_query.annotation_select)
 
         converters = compiler.get_converters(outer_query.annotation_select.values())
         result = next(compiler.apply_converters((result,), converters))
 
-        return {
-            alias: val
-            for (alias, annotation), val
-            in zip(outer_query.annotation_select.items(), result)
-        }
+        return dict(zip(outer_query.annotation_select, result))
 
     def get_count(self, using):
         """
@@ -970,25 +966,18 @@ class Query:
         return self.get_compiler(connection=connection).as_sql()
 
     def resolve_lookup_value(self, value, can_reuse, allow_joins):
-        used_joins = set()
         if hasattr(value, 'resolve_expression'):
-            pre_joins = self.alias_refcount.copy()
             value = value.resolve_expression(self, reuse=can_reuse, allow_joins=allow_joins)
-            used_joins = {k for k, v in self.alias_refcount.items() if v > pre_joins.get(k, 0)}
         elif isinstance(value, (list, tuple)):
             # The items of the iterable may be expressions and therefore need
             # to be resolved independently.
             processed_values = []
             for sub_value in value:
                 if hasattr(sub_value, 'resolve_expression'):
-                    pre_joins = self.alias_refcount.copy()
                     processed_values.append(
                         sub_value.resolve_expression(self, reuse=can_reuse, allow_joins=allow_joins)
                     )
-                    # The used_joins for a tuple of expressions is the union of
-                    # the used_joins for the individual expressions.
-                    used_joins.update(k for k, v in self.alias_refcount.items() if v > pre_joins.get(k, 0))
-        return value, used_joins
+        return value
 
     def solve_lookup_type(self, lookup):
         """
@@ -1136,9 +1125,9 @@ class Query:
         if not allow_joins and len(parts) > 1:
             raise FieldError("Joined field references are not permitted in this query")
 
-        # Work out the lookup type and remove it from the end of 'parts',
-        # if necessary.
-        value, used_joins = self.resolve_lookup_value(value, can_reuse, allow_joins)
+        pre_joins = self.alias_refcount.copy()
+        value = self.resolve_lookup_value(value, can_reuse, allow_joins)
+        used_joins = {k for k, v in self.alias_refcount.items() if v > pre_joins.get(k, 0)}
 
         clause = self.where_class()
         if reffed_expression:
@@ -1791,7 +1780,7 @@ class Query:
 
     def append_annotation_mask(self, names):
         if self.annotation_select_mask is not None:
-            self.set_annotation_mask(set(names).union(self.annotation_select_mask))
+            self.set_annotation_mask(self.annotation_select_mask.union(names))
 
     def set_extra_mask(self, names):
         """
