@@ -134,7 +134,7 @@ class BaseModelAdmin(metaclass=forms.MediaDefiningClass):
             return self.formfield_for_choice_field(db_field, request, **kwargs)
 
         # ForeignKey or ManyToManyFields
-        if isinstance(db_field, models.ManyToManyField) or isinstance(db_field, models.ForeignKey):
+        if isinstance(db_field, (models.ForeignKey, models.ManyToManyField)):
             # Combine the field kwargs with any options for formfield_overrides.
             # Make sure the passed in **kwargs override anything in
             # formfield_overrides because **kwargs is more specific, and should
@@ -240,7 +240,7 @@ class BaseModelAdmin(metaclass=forms.MediaDefiningClass):
 
         if db_field.name in self.raw_id_fields:
             kwargs['widget'] = widgets.ManyToManyRawIdWidget(db_field.remote_field, self.admin_site, using=db)
-        elif db_field.name in (list(self.filter_vertical) + list(self.filter_horizontal)):
+        elif db_field.name in list(self.filter_vertical) + list(self.filter_horizontal):
             kwargs['widget'] = widgets.FilteredSelectMultiple(
                 db_field.verbose_name,
                 db_field.name in self.filter_vertical

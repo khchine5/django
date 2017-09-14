@@ -8,7 +8,6 @@ import socket
 import sys
 import tempfile
 import threading
-from contextlib import suppress
 from email import message_from_binary_file, message_from_bytes
 from email.header import Header
 from email.mime.text import MIMEText
@@ -318,6 +317,17 @@ class MailTests(HeadersCheckMixin, SimpleTestCase):
         msg.encoding = 'iso-8859-1'
         self.assertEqual(msg.message()['To'], '=?iso-8859-1?q?S=FCrname=2C_Firstname?= <to@example.com>')
         self.assertEqual(msg.message()['Subject'], '=?iso-8859-1?q?Message_from_Firstname_S=FCrname?=')
+
+    def test_safe_mime_multipart_with_attachments(self):
+        """
+        EmailMultiAlternatives includes alternatives if the body is empty and
+        it has attachments.
+        """
+        msg = EmailMultiAlternatives(body='')
+        html_content = '<p>This is <strong>html</strong></p>'
+        msg.attach_alternative(html_content, 'text/html')
+        msg.attach('example.txt', 'Text file content', 'text/plain')
+        self.assertIn(html_content, msg.message().as_string())
 
     def test_encoding(self):
         """
@@ -1124,10 +1134,12 @@ class ConsoleBackendTests(BaseEmailBackendTests, SimpleTestCase):
 class FakeSMTPChannel(smtpd.SMTPChannel):
 
     def collect_incoming_data(self, data):
-        # Ignore decode error in SSL/TLS connection tests as the test only
-        # cares whether the connection attempt was made.
-        with suppress(UnicodeDecodeError):
+        try:
             smtpd.SMTPChannel.collect_incoming_data(self, data)
+        except UnicodeDecodeError:
+            # Ignore decode error in SSL/TLS connection tests as the test only
+            # cares whether the connection attempt was made.
+            pass
 
     def smtp_AUTH(self, arg):
         if arg == 'CRAM-MD5':

@@ -1,0 +1,13 @@
+===========================
+Django 1.11.6 release notes
+===========================
+
+*Expected October 2, 2017*
+
+Django 1.11.6 fixes several bugs in 1.11.5.
+
+Bugfixes
+========
+
+* Made the ``CharField`` form field convert whitespace-only values to the
+  ``empty_value`` when ``strip`` is enabled (:ticket:`28555`).

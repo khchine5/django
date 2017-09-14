@@ -311,15 +311,6 @@ identical to::
 
     Entry.objects.order_by('blog__name')
 
-It is also possible to order a queryset by a related field, without incurring
-the cost of a JOIN, by referring to the ``_id`` of the related field::
-
-    # No Join
-    Entry.objects.order_by('blog_id')
-
-    # Join
-    Entry.objects.order_by('blog__id')
-
 You can also order by :doc:`query expressions </ref/models/expressions>` by
 calling ``asc()`` or ``desc()`` on the expression::
 
@@ -626,7 +617,7 @@ You can also refer to fields on related models with reverse relations through
 ``values_list()``
 ~~~~~~~~~~~~~~~~~
 
-.. method:: values_list(*fields, flat=False)
+.. method:: values_list(*fields, flat=False, named=False)
 
 This is similar to ``values()`` except that instead of returning dictionaries,
 it returns tuples when iterated over. Each tuple contains the value from the
@@ -650,6 +641,15 @@ rather than one-tuples. An example should make the difference clearer::
     <QuerySet [1, 2, 3, ...]>
 
 It is an error to pass in ``flat`` when there is more than one field.
+
+You can pass ``named=True`` to get results as a
+:func:`~python:collections.namedtuple`::
+
+    >>> Entry.objects.values_list('id', 'headline', named=True)
+    <QuerySet [Row(id=1, headline='First entry'), ...]>
+
+Using a named tuple may make use of the results more readable, at the expense
+of a small performance penalty for transforming the results into a named tuple.
 
 If you don't pass any values to ``values_list()``, it will return all the
 fields in the model, in the order they were declared.
@@ -687,6 +687,10 @@ not having any author::
 .. versionchanged:: 1.11
 
     Support for expressions in ``*fields`` was added.
+
+.. versionchanged:: 2.0
+
+    The ``named`` parameter was added.
 
 ``dates()``
 ~~~~~~~~~~~
@@ -2099,20 +2103,29 @@ psycopg mailing list <https://www.postgresql.org/message-id/4D2F2C71.8080805%40d
 ``latest()``
 ~~~~~~~~~~~~
 
-.. method:: latest(field_name=None)
+.. method:: latest(*fields)
 
-Returns the latest object in the table, by date, using the ``field_name``
-provided as the date field.
+Returns the latest object in the table based on the given field(s).
 
 This example returns the latest ``Entry`` in the table, according to the
 ``pub_date`` field::
 
     Entry.objects.latest('pub_date')
 
+You can also choose the latest based on several fields. For example, to select
+the ``Entry`` with the earliest ``expire_date`` when two entries have the same
+``pub_date``::
+
+    Entry.objects.latest('pub_date', '-expire_date')
+
+The negative sign in ``'-expire_date'`` means to sort ``expire_date`` in
+*descending* order. Since ``latest()`` gets the last result, the ``Entry`` with
+the earliest ``expire_date`` is selected.
+
 If your model's :ref:`Meta <meta-options>` specifies
-:attr:`~django.db.models.Options.get_latest_by`, you can leave off the
-``field_name`` argument to ``earliest()`` or ``latest()``. Django will use the
-field specified in :attr:`~django.db.models.Options.get_latest_by` by default.
+:attr:`~django.db.models.Options.get_latest_by`, you can omit any arguments to
+``earliest()`` or ``latest()``. The fields specified in
+:attr:`~django.db.models.Options.get_latest_by` will be used by default.
 
 Like :meth:`get()`, ``earliest()`` and ``latest()`` raise
 :exc:`~django.db.models.Model.DoesNotExist` if there is no object with the
@@ -2120,6 +2133,10 @@ given parameters.
 
 Note that ``earliest()`` and ``latest()`` exist purely for convenience and
 readability.
+
+.. versionchanged:: 2.0
+
+    Support for several arguments was added.
 
 .. admonition:: ``earliest()`` and ``latest()`` may return instances with null dates.
 
@@ -2135,7 +2152,7 @@ readability.
 ``earliest()``
 ~~~~~~~~~~~~~~
 
-.. method:: earliest(field_name=None)
+.. method:: earliest(*fields)
 
 Works otherwise like :meth:`~django.db.models.query.QuerySet.latest` except
 the direction is changed.
