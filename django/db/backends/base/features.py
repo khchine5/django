@@ -25,7 +25,7 @@ class BaseDatabaseFeatures:
     can_use_chunked_reads = True
     can_return_id_from_insert = False
     can_return_ids_from_bulk_insert = False
-    has_bulk_insert = False
+    has_bulk_insert = True
     uses_savepoints = False
     can_release_savepoints = False
 
@@ -235,6 +235,9 @@ class BaseDatabaseFeatures:
 
     # Does the backend support indexing a TextField?
     supports_index_on_text_field = True
+
+    # Does the backed support window expressions (expression OVER (...))?
+    supports_over_clause = False
 
     # Does the backend support CAST with precision?
     supports_cast_with_precision = True

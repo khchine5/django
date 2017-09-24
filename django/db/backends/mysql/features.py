@@ -8,7 +8,6 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     allows_group_by_pk = True
     related_fields_match_type = True
     allow_sliced_subqueries = False
-    has_bulk_insert = True
     has_select_for_update = True
     has_select_for_update_nowait = False
     supports_forward_references = False
@@ -81,6 +80,10 @@ class DatabaseFeatures(BaseDatabaseFeatures):
             cursor.execute('SELECT @@SQL_AUTO_IS_NULL')
             result = cursor.fetchone()
             return result and result[0] == 1
+
+    @cached_property
+    def supports_over_clause(self):
+        return self.connection.mysql_version >= (8, 0, 2)
 
     @cached_property
     def supports_transactions(self):
