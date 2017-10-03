@@ -119,7 +119,7 @@ class CheckURLMixin:
             # Skip check as it can be useful to start a URL pattern with a slash
             # when APPEND_SLASH=False.
             return []
-        if any(regex_pattern.startswith(x) for x in ('/', '^/', '^\/')) and not regex_pattern.endswith('/'):
+        if regex_pattern.startswith(('/', '^/', '^\\/')) and not regex_pattern.endswith('/'):
             warning = Warning(
                 "Your URL pattern {} has a route beginning with a '/'. Remove this "
                 "slash as it is unnecessary. If this pattern is targeted in an "
@@ -187,7 +187,7 @@ class RegexPattern(CheckURLMixin):
 
 
 _PATH_PARAMETER_COMPONENT_RE = re.compile(
-    '<(?:(?P<converter>[^>:]+):)?(?P<parameter>\w+)>'
+    r'<(?:(?P<converter>[^>:]+):)?(?P<parameter>\w+)>'
 )
 
 
@@ -343,9 +343,7 @@ class URLPattern:
         'path.to.ClassBasedView').
         """
         callback = self.callback
-        # Python 3.5 collapses nested partials, so can change "while" to "if"
-        # when it's the minimum supported version.
-        while isinstance(callback, functools.partial):
+        if isinstance(callback, functools.partial):
             callback = callback.func
         if not hasattr(callback, '__name__'):
             return callback.__module__ + "." + callback.__class__.__name__
