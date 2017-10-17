@@ -44,33 +44,23 @@ class Deferred:
 DEFERRED = Deferred()
 
 
-def subclass_exception(name, parents, module, attached_to=None):
+def subclass_exception(name, bases, module, attached_to):
     """
     Create exception subclass. Used by ModelBase below.
 
-    If 'attached_to' is supplied, the exception will be created in a way that
-    allows it to be pickled, assuming the returned exception class will be added
-    as an attribute to the 'attached_to' class.
+    The exception is created in a way that allows it to be pickled, assuming
+    that the returned exception class will be added as an attribute to the
+    'attached_to' class.
     """
-    class_dict = {'__module__': module}
-    if attached_to is not None:
-        def __reduce__(self):
-            # Exceptions are special - they've got state that isn't
-            # in self.__dict__. We assume it is all in self.args.
-            return (unpickle_inner_exception, (attached_to, name), self.args)
-
-        def __setstate__(self, args):
-            self.args = args
-
-        class_dict['__reduce__'] = __reduce__
-        class_dict['__setstate__'] = __setstate__
-
-    return type(name, parents, class_dict)
+    return type(name, bases, {
+        '__module__': module,
+        '__qualname__': '%s.%s' % (attached_to.__qualname__, name),
+    })
 
 
 class ModelBase(type):
     """Metaclass for all models."""
-    def __new__(cls, name, bases, attrs):
+    def __new__(cls, name, bases, attrs, **kwargs):
         super_new = super().__new__
 
         # Also ensure initialization is only performed for subclasses of Model
@@ -85,7 +75,7 @@ class ModelBase(type):
         classcell = attrs.pop('__classcell__', None)
         if classcell is not None:
             new_attrs['__classcell__'] = classcell
-        new_class = super_new(cls, name, bases, new_attrs)
+        new_class = super_new(cls, name, bases, new_attrs, **kwargs)
         attr_meta = attrs.pop('Meta', None)
         abstract = getattr(attr_meta, 'abstract', False)
         if not attr_meta:
@@ -1724,9 +1714,3 @@ def model_unpickle(model_id):
 
 
 model_unpickle.__safe_for_unpickle__ = True
-
-
-def unpickle_inner_exception(klass, exception_name):
-    # Get the exception class from the class it is attached to:
-    exception = getattr(klass, exception_name)
-    return exception.__new__(exception)
