@@ -155,10 +155,7 @@ class AuthenticationForm(forms.Form):
     Base class for authenticating users. Extend this to get a form that accepts
     username/password logins.
     """
-    username = UsernameField(
-        max_length=254,
-        widget=forms.TextInput(attrs={'autofocus': True}),
-    )
+    username = UsernameField(widget=forms.TextInput(attrs={'autofocus': True}))
     password = forms.CharField(
         label=_("Password"),
         strip=False,
@@ -182,8 +179,9 @@ class AuthenticationForm(forms.Form):
         self.user_cache = None
         super().__init__(*args, **kwargs)
 
-        # Set the label for the "username" field.
+        # Set the max length and label for the "username" field.
         self.username_field = UserModel._meta.get_field(UserModel.USERNAME_FIELD)
+        self.fields['username'].max_length = self.username_field.max_length or 254
         if self.fields['username'].label is None:
             self.fields['username'].label = capfirst(self.username_field.verbose_name)
 
@@ -194,11 +192,7 @@ class AuthenticationForm(forms.Form):
         if username is not None and password:
             self.user_cache = authenticate(self.request, username=username, password=password)
             if self.user_cache is None:
-                raise forms.ValidationError(
-                    self.error_messages['invalid_login'],
-                    code='invalid_login',
-                    params={'username': self.username_field.verbose_name},
-                )
+                raise self.get_invalid_login_error()
             else:
                 self.confirm_login_allowed(self.user_cache)
 
@@ -228,6 +222,13 @@ class AuthenticationForm(forms.Form):
 
     def get_user(self):
         return self.user_cache
+
+    def get_invalid_login_error(self):
+        return forms.ValidationError(
+            self.error_messages['invalid_login'],
+            code='invalid_login',
+            params={'username': self.username_field.verbose_name},
+        )
 
 
 class PasswordResetForm(forms.Form):
