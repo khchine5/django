@@ -21,7 +21,7 @@ class DatabaseOperations(BaseDatabaseOperations):
         'PositiveSmallIntegerField': (0, 99999999999),
         'PositiveIntegerField': (0, 99999999999),
     }
-    set_operators = dict(BaseDatabaseOperations.set_operators, difference='MINUS')
+    set_operators = {**BaseDatabaseOperations.set_operators, 'difference': 'MINUS'}
 
     # TODO: colorize this SQL code with style.SQL_KEYWORD(), etc.
     _sequence_reset_sql = """
@@ -70,12 +70,6 @@ END;
         else:
             # https://docs.oracle.com/database/121/SQLRF/functions067.htm#SQLRF00639
             return "EXTRACT(%s FROM %s)" % (lookup_type.upper(), field_name)
-
-    def date_interval_sql(self, timedelta):
-        """
-        NUMTODSINTERVAL converts number to INTERVAL DAY TO SECOND literal.
-        """
-        return "NUMTODSINTERVAL(%06f, 'SECOND')" % timedelta.total_seconds()
 
     def date_trunc_sql(self, lookup_type, field_name):
         # https://docs.oracle.com/database/121/SQLRF/functions271.htm#SQLRF52058
@@ -153,7 +147,8 @@ END;
         elif internal_type in ['BooleanField', 'NullBooleanField']:
             converters.append(self.convert_booleanfield_value)
         elif internal_type == 'DateTimeField':
-            converters.append(self.convert_datetimefield_value)
+            if settings.USE_TZ:
+                converters.append(self.convert_datetimefield_value)
         elif internal_type == 'DateField':
             converters.append(self.convert_datefield_value)
         elif internal_type == 'TimeField':
@@ -192,8 +187,7 @@ END;
 
     def convert_datetimefield_value(self, value, expression, connection):
         if value is not None:
-            if settings.USE_TZ:
-                value = timezone.make_aware(value, self.connection.timezone)
+            value = timezone.make_aware(value, self.connection.timezone)
         return value
 
     def convert_datefield_value(self, value, expression, connection):

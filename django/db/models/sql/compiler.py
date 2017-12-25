@@ -476,10 +476,7 @@ class SQLCompiler:
                     params.extend(s_params)
                     out_cols.append(s_sql)
 
-                result.append(', '.join(out_cols))
-
-                result.append('FROM')
-                result.extend(from_)
+                result += [', '.join(out_cols), 'FROM', *from_]
                 params.extend(f_params)
 
                 if self.query.select_for_update and self.connection.features.has_select_for_update:
@@ -1002,10 +999,11 @@ class SQLCompiler:
                 row[pos] = value
             yield row
 
-    def results_iter(self, results=None, tuple_expected=False):
+    def results_iter(self, results=None, tuple_expected=False, chunked_fetch=False,
+                     chunk_size=GET_ITERATOR_CHUNK_SIZE):
         """Return an iterator over the results from executing this query."""
         if results is None:
-            results = self.execute_sql(MULTI)
+            results = self.execute_sql(MULTI, chunked_fetch=chunked_fetch, chunk_size=chunk_size)
         fields = [s[0] for s in self.select[0:self.col_count]]
         converters = self.get_converters(fields)
         rows = chain.from_iterable(results)
@@ -1214,12 +1212,10 @@ class SQLInsertCompiler(SQLCompiler):
         qn = self.connection.ops.quote_name
         opts = self.query.get_meta()
         result = ['INSERT INTO %s' % qn(opts.db_table)]
-
-        has_fields = bool(self.query.fields)
-        fields = self.query.fields if has_fields else [opts.pk]
+        fields = self.query.fields or [opts.pk]
         result.append('(%s)' % ', '.join(qn(f.column) for f in fields))
 
-        if has_fields:
+        if self.query.fields:
             value_rows = [
                 [self.prepare_value(field, self.pre_save_val(field, obj)) for field in fields]
                 for obj in self.query.objs

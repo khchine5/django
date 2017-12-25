@@ -715,7 +715,7 @@ def firstof(parser, token):
     """
     bits = token.split_contents()[1:]
     asvar = None
-    if len(bits) < 1:
+    if not bits:
         raise TemplateSyntaxError("'firstof' statement requires at least one argument")
 
     if len(bits) >= 2 and bits[-2] == 'as':
@@ -1363,16 +1363,15 @@ def url(parser, token):
         asvar = bits[-1]
         bits = bits[:-2]
 
-    if len(bits):
-        for bit in bits:
-            match = kwarg_re.match(bit)
-            if not match:
-                raise TemplateSyntaxError("Malformed arguments to url tag")
-            name, value = match.groups()
-            if name:
-                kwargs[name] = parser.compile_filter(value)
-            else:
-                args.append(parser.compile_filter(value))
+    for bit in bits:
+        match = kwarg_re.match(bit)
+        if not match:
+            raise TemplateSyntaxError("Malformed arguments to url tag")
+        name, value = match.groups()
+        if name:
+            kwargs[name] = parser.compile_filter(value)
+        else:
+            args.append(parser.compile_filter(value))
 
     return URLNode(viewname, args, kwargs, asvar)
 

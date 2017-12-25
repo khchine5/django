@@ -324,7 +324,6 @@ def _urlsplit(url, scheme='', allow_fragments=True):
     Note that we don't break the components up in smaller bits
     (e.g. netloc is a single string) and we don't expand % escapes."""
     url, scheme, _coerce_result = _coerce_args(url, scheme)
-    allow_fragments = bool(allow_fragments)
     netloc = query = fragment = ''
     i = url.find(':')
     if i > 0:
@@ -420,7 +419,7 @@ def limited_parse_qsl(qs, keep_blank_values=False, encoding='utf-8',
                 nv.append('')
             else:
                 continue
-        if len(nv[1]) or keep_blank_values:
+        if nv[1] or keep_blank_values:
             name = nv[0].replace('+', ' ')
             name = unquote(name, encoding=encoding, errors=errors)
             value = nv[1].replace('+', ' ')

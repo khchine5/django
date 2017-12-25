@@ -1,4 +1,5 @@
 import datetime
+import decimal
 import uuid
 
 from django.conf import settings
@@ -14,6 +15,10 @@ from django.utils.duration import duration_string
 
 class DatabaseOperations(BaseDatabaseOperations):
     cast_char_field_without_max_length = 'text'
+    cast_data_types = {
+        'DateField': 'TEXT',
+        'DateTimeField': 'TEXT',
+    }
 
     def bulk_batch_size(self, fields, objs):
         """
@@ -208,9 +213,7 @@ class DatabaseOperations(BaseDatabaseOperations):
             converters.append(self.convert_datefield_value)
         elif internal_type == 'TimeField':
             converters.append(self.convert_timefield_value)
-        # Converter for Col is added with Database.register_converter()
-        # in base.py.
-        elif internal_type == 'DecimalField' and not isinstance(expression, Col):
+        elif internal_type == 'DecimalField':
             converters.append(self.convert_decimalfield_value)
         elif internal_type == 'UUIDField':
             converters.append(self.convert_uuidfield_value)
@@ -240,9 +243,12 @@ class DatabaseOperations(BaseDatabaseOperations):
 
     def convert_decimalfield_value(self, value, expression, connection):
         if value is not None:
+            if not isinstance(expression, Col):
+                # SQLite stores only 15 significant digits. Digits coming from
+                # float inaccuracy must be removed.
+                return decimal.Context(prec=15).create_decimal_from_float(value)
             value = expression.output_field.format_number(value)
-            # Value is not converted to Decimal here as it will be converted
-            # later in BaseExpression.convert_value().
+            return decimal.Decimal(value)
         return value
 
     def convert_uuidfield_value(self, value, expression, connection):

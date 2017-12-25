@@ -583,7 +583,7 @@ class Model(metaclass=ModelBase):
         of the field will call this method.
         """
         if fields is not None:
-            if len(fields) == 0:
+            if not fields:
                 return
             if any(LOOKUP_SEP in f for f in fields):
                 raise ValueError(
@@ -688,7 +688,7 @@ class Model(metaclass=ModelBase):
             # If update_fields is empty, skip the save. We do also check for
             # no-op saves later on for inheritance cases. This bailout is
             # still needed for skipping signal sending.
-            if len(update_fields) == 0:
+            if not update_fields:
                 return
 
             update_fields = frozenset(update_fields)
@@ -736,7 +736,7 @@ class Model(metaclass=ModelBase):
         """
         using = using or router.db_for_write(self.__class__, instance=self)
         assert not (force_insert and (force_update or update_fields))
-        assert update_fields is None or len(update_fields) > 0
+        assert update_fields is None or update_fields
         cls = origin = self.__class__
         # Skip proxies, but keep the origin as the proxy model.
         if cls._meta.proxy:
@@ -1186,14 +1186,13 @@ class Model(metaclass=ModelBase):
 
     @classmethod
     def check(cls, **kwargs):
-        errors = []
-        errors.extend(cls._check_swappable())
-        errors.extend(cls._check_model())
-        errors.extend(cls._check_managers(**kwargs))
+        errors = [*cls._check_swappable(), *cls._check_model(), *cls._check_managers(**kwargs)]
         if not cls._meta.swapped:
-            errors.extend(cls._check_fields(**kwargs))
-            errors.extend(cls._check_m2m_through_same_relationship())
-            errors.extend(cls._check_long_column_names())
+            errors += [
+                *cls._check_fields(**kwargs),
+                *cls._check_m2m_through_same_relationship(),
+                *cls._check_long_column_names(),
+            ]
             clash_errors = (
                 cls._check_id_field() +
                 cls._check_field_name_clashes() +
@@ -1204,9 +1203,11 @@ class Model(metaclass=ModelBase):
             # clashes.
             if not clash_errors:
                 errors.extend(cls._check_column_name_clashes())
-            errors.extend(cls._check_index_together())
-            errors.extend(cls._check_unique_together())
-            errors.extend(cls._check_ordering())
+            errors += [
+                *cls._check_index_together(),
+                *cls._check_unique_together(),
+                *cls._check_ordering(),
+            ]
 
         return errors
 
