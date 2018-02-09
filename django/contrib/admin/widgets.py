@@ -6,6 +6,7 @@ import json
 
 from django import forms
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db.models.deletion import CASCADE
 from django.urls import reverse
 from django.urls.exceptions import NoReverseMatch
@@ -183,7 +184,7 @@ class ForeignKeyRawIdWidget(forms.TextInput):
         key = self.rel.get_related_field().name
         try:
             obj = self.rel.model._default_manager.using(self.db).get(**{key: value})
-        except (ValueError, self.rel.model.DoesNotExist):
+        except (ValueError, self.rel.model.DoesNotExist, ValidationError):
             return '', ''
 
         try:
@@ -438,8 +439,7 @@ class AutocompleteMixin:
                 str(option_value) in value and
                 (has_selected is False or self.allow_multiple_selected)
             )
-            if selected is True and has_selected is False:
-                has_selected = True
+            has_selected |= selected
             index = len(default[1])
             subgroup = default[1]
             subgroup.append(self.create_option(name, option_value, option_label, selected_choices, index))

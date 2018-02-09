@@ -82,20 +82,16 @@ class ModelBackend:
         return user_obj._perm_cache
 
     def has_perm(self, user_obj, perm, obj=None):
-        if not user_obj.is_active:
-            return False
-        return perm in self.get_all_permissions(user_obj, obj)
+        return user_obj.is_active and perm in self.get_all_permissions(user_obj, obj)
 
     def has_module_perms(self, user_obj, app_label):
         """
         Return True if user_obj has any permissions in the given app_label.
         """
-        if not user_obj.is_active:
-            return False
-        for perm in self.get_all_permissions(user_obj):
-            if perm[:perm.index('.')] == app_label:
-                return True
-        return False
+        return user_obj.is_active and any(
+            perm[:perm.index('.')] == app_label
+            for perm in self.get_all_permissions(user_obj)
+        )
 
     def get_user(self, user_id):
         try:

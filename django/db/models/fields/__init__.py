@@ -1,4 +1,4 @@
-import collections
+import collections.abc
 import copy
 import datetime
 import decimal
@@ -24,7 +24,7 @@ from django.utils.datastructures import DictWrapper
 from django.utils.dateparse import (
     parse_date, parse_datetime, parse_duration, parse_time,
 )
-from django.utils.duration import duration_string
+from django.utils.duration import duration_microseconds, duration_string
 from django.utils.encoding import force_bytes, smart_text
 from django.utils.functional import Promise, cached_property
 from django.utils.ipv6 import clean_ipv6_address
@@ -152,7 +152,7 @@ class Field(RegisterLookupMixin):
         self.unique_for_date = unique_for_date
         self.unique_for_month = unique_for_month
         self.unique_for_year = unique_for_year
-        if isinstance(choices, collections.Iterator):
+        if isinstance(choices, collections.abc.Iterator):
             choices = list(choices)
         self.choices = choices or []
         self.help_text = help_text
@@ -241,30 +241,54 @@ class Field(RegisterLookupMixin):
             return []
 
     def _check_choices(self):
-        if self.choices:
-            if isinstance(self.choices, str) or not is_iterable(self.choices):
-                return [
-                    checks.Error(
-                        "'choices' must be an iterable (e.g., a list or tuple).",
-                        obj=self,
-                        id='fields.E004',
-                    )
-                ]
-            elif any(isinstance(choice, str) or
-                     not is_iterable(choice) or len(choice) != 2
-                     for choice in self.choices):
-                return [
-                    checks.Error(
-                        "'choices' must be an iterable containing "
-                        "(actual value, human readable name) tuples.",
-                        obj=self,
-                        id='fields.E005',
-                    )
-                ]
-            else:
-                return []
+        if not self.choices:
+            return []
+
+        def is_value(value):
+            return isinstance(value, (str, Promise)) or not is_iterable(value)
+
+        if is_value(self.choices):
+            return [
+                checks.Error(
+                    "'choices' must be an iterable (e.g., a list or tuple).",
+                    obj=self,
+                    id='fields.E004',
+                )
+            ]
+
+        # Expect [group_name, [value, display]]
+        for choices_group in self.choices:
+            try:
+                group_name, group_choices = choices_group
+            except ValueError:
+                # Containing non-pairs
+                break
+            try:
+                if not all(
+                    is_value(value) and is_value(human_name)
+                    for value, human_name in group_choices
+                ):
+                    break
+            except (TypeError, ValueError):
+                # No groups, choices in the form [value, display]
+                value, human_name = group_name, group_choices
+                if not is_value(value) or not is_value(human_name):
+                    break
+
+            # Special case: choices=['ab']
+            if isinstance(choices_group, str):
+                break
         else:
             return []
+
+        return [
+            checks.Error(
+                "'choices' must be an iterable containing "
+                "(actual value, human readable name) tuples.",
+                obj=self,
+                id='fields.E005',
+            )
+        ]
 
     def _check_db_index(self):
         if self.db_index not in (None, True, False):
@@ -439,7 +463,7 @@ class Field(RegisterLookupMixin):
         for name, default in possibles.items():
             value = getattr(self, attr_overrides.get(name, name))
             # Unroll anything iterable for choices into a concrete list
-            if name == "choices" and isinstance(value, collections.Iterable):
+            if name == "choices" and isinstance(value, collections.abc.Iterable):
                 value = list(value)
             # Do correct kind of comparison
             if name in equals_comparison:
@@ -694,8 +718,7 @@ class Field(RegisterLookupMixin):
         return self._db_tablespace or settings.DEFAULT_INDEX_TABLESPACE
 
     def set_attributes_from_name(self, name):
-        if not self.name:
-            self.name = name
+        self.name = self.name or name
         self.attname, self.column = self.get_attname_column()
         self.concrete = self.column is not None
         if self.verbose_name is None and self.name:
@@ -719,7 +742,7 @@ class Field(RegisterLookupMixin):
             # if you have a classmethod and a field with the same name, then
             # such fields can't be deferred (we don't have a check for this).
             if not getattr(cls, self.attname, None):
-                setattr(cls, self.attname, DeferredAttribute(self.attname, cls))
+                setattr(cls, self.attname, DeferredAttribute(self.attname))
         if self.choices:
             setattr(cls, 'get_%s_display' % self.name,
                     partialmethod(cls._get_FIELD_display, field=self))
@@ -1560,20 +1583,6 @@ class DecimalField(Field):
                 params={'value': value},
             )
 
-    def format_number(self, value):
-        """
-        Format a number into a string with the requisite number of digits and
-        decimal places.
-        """
-        # Method moved to django.db.backends.utils.
-        #
-        # It is preserved because it is used by the oracle backend
-        # (django.db.backends.oracle.query), and also for
-        # backwards-compatibility with any external code which may have used
-        # this method.
-        from django.db.backends import utils
-        return utils.format_number(value, self.max_digits, self.decimal_places)
-
     def get_db_prep_save(self, value, connection):
         return connection.ops.adapt_decimalfield_value(self.to_python(value), self.max_digits, self.decimal_places)
 
@@ -1631,8 +1640,7 @@ class DurationField(Field):
             return value
         if value is None:
             return None
-        # Discard any fractional microseconds due to floating point arithmetic.
-        return round(value.total_seconds() * 1000000)
+        return duration_microseconds(value)
 
     def get_db_converters(self, connection):
         converters = []
@@ -1806,18 +1814,14 @@ class IntegerField(Field):
         validators_ = super().validators
         internal_type = self.get_internal_type()
         min_value, max_value = connection.ops.integer_field_range(internal_type)
-        if min_value is not None:
-            for validator in validators_:
-                if isinstance(validator, validators.MinValueValidator) and validator.limit_value >= min_value:
-                    break
-            else:
-                validators_.append(validators.MinValueValidator(min_value))
-        if max_value is not None:
-            for validator in validators_:
-                if isinstance(validator, validators.MaxValueValidator) and validator.limit_value <= max_value:
-                    break
-            else:
-                validators_.append(validators.MaxValueValidator(max_value))
+        if (min_value is not None and not
+            any(isinstance(validator, validators.MinValueValidator) and
+                validator.limit_value >= min_value for validator in validators_)):
+            validators_.append(validators.MinValueValidator(min_value))
+        if (max_value is not None and not
+            any(isinstance(validator, validators.MaxValueValidator) and
+                validator.limit_value <= max_value for validator in validators_)):
+            validators_.append(validators.MaxValueValidator(max_value))
         return validators_
 
     def get_prep_value(self, value):

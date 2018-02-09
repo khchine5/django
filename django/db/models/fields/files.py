@@ -39,7 +39,7 @@ class FieldFile(File):
 
     def _get_file(self):
         self._require_file()
-        if not hasattr(self, '_file') or self._file is None:
+        if getattr(self, '_file', None) is None:
             self._file = self.storage.open(self.name, 'rb')
         return self._file
 
@@ -70,10 +70,10 @@ class FieldFile(File):
 
     def open(self, mode='rb'):
         self._require_file()
-        if hasattr(self, '_file') and self._file is not None:
-            self.file.open(mode)
-        else:
+        if getattr(self, '_file', None) is None:
             self.file = self.storage.open(self.name, mode)
+        else:
+            self.file.open(mode)
         return self
     # open() doesn't alter the file's contents, but it does reset the pointer
     open.alters_data = True
@@ -314,9 +314,7 @@ class FileField(Field):
         if data is not None:
             # This value will be converted to str and stored in the
             # database, so leaving False as-is is not acceptable.
-            if not data:
-                data = ''
-            setattr(instance, self.name, data)
+            setattr(instance, self.name, data or '')
 
     def formfield(self, **kwargs):
         return super().formfield(**{

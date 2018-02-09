@@ -1,7 +1,6 @@
 from django.db import models
 from django.db.migrations.operations.base import Operation
 from django.db.migrations.state import ModelState
-from django.db.models.fields.related import RECURSIVE_RELATIONSHIP_CONSTANT
 from django.db.models.options import normalize_together
 from django.utils.functional import cached_property
 
@@ -249,7 +248,7 @@ class DeleteModel(ModelOperation):
             schema_editor.create_model(model)
 
     def describe(self):
-        return "Delete model %s" % (self.name, )
+        return "Delete model %s" % self.name
 
 
 class RenameModel(ModelOperation):
@@ -278,14 +277,6 @@ class RenameModel(ModelOperation):
             [],
             kwargs
         )
-
-    def _get_model_tuple(self, remote_model, app_label, model_name):
-        if remote_model == RECURSIVE_RELATIONSHIP_CONSTANT:
-            return app_label, model_name.lower()
-        elif '.' in remote_model:
-            return tuple(remote_model.lower().split('.'))
-        else:
-            return app_label, remote_model.lower()
 
     def state_forwards(self, app_label, state):
         # Add a new model.
@@ -701,7 +692,7 @@ class AlterModelOptions(ModelOptionOperation):
         pass
 
     def describe(self):
-        return "Change Meta options on %s" % (self.name, )
+        return "Change Meta options on %s" % self.name
 
 
 class AlterModelManagers(ModelOptionOperation):
@@ -732,7 +723,7 @@ class AlterModelManagers(ModelOptionOperation):
         pass
 
     def describe(self):
-        return "Change managers on %s" % (self.name, )
+        return "Change managers on %s" % self.name
 
 
 class IndexOperation(Operation):

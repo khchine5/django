@@ -540,10 +540,10 @@ within the same ``values()`` clause. If you need to group by another value,
 add it to an earlier ``values()`` clause instead. For example::
 
     >>> from django.db.models import Count
-    >>> Blog.objects.values('author', entries=Count('entry'))
-    <QuerySet [{'author': 1, 'entries': 20}, {'author': 1, 'entries': 13}]>
-    >>> Blog.objects.values('author').annotate(entries=Count('entry'))
-    <QuerySet [{'author': 1, 'entries': 33}]>
+    >>> Blog.objects.values('entry__authors', entries=Count('entry'))
+    <QuerySet [{'entry__authors': 1, 'entries': 20}, {'entry__authors': 1, 'entries': 13}]>
+    >>> Blog.objects.values('entry__authors').annotate(entries=Count('entry'))
+    <QuerySet [{'entry__authors': 1, 'entries': 33}]>
 
 A few subtleties that are worth mentioning:
 
@@ -694,13 +694,15 @@ objects representing all available dates of a particular kind within the
 contents of the ``QuerySet``.
 
 ``field`` should be the name of a ``DateField`` of your model.
-``kind`` should be either ``"year"``, ``"month"`` or ``"day"``. Each
-``datetime.date`` object in the result list is "truncated" to the given
-``type``.
+``kind`` should be either ``"year"``, ``"month"``, ``"week"``, or ``"day"``.
+Each :class:`datetime.date` object in the result list is "truncated" to the
+given ``type``.
 
 * ``"year"`` returns a list of all distinct year values for the field.
 * ``"month"`` returns a list of all distinct year/month values for the
   field.
+* ``"week"`` returns a list of all distinct year/week values for the field. All
+  dates will be a Monday.
 * ``"day"`` returns a list of all distinct year/month/day values for the
   field.
 
@@ -713,12 +715,18 @@ Examples::
     [datetime.date(2005, 1, 1)]
     >>> Entry.objects.dates('pub_date', 'month')
     [datetime.date(2005, 2, 1), datetime.date(2005, 3, 1)]
+    >>> Entry.objects.dates('pub_date', 'week')
+    [datetime.date(2005, 2, 14), datetime.date(2005, 3, 14)]
     >>> Entry.objects.dates('pub_date', 'day')
     [datetime.date(2005, 2, 20), datetime.date(2005, 3, 20)]
     >>> Entry.objects.dates('pub_date', 'day', order='DESC')
     [datetime.date(2005, 3, 20), datetime.date(2005, 2, 20)]
     >>> Entry.objects.filter(headline__contains='Lennon').dates('pub_date', 'day')
     [datetime.date(2005, 3, 20)]
+
+.. versionchanged:: 2.1
+
+    "week" support was added.
 
 ``datetimes()``
 ~~~~~~~~~~~~~~~
@@ -731,9 +739,9 @@ contents of the ``QuerySet``.
 
 ``field_name`` should be the name of a ``DateTimeField`` of your model.
 
-``kind`` should be either ``"year"``, ``"month"``, ``"day"``, ``"hour"``,
-``"minute"`` or ``"second"``. Each ``datetime.datetime`` object in the result
-list is "truncated" to the given ``type``.
+``kind`` should be either ``"year"``, ``"month"``, ``"week"``, ``"day"``,
+``"hour"``, ``"minute"``, or ``"second"``. Each :class:`datetime.datetime`
+object in the result list is "truncated" to the given ``type``.
 
 ``order``, which defaults to ``'ASC'``, should be either ``'ASC'`` or
 ``'DESC'``. This specifies how to order the results.
@@ -744,6 +752,10 @@ on the time zone in use. This parameter must be a :class:`datetime.tzinfo`
 object. If it's ``None``, Django uses the :ref:`current time zone
 <default-current-time-zone>`. It has no effect when :setting:`USE_TZ` is
 ``False``.
+
+.. versionchanged:: 2.1
+
+    "week" support was added.
 
 .. _database-time-zone-definitions:
 
@@ -923,11 +935,13 @@ following models::
 ... then a call to ``Book.objects.select_related('author__hometown').get(id=4)``
 will cache the related ``Person`` *and* the related ``City``::
 
+    # Hits the database with joins to the author and hometown tables.
     b = Book.objects.select_related('author__hometown').get(id=4)
     p = b.author         # Doesn't hit the database.
     c = p.hometown       # Doesn't hit the database.
 
-    b = Book.objects.get(id=4) # No select_related() in this example.
+    # Without select_related()...
+    b = Book.objects.get(id=4)  # Hits the database.
     p = b.author         # Hits the database.
     c = p.hometown       # Hits the database.
 
@@ -1965,6 +1979,21 @@ This has a number of caveats though:
   does not retrieve and set the primary key attribute, as ``save()`` does,
   unless the database backend supports it (currently PostgreSQL).
 * It does not work with many-to-many relationships.
+* It casts ``objs`` to a list, which fully evaluates ``objs`` if it's a
+  generator. The cast allows inspecting all objects so that any objects with a
+  manually set primary key can be inserted first. If you want to insert objects
+  in batches without evaluating the entire generator at once, you can use this
+  technique as long as the objects don't have any manually set primary keys::
+
+    from itertools import islice
+
+    batch_size = 100
+    objs = (Entry(headline='Test %s' % i) for i in range(1000))
+    while True:
+        batch = list(islice(objs, batch_size))
+        if not batch:
+            break
+        Entry.objects.bulk_create(batch, batch_size)
 
 The ``batch_size`` parameter controls how many objects are created in a single
 query. The default is to create all objects in one batch, except for SQLite

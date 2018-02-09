@@ -157,6 +157,15 @@ application and imports it.
     This class works like :class:`~django.contrib.admin.apps.AdminConfig`,
     except it doesn't call :func:`~django.contrib.admin.autodiscover()`.
 
+    .. attribute:: default_site
+
+        .. versionadded:: 2.1
+
+        A dotted import path to the default admin site's class or to a callable
+        that returns a site instance. Defaults to
+        ``'django.contrib.admin.sites.AdminSite'``. See
+        :ref:`overriding-default-admin-site` for usage.
+
 .. function:: autodiscover
 
     This function attempts to import an ``admin`` module in each installed
@@ -1180,7 +1189,7 @@ subclass::
                 # for each line of the address and you want to separate each
                 # line by a linebreak
                 return format_html_join(
-                    mark_safe('<br/>'),
+                    mark_safe('<br>'),
                     '{}',
                     ((line,) for line in instance.get_full_address()),
                 ) or mark_safe("<span class='errors'>I can't determine this address.</span>")
@@ -1287,6 +1296,22 @@ subclass::
     a full count on the table which can be expensive if the table contains a
     large number of rows.
 
+.. attribute:: ModelAdmin.sortable_by
+
+    .. versionadded:: 2.1
+
+    By default, the change list page allows sorting by all model fields (and
+    callables that have the ``admin_order_field`` property) specified in
+    :attr:`list_display`.
+
+    If you want to disable sorting for some columns, set ``sortable_by`` to
+    a collection (e.g. ``list``, ``tuple``, or ``set``) of the subset of
+    :attr:`list_display` that you want to be sortable. An empty collection
+    disables sorting for all columns.
+
+    If you need to specify this list dynamically, implement a
+    :meth:`~ModelAdmin.get_sortable_by` method instead.
+
 .. attribute:: ModelAdmin.view_on_site
 
     Set ``view_on_site`` to control whether or not to display the "View on site" link.
@@ -1390,6 +1415,15 @@ templates used by the :class:`ModelAdmin` views:
     instance. Overriding this method allows doing pre- or post-delete
     operations. Call ``super().delete_model()`` to delete the object using
     :meth:`.Model.delete`.
+
+.. method:: ModelAdmin.delete_queryset(request, queryset)
+
+    .. versionadded:: 2.1
+
+    The ``delete_queryset()`` method is given the ``HttpRequest`` and a
+    ``QuerySet`` of objects to be deleted. Override this method to customize
+    the deletion process for the "delete selected objects" :doc:`action
+    <actions>`.
 
 .. method:: ModelAdmin.save_formset(request, form, formset, change)
 
@@ -1546,6 +1580,24 @@ templates used by the :class:`ModelAdmin` views:
     to return the same kind of sequence type as for the
     :attr:`~ModelAdmin.search_fields` attribute.
 
+.. method:: ModelAdmin.get_sortable_by(request)
+
+    .. versionadded:: 2.1
+
+    The ``get_sortable_by()`` method is passed the ``HttpRequest`` and is
+    expected to return a collection (e.g. ``list``, ``tuple``, or ``set``) of
+    field names that will be sortable in the change list page.
+
+    Its default implementation returns :attr:`sortable_by` if it's set,
+    otherwise it defers to :meth:`get_list_display`.
+
+    For example, to prevent one or more columns from being sortable::
+
+        class PersonAdmin(admin.ModelAdmin):
+
+            def get_sortable_by(self, request):
+                return {*self.get_list_display(request)} - {'rank'}
+
 .. method:: ModelAdmin.get_inline_instances(request, obj=None)
 
     The ``get_inline_instances`` method is given the ``HttpRequest`` and the
@@ -1685,9 +1737,8 @@ templates used by the :class:`ModelAdmin` views:
             def get_formsets_with_inlines(self, request, obj=None):
                 for inline in self.get_inline_instances(request, obj):
                     # hide MyInline in the add view
-                    if isinstance(inline, MyInline) and obj is None:
-                        continue
-                    yield inline.get_formset(request, obj), inline
+                    if not isinstance(inline, MyInline) or obj is not None:
+                        yield inline.get_formset(request, obj), inline
 
 .. method:: ModelAdmin.formfield_for_foreignkey(db_field, request, **kwargs)
 
@@ -2016,9 +2067,13 @@ jQuery
 Django admin JavaScript makes use of the `jQuery`_ library.
 
 To avoid conflicts with user-supplied scripts or libraries, Django's jQuery
-(version 2.2.3) is namespaced as ``django.jQuery``. If you want to use jQuery
+(version 3.2.1) is namespaced as ``django.jQuery``. If you want to use jQuery
 in your own admin JavaScript without including a second copy, you can use the
 ``django.jQuery`` object on changelist and add/edit views.
+
+.. versionchanged:: 2.1
+
+    jQuery was upgraded from 2.2.3 to 3.2.1.
 
 The :class:`ModelAdmin` class requires jQuery by default, so there is no need
 to add jQuery to your ``ModelAdmin``’s list of media resources unless you have
@@ -2615,6 +2670,9 @@ creating your own ``AdminSite`` instance (see below), and changing the
     this class is created as ``django.contrib.admin.site`` and you can
     register your models and ``ModelAdmin`` instances with it.
 
+    If you want to customize the default admin site, you can :ref:`override it
+    <overriding-default-admin-site>`.
+
     When constructing an instance of an ``AdminSite``, you can provide
     a unique instance name using the ``name`` argument to the constructor. This
     instance name is used to identify the instance, especially when
@@ -2806,6 +2864,43 @@ own ``AdminSite`` instance since you will likely be importing all the per-app
 ``admin`` modules in your ``myproject.admin`` module. This means you need to
 put ``'django.contrib.admin.apps.SimpleAdminConfig'`` instead of
 ``'django.contrib.admin'`` in your :setting:`INSTALLED_APPS` setting.
+
+.. _overriding-default-admin-site:
+
+Overriding the default admin site
+---------------------------------
+
+.. versionadded:: 2.1
+
+You can override the default ``django.contrib.admin.site`` by setting the
+:attr:`~.SimpleAdminConfig.default_site` attribute of a custom ``AppConfig``
+to the dotted import path of either a ``AdminSite`` subclass or a callable that
+returns a site instance.
+
+.. snippet::
+    :filename: myproject/admin.py
+
+    from django.contrib import admin
+
+    class MyAdminSite(admin.AdminSite):
+        ...
+
+.. snippet::
+    :filename: myproject/apps.py
+
+    from django.contrib.admin.apps import AdminConfig
+
+    class MyAdminConfig(AdminConfig):
+        default_site = 'myproject.admin.MyAdminSite'
+
+.. snippet::
+    :filename: myproject/settings.py
+
+    INSTALLED_APPS = [
+        ...
+        'myproject.apps.MyAdminConfig',  # replaces 'django.contrib.admin'
+        ...
+    ]
 
 .. _multiple-admin-sites:
 

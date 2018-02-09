@@ -36,11 +36,11 @@ from .models import (
     Person, Persona, Picture, Pizza, Plot, PlotDetails, PlotProxy,
     PluggableSearchPerson, Podcast, Post, PrePopulatedPost,
     PrePopulatedPostLargeSlug, PrePopulatedSubPost, Promo, Question,
-    ReadablePizza, Recipe, Recommendation, Recommender, ReferencedByGenRel,
-    ReferencedByInline, ReferencedByParent, RelatedPrepopulated,
-    RelatedWithUUIDPKModel, Report, Reservation, Restaurant,
-    RowLevelChangePermissionModel, Section, ShortMessage, Simple, Sketch,
-    State, Story, StumpJoke, Subscriber, SuperVillain, Telegram, Thing,
+    ReadablePizza, ReadOnlyPizza, Recipe, Recommendation, Recommender,
+    ReferencedByGenRel, ReferencedByInline, ReferencedByParent,
+    RelatedPrepopulated, RelatedWithUUIDPKModel, Report, Reservation,
+    Restaurant, RowLevelChangePermissionModel, Section, ShortMessage, Simple,
+    Sketch, State, Story, StumpJoke, Subscriber, SuperVillain, Telegram, Thing,
     Topping, UnchangeableObject, UndeletableObject, UnorderedObject,
     UserMessenger, Villain, Vodcast, Whatsit, Widget, Worker, WorkHour,
 )
@@ -231,6 +231,10 @@ class PersonaAdmin(admin.ModelAdmin):
 class SubscriberAdmin(admin.ModelAdmin):
     actions = ['mail_admin']
     action_form = MediaActionForm
+
+    def delete_queryset(self, request, queryset):
+        SubscriberAdmin.overridden = True
+        super().delete_queryset(request, queryset)
 
     def mail_admin(self, request, selected):
         EmailMessage(
@@ -502,6 +506,19 @@ class StudentAdmin(admin.ModelAdmin):
     search_fields = ('name',)
 
 
+class ReadOnlyPizzaAdmin(admin.ModelAdmin):
+    readonly_fields = ('name', 'toppings')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return True
+
+    def has_delete_permission(self, request, obj=None):
+        return True
+
+
 class WorkHourAdmin(admin.ModelAdmin):
     list_display = ('datum', 'employee')
     list_filter = ('employee',)
@@ -568,7 +585,7 @@ class StoryForm(forms.ModelForm):
 class StoryAdmin(admin.ModelAdmin):
     list_display = ('id', 'title', 'content')
     list_display_links = ('title',)  # 'id' not in list_display_links
-    list_editable = ('content', )
+    list_editable = ('content',)
     form = StoryForm
     ordering = ['-id']
 
@@ -576,7 +593,7 @@ class StoryAdmin(admin.ModelAdmin):
 class OtherStoryAdmin(admin.ModelAdmin):
     list_display = ('id', 'title', 'content')
     list_display_links = ('title', 'id')  # 'id' in list_display_links
-    list_editable = ('content', )
+    list_editable = ('content',)
     ordering = ['-id']
 
 
@@ -748,7 +765,7 @@ def callable_on_unknown(obj):
 
 
 class AttributeErrorRaisingAdmin(admin.ModelAdmin):
-    list_display = [callable_on_unknown, ]
+    list_display = [callable_on_unknown]
 
 
 class CustomManagerAdmin(admin.ModelAdmin):
@@ -1001,6 +1018,7 @@ site.register(Book, inlines=[ChapterInline])
 site.register(Promo)
 site.register(ChapterXtra1, ChapterXtra1Admin)
 site.register(Pizza, PizzaAdmin)
+site.register(ReadOnlyPizza, ReadOnlyPizzaAdmin)
 site.register(ReadablePizza)
 site.register(Topping, ToppingAdmin)
 site.register(Album, AlbumAdmin)
@@ -1051,3 +1069,43 @@ site2.register(Person, save_as_continue=False)
 site7 = admin.AdminSite(name="admin7")
 site7.register(Article, ArticleAdmin2)
 site7.register(Section)
+
+
+# Used to test ModelAdmin.sortable_by and get_sortable_by().
+class ArticleAdmin6(admin.ModelAdmin):
+    list_display = (
+        'content', 'date', callable_year, 'model_year', 'modeladmin_year',
+        'model_year_reversed', 'section',
+    )
+    sortable_by = ('date', callable_year)
+
+    def modeladmin_year(self, obj):
+        return obj.date.year
+    modeladmin_year.admin_order_field = 'date'
+
+
+class ActorAdmin6(admin.ModelAdmin):
+    list_display = ('name', 'age')
+    sortable_by = ('name',)
+
+    def get_sortable_by(self, request):
+        return ('age',)
+
+
+class ChapterAdmin6(admin.ModelAdmin):
+    list_display = ('title', 'book')
+    sortable_by = ()
+
+
+class ColorAdmin6(admin.ModelAdmin):
+    list_display = ('value',)
+
+    def get_sortable_by(self, request):
+        return ()
+
+
+site6 = admin.AdminSite(name='admin6')
+site6.register(Article, ArticleAdmin6)
+site6.register(Actor, ActorAdmin6)
+site6.register(Chapter, ChapterAdmin6)
+site6.register(Color, ColorAdmin6)

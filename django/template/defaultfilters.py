@@ -12,8 +12,8 @@ from django.utils import formats
 from django.utils.dateformat import format, time_format
 from django.utils.encoding import iri_to_uri
 from django.utils.html import (
-    avoid_wrapping, conditional_escape, escape, escapejs, linebreaks,
-    strip_tags, urlize as _urlize,
+    avoid_wrapping, conditional_escape, escape, escapejs,
+    json_script as _json_script, linebreaks, strip_tags, urlize as _urlize,
 )
 from django.utils.safestring import SafeData, mark_safe
 from django.utils.text import (
@@ -80,6 +80,15 @@ def capfirst(value):
 def escapejs_filter(value):
     """Hex encode characters for use in JavaScript strings."""
     return escapejs(value)
+
+
+@register.filter(is_safe=True)
+def json_script(value, element_id):
+    """
+    Output value JSON-encoded, wrapped in a <script type="application/json">
+    tag.
+    """
+    return _json_script(value, element_id)
 
 
 @register.filter(is_safe=True)
@@ -404,7 +413,7 @@ def force_escape(value):
 def linebreaks_filter(value, autoescape=True):
     """
     Replace line breaks in plain text with appropriate HTML; a single
-    newline becomes an HTML line break (``<br />``) and a new line
+    newline becomes an HTML line break (``<br>``) and a new line
     followed by a blank line becomes a paragraph break (``</p>``).
     """
     autoescape = autoescape and not isinstance(value, SafeData)
@@ -416,13 +425,13 @@ def linebreaks_filter(value, autoescape=True):
 def linebreaksbr(value, autoescape=True):
     """
     Convert all newlines in a piece of plain text to HTML line breaks
-    (``<br />``).
+    (``<br>``).
     """
     autoescape = autoescape and not isinstance(value, SafeData)
     value = normalize_newlines(value)
     if autoescape:
         value = escape(value)
-    return mark_safe(value.replace('\n', '<br />'))
+    return mark_safe(value.replace('\n', '<br>'))
 
 
 @register.filter(is_safe=True)

@@ -1,0 +1,13 @@
+==========================
+Django 2.0.3 release notes
+==========================
+
+*Expected March 1, 2018*
+
+Django 2.0.3 fixes several bugs in 2.0.2.
+
+Bugfixes
+========
+
+* Fixed a regression that caused sliced ``QuerySet.distinct().order_by()``
+  followed by ``count()`` to crash (:ticket:`29108`).

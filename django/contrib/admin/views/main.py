@@ -15,6 +15,7 @@ from django.core.exceptions import (
 )
 from django.core.paginator import InvalidPage
 from django.db import models
+from django.db.models.expressions import F, OrderBy
 from django.urls import reverse
 from django.utils.http import urlencode
 from django.utils.translation import gettext
@@ -34,7 +35,7 @@ IGNORED_PARAMS = (
 class ChangeList:
     def __init__(self, request, model, list_display, list_display_links,
                  list_filter, date_hierarchy, search_fields, list_select_related,
-                 list_per_page, list_max_show_all, list_editable, model_admin):
+                 list_per_page, list_max_show_all, list_editable, model_admin, sortable_by):
         self.model = model
         self.opts = model._meta
         self.lookup_opts = self.opts
@@ -49,6 +50,7 @@ class ChangeList:
         self.list_max_show_all = list_max_show_all
         self.model_admin = model_admin
         self.preserved_filters = model_admin.get_preserved_filters(request)
+        self.sortable_by = sortable_by
 
         # Get search parameters from the query string.
         try:
@@ -85,8 +87,7 @@ class ChangeList:
         """
         Return all params except IGNORED_PARAMS.
         """
-        if not params:
-            params = self.params
+        params = params or self.params
         lookup_params = params.copy()  # a dictionary of the query string
         # Remove all the parameters that are globally and systematically
         # ignored.
@@ -287,7 +288,13 @@ class ChangeList:
             # the right column numbers absolutely, because there might be more
             # than one column associated with that ordering, so we guess.
             for field in ordering:
-                if field.startswith('-'):
+                if isinstance(field, OrderBy):
+                    if isinstance(field.expression, F):
+                        order_type = 'desc' if field.descending else 'asc'
+                        field = field.expression.name
+                    else:
+                        continue
+                elif field.startswith('-'):
                     field = field[1:]
                     order_type = 'desc'
                 else:
@@ -372,9 +379,8 @@ class ChangeList:
             else:
                 if isinstance(field.remote_field, models.ManyToOneRel):
                     # <FK>_id field names don't require a join.
-                    if field_name == field.get_attname():
-                        continue
-                    return True
+                    if field_name != field.get_attname():
+                        return True
         return False
 
     def url_for_result(self, result):

@@ -1,5 +1,6 @@
 """HTML utilities suitable for global use."""
 
+import json
 import re
 from html.parser import HTMLParser
 from urllib.parse import (
@@ -77,6 +78,27 @@ def escapejs(value):
     return mark_safe(str(value).translate(_js_escapes))
 
 
+_json_script_escapes = {
+    ord('>'): '\\u003E',
+    ord('<'): '\\u003C',
+    ord('&'): '\\u0026',
+}
+
+
+def json_script(value, element_id):
+    """
+    Escape all the HTML/XML special characters with their unicode escapes, so
+    value is safe to be output anywhere except for inside a tag attribute. Wrap
+    the escaped JSON in a script tag.
+    """
+    from django.core.serializers.json import DjangoJSONEncoder
+    json_str = json.dumps(value, cls=DjangoJSONEncoder).translate(_json_script_escapes)
+    return format_html(
+        '<script id="{}" type="application/json">{}</script>',
+        element_id, mark_safe(json_str)
+    )
+
+
 def conditional_escape(text):
     """
     Similar to escape(), except that it doesn't operate on pre-escaped strings.
@@ -124,13 +146,13 @@ def format_html_join(sep, format_string, args_generator):
 
 @keep_lazy_text
 def linebreaks(value, autoescape=False):
-    """Convert newlines into <p> and <br />s."""
+    """Convert newlines into <p> and <br>s."""
     value = normalize_newlines(value)
     paras = re.split('\n{2,}', str(value))
     if autoescape:
-        paras = ['<p>%s</p>' % escape(p).replace('\n', '<br />') for p in paras]
+        paras = ['<p>%s</p>' % escape(p).replace('\n', '<br>') for p in paras]
     else:
-        paras = ['<p>%s</p>' % p.replace('\n', '<br />') for p in paras]
+        paras = ['<p>%s</p>' % p.replace('\n', '<br>') for p in paras]
     return '\n\n'.join(paras)
 
 

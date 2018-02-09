@@ -151,8 +151,7 @@ class SessionBase:
         while True:
             session_key = get_random_string(32, VALID_KEY_CHARS)
             if not self.exists(session_key):
-                break
-        return session_key
+                return session_key
 
     def _get_or_create_session_key(self):
         if self._session_key is None:
@@ -241,8 +240,7 @@ class SessionBase:
 
         if isinstance(expiry, datetime):
             return expiry
-        if not expiry:   # Checks both None and 0 cases
-            expiry = settings.SESSION_COOKIE_AGE
+        expiry = expiry or settings.SESSION_COOKIE_AGE   # Checks both None and 0 cases
         return modification + timedelta(seconds=expiry)
 
     def set_expiry(self, value):

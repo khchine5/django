@@ -17,7 +17,6 @@ from django.contrib.gis.shortcuts import numpy
 from django.template import Context
 from django.template.engine import Engine
 from django.test import SimpleTestCase
-from django.utils.encoding import force_bytes
 
 from ..test_data import TestDataMixin
 
@@ -160,7 +159,7 @@ class GEOSTest(SimpleTestCase, TestDataMixin):
         ref_pnt = GEOSGeometry('POINT(5 23)')
 
         wkt_f = BytesIO()
-        wkt_f.write(force_bytes(ref_pnt.wkt))
+        wkt_f.write(ref_pnt.wkt.encode())
         wkb_f = BytesIO()
         wkb_f.write(bytes(ref_pnt.wkb))
 
@@ -186,6 +185,22 @@ class GEOSTest(SimpleTestCase, TestDataMixin):
             self.assertNotEqual(g, None)
             self.assertNotEqual(g, {'foo': 'bar'})
             self.assertNotEqual(g, False)
+
+    def test_hash(self):
+        point_1 = Point(5, 23)
+        point_2 = Point(5, 23, srid=4326)
+        point_3 = Point(5, 23, srid=32632)
+        multipoint_1 = MultiPoint(point_1, srid=4326)
+        multipoint_2 = MultiPoint(point_2)
+        multipoint_3 = MultiPoint(point_3)
+        self.assertNotEqual(hash(point_1), hash(point_2))
+        self.assertNotEqual(hash(point_1), hash(point_3))
+        self.assertNotEqual(hash(point_2), hash(point_3))
+        self.assertNotEqual(hash(multipoint_1), hash(multipoint_2))
+        self.assertEqual(hash(multipoint_2), hash(multipoint_3))
+        self.assertNotEqual(hash(multipoint_1), hash(point_1))
+        self.assertNotEqual(hash(multipoint_2), hash(point_2))
+        self.assertNotEqual(hash(multipoint_3), hash(point_3))
 
     def test_eq_with_srid(self):
         "Testing non-equivalence with different srids."
@@ -1264,7 +1279,7 @@ class GEOSTest(SimpleTestCase, TestDataMixin):
         mp = MultiPolygon(p1, p2)
         path, args, kwargs = mp.deconstruct()
         self.assertEqual(path, 'django.contrib.gis.geos.collections.MultiPolygon')
-        self.assertEqual(args, (p1, p2, ))
+        self.assertEqual(args, (p1, p2))
         self.assertEqual(kwargs, {})
 
         poly = Polygon(((0, 0), (0, 1), (1, 1), (0, 0)))

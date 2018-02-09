@@ -9,6 +9,8 @@ from django.db.models.base import ModelBase
 from django.http import Http404, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import NoReverseMatch, reverse
+from django.utils.functional import LazyObject
+from django.utils.module_loading import import_string
 from django.utils.text import capfirst
 from django.utils.translation import gettext as _, gettext_lazy
 from django.views.decorators.cache import never_cache
@@ -94,9 +96,7 @@ class AdminSite:
 
         If a model is abstract, raise ImproperlyConfigured.
         """
-        if not admin_class:
-            admin_class = ModelAdmin
-
+        admin_class = admin_class or ModelAdmin
         if isinstance(model_or_iterable, ModelBase):
             model_or_iterable = [model_or_iterable]
         for model in model_or_iterable:
@@ -520,6 +520,14 @@ class AdminSite:
         ], context)
 
 
+class DefaultAdminSite(LazyObject):
+    def _setup(self):
+        AdminSiteClass = import_string(apps.get_app_config('admin').default_site)
+        self._wrapped = AdminSiteClass()
+
+
 # This global object represents the default admin site, for the common case.
-# You can instantiate AdminSite in your own code to create a custom admin site.
-site = AdminSite()
+# You can provide your own AdminSite using the (Simple)AdminConfig.default_site
+# attribute. You can also instantiate AdminSite in your own code to create a
+# custom admin site.
+site = DefaultAdminSite()

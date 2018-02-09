@@ -53,11 +53,8 @@ def prepare_lookup_value(key, value):
     if key.endswith('__in'):
         value = value.split(',')
     # if key ends with __isnull, special case '' and the string literals 'false' and '0'
-    if key.endswith('__isnull'):
-        if value.lower() in ('', 'false', '0'):
-            value = False
-        else:
-            value = True
+    elif key.endswith('__isnull'):
+        value = value.lower() not in ('', 'false', '0')
     return value
 
 
@@ -149,10 +146,10 @@ def get_deleted_objects(objs, opts, user, admin_site, using):
                 # Change url doesn't exist -- don't display link to edit
                 return no_edit_link
 
-            p = '%s.%s' % (opts.app_label,
-                           get_permission_codename('delete', opts))
-            if not user.has_perm(p):
-                perms_needed.add(opts.verbose_name)
+            if 'delete' in opts.default_permissions:
+                p = '%s.%s' % (opts.app_label, get_permission_codename('delete', opts))
+                if not user.has_perm(p):
+                    perms_needed.add(opts.verbose_name)
             # Display a link to the admin page.
             return format_html('{}: <a href="{}">{}</a>',
                                capfirst(opts.verbose_name),
@@ -281,7 +278,7 @@ def lookup_field(name, obj, model_admin=None):
         if callable(name):
             attr = name
             value = attr(obj)
-        elif model_admin is not None and hasattr(model_admin, name) and name != '__str__':
+        elif hasattr(model_admin, name) and name != '__str__':
             attr = getattr(model_admin, name)
             value = attr(obj)
         else:
@@ -341,7 +338,7 @@ def label_for_field(name, model, model_admin=None, return_attr=False):
         else:
             if callable(name):
                 attr = name
-            elif model_admin is not None and hasattr(model_admin, name):
+            elif hasattr(model_admin, name):
                 attr = getattr(model_admin, name)
             elif hasattr(model, name):
                 attr = getattr(model, name)
@@ -418,6 +415,8 @@ def display_for_value(value, empty_value_display, boolean=False):
         return _boolean_icon(value)
     elif value is None:
         return empty_value_display
+    elif isinstance(value, bool):
+        return str(value)
     elif isinstance(value, datetime.datetime):
         return formats.localize(timezone.template_localtime(value))
     elif isinstance(value, (datetime.date, datetime.time)):

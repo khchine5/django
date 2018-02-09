@@ -527,7 +527,7 @@ class BaseDatabaseSchemaEditor:
         # Has unique been removed?
         if old_field.unique and (not new_field.unique or (not old_field.primary_key and new_field.primary_key)):
             # Find the unique constraint for this field
-            constraint_names = self._constraint_names(model, [old_field.column], unique=True)
+            constraint_names = self._constraint_names(model, [old_field.column], unique=True, primary_key=False)
             if strict and len(constraint_names) != 1:
                 raise ValueError("Found wrong number (%s) of unique constraints for %s.%s" % (
                     len(constraint_names),
@@ -570,12 +570,11 @@ class BaseDatabaseSchemaEditor:
             # db_index=True.
             index_names = self._constraint_names(model, [old_field.column], index=True, type_=Index.suffix)
             for index_name in index_names:
-                if index_name in meta_index_names:
+                if index_name not in meta_index_names:
                     # The only way to check if an index was created with
                     # db_index=True or with Index(['field'], name='foo')
                     # is to look at its name (refs #28053).
-                    continue
-                self.execute(self._delete_constraint_sql(self.sql_delete_index, model, index_name))
+                    self.execute(self._delete_constraint_sql(self.sql_delete_index, model, index_name))
         # Change check constraints?
         if old_db_params['check'] != new_db_params['check'] and old_db_params['check']:
             constraint_names = self._constraint_names(model, [old_field.column], check=True)
@@ -672,6 +671,9 @@ class BaseDatabaseSchemaEditor:
         if post_actions:
             for sql, params in post_actions:
                 self.execute(sql, params)
+        # If primary_key changed to False, delete the primary key constraint.
+        if old_field.primary_key and not new_field.primary_key:
+            self._delete_primary_key(model, strict)
         # Added a unique?
         if (not old_field.unique and new_field.unique) or (
             old_field.primary_key and not new_field.primary_key and new_field.unique
@@ -694,11 +696,7 @@ class BaseDatabaseSchemaEditor:
         if old_field.primary_key and new_field.primary_key and old_type != new_type:
             rels_to_update.extend(_related_non_m2m_objects(old_field, new_field))
         # Changed to become primary key?
-        # Note that we don't detect unsetting of a PK, as we assume another field
-        # will always come along and replace it.
         if not old_field.primary_key and new_field.primary_key:
-            # First, drop the old PK
-            self._delete_primary_key(model, strict)
             # Make the new one
             self.execute(
                 self.sql_create_pk % {

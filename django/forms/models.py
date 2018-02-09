@@ -587,9 +587,8 @@ class BaseModelFormSet(BaseFormSet):
         return field.to_python
 
     def _construct_form(self, i, **kwargs):
-        pk_required = False
-        if i < self.initial_form_count():
-            pk_required = True
+        pk_required = i < self.initial_form_count()
+        if pk_required:
             if self.is_bound:
                 pk_key = '%s-%s' % (self.add_prefix(i), self.model._meta.pk.name)
                 try:
@@ -1349,8 +1348,7 @@ class ModelMultipleChoiceField(ModelChoiceField):
 
 
 def modelform_defines_fields(form_class):
-    return (form_class is not None and (
-            hasattr(form_class, '_meta') and
-            (form_class._meta.fields is not None or
-             form_class._meta.exclude is not None)
-            ))
+    return hasattr(form_class, '_meta') and (
+        form_class._meta.fields is not None or
+        form_class._meta.exclude is not None
+    )

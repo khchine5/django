@@ -67,6 +67,7 @@ class SpatiaLiteOperations(BaseSpatialOperations, DatabaseOperations):
         return 'CAST (AsEWKB(%s) AS BLOB)' if self.spatial_version >= (4, 3, 0) else 'AsText(%s)'
 
     function_names = {
+        'ForcePolygonCW': 'ST_ForceLHR',
         'Length': 'ST_Length',
         'LineLocatePoint': 'ST_Line_Locate_Point',
         'NumPoints': 'ST_NPoints',

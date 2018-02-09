@@ -111,6 +111,7 @@ class BaseModelAdmin(metaclass=forms.MediaDefiningClass):
     formfield_overrides = {}
     readonly_fields = ()
     ordering = None
+    sortable_by = None
     view_on_site = True
     show_full_result_count = True
     checks_class = BaseModelAdminChecks
@@ -352,6 +353,10 @@ class BaseModelAdmin(metaclass=forms.MediaDefiningClass):
         if ordering:
             qs = qs.order_by(*ordering)
         return qs
+
+    def get_sortable_by(self, request):
+        """Hook for specifying which fields can be sorted in the changelist."""
+        return self.sortable_by if self.sortable_by is not None else self.get_list_display(request)
 
     def lookup_allowed(self, lookup, value):
         from django.contrib.admin.filters import SimpleListFilter
@@ -688,6 +693,7 @@ class ModelAdmin(BaseModelAdmin):
         # Add the action checkboxes if any actions are available.
         if self.get_actions(request):
             list_display = ['action_checkbox'] + list(list_display)
+        sortable_by = self.get_sortable_by(request)
         ChangeList = self.get_changelist(request)
         return ChangeList(
             request,
@@ -702,6 +708,7 @@ class ModelAdmin(BaseModelAdmin):
             self.list_max_show_all,
             self.list_editable,
             self,
+            sortable_by,
         )
 
     def get_object(self, request, object_id, from_field=None):
@@ -809,7 +816,7 @@ class ModelAdmin(BaseModelAdmin):
         A list_display column containing a checkbox widget.
         """
         return helpers.checkbox.render(helpers.ACTION_CHECKBOX_NAME, str(obj.pk))
-    action_checkbox.short_description = mark_safe('<input type="checkbox" id="action-toggle" />')
+    action_checkbox.short_description = mark_safe('<input type="checkbox" id="action-toggle">')
 
     def get_actions(self, request):
         """
@@ -831,22 +838,17 @@ class ModelAdmin(BaseModelAdmin):
         # Then gather them from the model admin and all parent classes,
         # starting with self and working back up.
         for klass in self.__class__.mro()[::-1]:
-            class_actions = getattr(klass, 'actions', [])
-            # Avoid trying to iterate over None
-            if not class_actions:
-                continue
+            class_actions = getattr(klass, 'actions', []) or []
             actions.extend(self.get_action(action) for action in class_actions)
 
         # get_action might have returned None, so filter any of those out.
         actions = filter(None, actions)
 
         # Convert the actions into an OrderedDict keyed by name.
-        actions = OrderedDict(
+        return OrderedDict(
             (name, (func, name, desc))
             for func, name, desc in actions
         )
-
-        return actions
 
     def get_action_choices(self, request, default_choices=BLANK_CHOICE_DASH):
         """
@@ -973,11 +975,7 @@ class ModelAdmin(BaseModelAdmin):
                 or_queries = [models.Q(**{orm_lookup: bit})
                               for orm_lookup in orm_lookups]
                 queryset = queryset.filter(reduce(operator.or_, or_queries))
-            if not use_distinct:
-                for search_spec in orm_lookups:
-                    if lookup_needs_distinct(self.opts, search_spec):
-                        use_distinct = True
-                        break
+            use_distinct |= any(lookup_needs_distinct(self.opts, search_spec) for search_spec in orm_lookups)
 
         return queryset, use_distinct
 
@@ -1048,6 +1046,10 @@ class ModelAdmin(BaseModelAdmin):
         Given a model instance delete it from the database.
         """
         obj.delete()
+
+    def delete_queryset(self, request, queryset):
+        """Given a queryset, delete it from the database."""
+        queryset.delete()
 
     def save_formset(self, request, form, formset, change):
         """
@@ -1500,11 +1502,10 @@ class ModelAdmin(BaseModelAdmin):
         ModelForm = self.get_form(request, obj)
         if request.method == 'POST':
             form = ModelForm(request.POST, request.FILES, instance=obj)
-            if form.is_valid():
-                form_validated = True
+            form_validated = form.is_valid()
+            if form_validated:
                 new_object = self.save_form(request, form, change=not add)
             else:
-                form_validated = False
                 new_object = form.instance
             formsets, inline_instances = self._create_formsets(request, new_object, change=not add)
             if all_valid(formsets) and form_validated:

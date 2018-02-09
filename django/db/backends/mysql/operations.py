@@ -3,6 +3,7 @@ import uuid
 from django.conf import settings
 from django.db.backends.base.operations import BaseDatabaseOperations
 from django.utils import timezone
+from django.utils.duration import duration_microseconds
 from django.utils.encoding import force_text
 
 
@@ -20,7 +21,6 @@ class DatabaseOperations(BaseDatabaseOperations):
         'IntegerField': 'signed integer',
         'BigIntegerField': 'signed integer',
         'SmallIntegerField': 'signed integer',
-        'FloatField': 'signed',
         'PositiveIntegerField': 'unsigned integer',
         'PositiveSmallIntegerField': 'unsigned integer',
     }
@@ -51,6 +51,10 @@ class DatabaseOperations(BaseDatabaseOperations):
             return "CAST(DATE_FORMAT(%s, '%s') AS DATE)" % (field_name, format_str)
         elif lookup_type == 'quarter':
             return "MAKEDATE(YEAR(%s), 1) + INTERVAL QUARTER(%s) QUARTER - INTERVAL 1 QUARTER" % (
+                field_name, field_name
+            )
+        elif lookup_type == 'week':
+            return "DATE_SUB(%s, INTERVAL WEEKDAY(%s) DAY)" % (
                 field_name, field_name
             )
         else:
@@ -84,6 +88,12 @@ class DatabaseOperations(BaseDatabaseOperations):
                 "INTERVAL QUARTER({field_name}) QUARTER - " +
                 "INTERVAL 1 QUARTER, '%%Y-%%m-01 00:00:00') AS DATETIME)"
             ).format(field_name=field_name)
+        if lookup_type == 'week':
+            return (
+                "CAST(DATE_FORMAT(DATE_SUB({field_name}, "
+                "INTERVAL WEEKDAY({field_name}) DAY), "
+                "'%%Y-%%m-%%d 00:00:00') AS DATETIME)"
+            ).format(field_name=field_name)
         try:
             i = fields.index(lookup_type) + 1
         except ValueError:
@@ -106,7 +116,7 @@ class DatabaseOperations(BaseDatabaseOperations):
             return "TIME(%s)" % (field_name)
 
     def date_interval_sql(self, timedelta):
-        return "INTERVAL '%06f' SECOND_MICROSECOND" % timedelta.total_seconds()
+        return 'INTERVAL %s MICROSECOND' % duration_microseconds(timedelta)
 
     def format_for_duration_arithmetic(self, sql):
         return 'INTERVAL %s MICROSECOND' % sql

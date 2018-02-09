@@ -6,7 +6,8 @@ themselves do not have to (and could be backed by things other than SQL
 databases). The abstraction barrier only works one way: this module has to know
 all about the internals of models in order to get the information it needs.
 """
-from collections import Counter, Iterator, Mapping, OrderedDict, namedtuple
+from collections import Counter, OrderedDict, namedtuple
+from collections.abc import Iterator, Mapping
 from itertools import chain, count, product
 from string import ascii_uppercase
 
@@ -666,10 +667,9 @@ class Query:
             workset = {}
             for model, values in seen.items():
                 for field in model._meta.local_fields:
-                    if field in values:
-                        continue
-                    m = field.model._meta.concrete_model
-                    add_to_dict(workset, m, field)
+                    if field not in values:
+                        m = field.model._meta.concrete_model
+                        add_to_dict(workset, m, field)
             for model, values in must_include.items():
                 # If we haven't included a model in workset, we don't add the
                 # corresponding must_include fields for that model, since an
@@ -805,9 +805,9 @@ class Query:
         if isinstance(self.group_by, tuple):
             self.group_by = tuple([col.relabeled_clone(change_map) for col in self.group_by])
         self.select = tuple([col.relabeled_clone(change_map) for col in self.select])
-        if self._annotations:
-            self._annotations = OrderedDict(
-                (key, col.relabeled_clone(change_map)) for key, col in self._annotations.items())
+        self._annotations = self._annotations and OrderedDict(
+            (key, col.relabeled_clone(change_map)) for key, col in self._annotations.items()
+        )
 
         # 2. Rename the alias in the internal table/alias datastructures.
         for old_alias, new_alias in change_map.items():
@@ -1061,9 +1061,7 @@ class Query:
         and get_transform().
         """
         # __exact is the default lookup if one isn't given.
-        if not lookups:
-            lookups = ['exact']
-
+        lookups = lookups or ['exact']
         for name in lookups[:-1]:
             lhs = self.try_transform(lhs, name)
         # First try get_lookup() so that the lookup takes precedence if the lhs
@@ -1189,8 +1187,7 @@ class Query:
             # lookup parts
             self._lookup_joins = join_info.joins
         except MultiJoin as e:
-            return self.split_exclude(filter_expr, LOOKUP_SEP.join(parts[:e.level]),
-                                      can_reuse, e.names_with_path)
+            return self.split_exclude(filter_expr, can_reuse, e.names_with_path)
 
         # Update used_joins before trimming since they are reused to determine
         # which joins could be later promoted to INNER.
@@ -1514,7 +1511,7 @@ class Query:
                 # that case we need to return a Ref to the subquery's annotation.
                 return Ref(name, self.annotation_select[name])
             else:
-                return self.annotation_select[name]
+                return self.annotations[name]
         else:
             field_list = name.split(LOOKUP_SEP)
             join_info = self.setup_joins(field_list, self.get_meta(), self.get_initial_alias(), can_reuse=reuse)
@@ -1527,16 +1524,16 @@ class Query:
             col = targets[0].get_col(join_list[-1], join_info.targets[0])
             return col
 
-    def split_exclude(self, filter_expr, prefix, can_reuse, names_with_path):
+    def split_exclude(self, filter_expr, can_reuse, names_with_path):
         """
         When doing an exclude against any kind of N-to-many relation, we need
         to use a subquery. This method constructs the nested query, given the
         original exclude filter (filter_expr) and the portion up to the first
         N-to-many relation field.
 
-        As an example we could have original filter ~Q(child__name='foo').
-        We would get here with filter_expr = child__name, prefix = child and
-        can_reuse is a set of joins usable for filters in the original query.
+        For example, if the origin filter is ~Q(child__name='foo'), filter_expr
+        is ('child__name', 'foo') and can_reuse is a set of joins usable for
+        filters in the original query.
 
         We will turn this into equivalent of:
             WHERE NOT (pk IN (SELECT parent_id FROM thetable
@@ -2050,10 +2047,10 @@ class Query:
         # used. The proper fix would be to defer all decisions where
         # is_nullable() is needed to the compiler stage, but that is not easy
         # to do currently.
-        if connections[DEFAULT_DB_ALIAS].features.interprets_empty_strings_as_nulls and field.empty_strings_allowed:
-            return True
-        else:
-            return field.null
+        return (
+            connections[DEFAULT_DB_ALIAS].features.interprets_empty_strings_as_nulls and
+            field.empty_strings_allowed
+        ) or field.null
 
 
 def get_order_dir(field, default='ASC'):

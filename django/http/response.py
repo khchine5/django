@@ -13,8 +13,8 @@ from django.core.exceptions import DisallowedRedirect
 from django.core.serializers.json import DjangoJSONEncoder
 from django.http.cookie import SimpleCookie
 from django.utils import timezone
-from django.utils.encoding import force_bytes, iri_to_uri
-from django.utils.http import cookie_date
+from django.utils.encoding import iri_to_uri
+from django.utils.http import http_date
 
 _charset_from_content_type_re = re.compile(r';\s*charset=(?P<charset>[^\s;]+)', re.I)
 
@@ -185,8 +185,7 @@ class HttpResponseBase:
             self.cookies[key]['max-age'] = max_age
             # IE requires expires, so set it if hasn't been already.
             if not expires:
-                self.cookies[key]['expires'] = cookie_date(time.time() +
-                                                           max_age)
+                self.cookies[key]['expires'] = http_date(time.time() + max_age)
         if path is not None:
             self.cookies[key]['path'] = path
         if domain is not None:
@@ -206,8 +205,13 @@ class HttpResponseBase:
         return self.set_cookie(key, value, **kwargs)
 
     def delete_cookie(self, key, path='/', domain=None):
-        self.set_cookie(key, max_age=0, path=path, domain=domain,
-                        expires='Thu, 01-Jan-1970 00:00:00 GMT')
+        # Most browsers ignore the Set-Cookie header if the cookie name starts
+        # with __Host- or __Secure- and the cookie doesn't use the secure flag.
+        secure = key.startswith(('__Secure-', '__Host-'))
+        self.set_cookie(
+            key, max_age=0, path=path, domain=domain, secure=secure,
+            expires='Thu, 01 Jan 1970 00:00:00 GMT',
+        )
 
     # Common methods used by subclasses
 
@@ -224,9 +228,8 @@ class HttpResponseBase:
             return bytes(value)
         if isinstance(value, str):
             return bytes(value.encode(self.charset))
-
-        # Handle non-string types (#16494)
-        return force_bytes(value, self.charset)
+        # Handle non-string types.
+        return str(value).encode(self.charset)
 
     # These methods partially implement the file-like object interface.
     # See https://docs.python.org/3/library/io.html#io.IOBase

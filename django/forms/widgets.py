@@ -74,7 +74,7 @@ class Media:
         media = sorted(self._css)
         return chain.from_iterable([
             format_html(
-                '<link href="{}" type="text/css" media="{}" rel="stylesheet" />',
+                '<link href="{}" type="text/css" media="{}" rel="stylesheet">',
                 self.absolute_path(path), medium
             ) for path in self._css[medium]
         ] for medium in media)
@@ -599,8 +599,7 @@ class ChoiceWidget(Widget):
                     str(subvalue) in value and
                     (not has_selected or self.allow_multiple_selected)
                 )
-                if selected and not has_selected:
-                    has_selected = True
+                has_selected |= selected
                 subgroup.append(self.create_option(
                     name, subvalue, sublabel, selected, index,
                     subindex=subindex, attrs=attrs,
@@ -671,7 +670,7 @@ class Select(ChoiceWidget):
     def get_context(self, name, value, attrs):
         context = super().get_context(name, value, attrs)
         if self.allow_multiple_selected:
-            context['widget']['attrs']['multiple'] = 'multiple'
+            context['widget']['attrs']['multiple'] = True
         return context
 
     @staticmethod
@@ -889,7 +888,7 @@ class SplitDateTimeWidget(MultiWidget):
     def decompress(self, value):
         if value:
             value = to_current_timezone(value)
-            return [value.date(), value.time().replace(microsecond=0)]
+            return [value.date(), value.time()]
         return [None, None]
 
 
@@ -912,7 +911,7 @@ class SelectDateWidget(Widget):
     This also serves as an example of a Widget that has more than one HTML
     element and hence implements value_from_datadict.
     """
-    none_value = (0, '---')
+    none_value = ('', '---')
     month_field = '%s_month'
     day_field = '%s_day'
     year_field = '%s_year'
@@ -942,12 +941,12 @@ class SelectDateWidget(Widget):
             if not len(empty_label) == 3:
                 raise ValueError('empty_label list/tuple must have 3 elements.')
 
-            self.year_none_value = (0, empty_label[0])
-            self.month_none_value = (0, empty_label[1])
-            self.day_none_value = (0, empty_label[2])
+            self.year_none_value = ('', empty_label[0])
+            self.month_none_value = ('', empty_label[1])
+            self.day_none_value = ('', empty_label[2])
         else:
             if empty_label is not None:
-                self.none_value = (0, empty_label)
+                self.none_value = ('', empty_label)
 
             self.year_none_value = self.none_value
             self.month_none_value = self.none_value
@@ -1005,7 +1004,12 @@ class SelectDateWidget(Widget):
         if isinstance(value, (datetime.date, datetime.datetime)):
             year, month, day = value.year, value.month, value.day
         elif isinstance(value, str):
-            if settings.USE_L10N:
+            match = self.date_re.match(value)
+            if match:
+                # Convert any zeros in the date to empty strings to match the
+                # empty option value.
+                year, month, day = [int(val) or '' for val in match.groups()]
+            elif settings.USE_L10N:
                 input_format = get_format('DATE_INPUT_FORMATS')[0]
                 try:
                     d = datetime.datetime.strptime(value, input_format)
@@ -1013,9 +1017,6 @@ class SelectDateWidget(Widget):
                     pass
                 else:
                     year, month, day = d.year, d.month, d.day
-            match = self.date_re.match(value)
-            if match:
-                year, month, day = [int(val) for val in match.groups()]
         return {'year': year, 'month': month, 'day': day}
 
     @staticmethod
@@ -1043,20 +1044,21 @@ class SelectDateWidget(Widget):
         y = data.get(self.year_field % name)
         m = data.get(self.month_field % name)
         d = data.get(self.day_field % name)
-        if y == m == d == "0":
+        if y == m == d == '':
             return None
-        if y and m and d:
+        if y is not None and m is not None and d is not None:
             if settings.USE_L10N:
                 input_format = get_format('DATE_INPUT_FORMATS')[0]
                 try:
                     date_value = datetime.date(int(y), int(m), int(d))
                 except ValueError:
-                    return '%s-%s-%s' % (y, m, d)
+                    pass
                 else:
                     date_value = datetime_safe.new_date(date_value)
                     return date_value.strftime(input_format)
-            else:
-                return '%s-%s-%s' % (y, m, d)
+            # Return pseudo-ISO dates with zeros for any unselected values,
+            # e.g. '2017-0-23'.
+            return '%s-%s-%s' % (y or 0, m or 0, d or 0)
         return data.get(name)
 
     def value_omitted_from_data(self, data, files, name):

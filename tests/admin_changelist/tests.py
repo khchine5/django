@@ -8,7 +8,9 @@ from django.contrib.admin.tests import AdminSeleniumTestCase
 from django.contrib.admin.views.main import ALL_VAR, SEARCH_VAR
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import F
 from django.db.models.fields import Field, IntegerField
+from django.db.models.functions import Upper
 from django.db.models.lookups import Contains, Exact
 from django.template import Context, Template
 from django.test import TestCase, override_settings
@@ -37,7 +39,7 @@ def build_tbody_html(pk, href, extra_fields):
         '<tbody><tr class="row1">'
         '<td class="action-checkbox">'
         '<input type="checkbox" name="_selected_action" value="{}" '
-        'class="action-select" /></td>'
+        'class="action-select"></td>'
         '<th class="field-name"><a href="{}">name</a></th>'
         '{}</tr></tbody>'
     ).format(pk, href, extra_fields)
@@ -56,6 +58,20 @@ class ChangeListTests(TestCase):
         request = self.factory.get(url)
         request.user = user
         return request
+
+    def test_specified_ordering_by_f_expression(self):
+        class OrderedByFBandAdmin(admin.ModelAdmin):
+            list_display = ['name', 'genres', 'nr_of_members']
+            ordering = (
+                F('nr_of_members').desc(nulls_last=True),
+                Upper(F('name')).asc(),
+                F('genres').asc(),
+            )
+
+        m = OrderedByFBandAdmin(Band, custom_site)
+        request = self.factory.get('/band/')
+        cl = m.get_changelist_instance(request)
+        self.assertEqual(cl.get_ordering_field_columns(), {3: 'desc', 2: 'asc'})
 
     def test_select_related_preserved(self):
         """
@@ -193,7 +209,7 @@ class ChangeListTests(TestCase):
         # make sure that hidden fields are in the correct place
         hiddenfields_div = (
             '<div class="hiddenfields">'
-            '<input type="hidden" name="form-0-id" value="%d" id="id_form-0-id" />'
+            '<input type="hidden" name="form-0-id" value="%d" id="id_form-0-id">'
             '</div>'
         ) % new_child.id
         self.assertInHTML(hiddenfields_div, table_output, msg_prefix='Failed to find hidden fields')
@@ -201,7 +217,7 @@ class ChangeListTests(TestCase):
         # make sure that list editable fields are rendered in divs correctly
         editable_name_field = (
             '<input name="form-0-name" value="name" class="vTextField" '
-            'maxlength="30" type="text" id="id_form-0-name" />'
+            'maxlength="30" type="text" id="id_form-0-name">'
         )
         self.assertInHTML(
             '<td class="field-name">%s</td>' % editable_name_field,

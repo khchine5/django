@@ -695,6 +695,7 @@ subviews
 subwidget
 subwidgets
 superclass
+superclasses
 superset
 swappable
 symlink
@@ -709,7 +710,6 @@ tagline
 tarball
 tarballs
 teardown
-templatetag
 templating
 testcase
 testserver

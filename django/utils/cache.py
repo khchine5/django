@@ -142,12 +142,10 @@ def get_conditional_response(request, etag=None, last_modified=None, response=No
     # Get HTTP request headers.
     if_match_etags = parse_etags(request.META.get('HTTP_IF_MATCH', ''))
     if_unmodified_since = request.META.get('HTTP_IF_UNMODIFIED_SINCE')
-    if if_unmodified_since:
-        if_unmodified_since = parse_http_date_safe(if_unmodified_since)
+    if_unmodified_since = if_unmodified_since and parse_http_date_safe(if_unmodified_since)
     if_none_match_etags = parse_etags(request.META.get('HTTP_IF_NONE_MATCH', ''))
     if_modified_since = request.META.get('HTTP_IF_MODIFIED_SINCE')
-    if if_modified_since:
-        if_modified_since = parse_http_date_safe(if_modified_since)
+    if_modified_since = if_modified_since and parse_http_date_safe(if_modified_since)
 
     # Step 1 of section 6 of RFC 7232: Test the If-Match precondition.
     if if_match_etags and not _if_match_passes(etag, if_match_etags):
@@ -378,9 +376,8 @@ def learn_cache_key(request, response, cache_timeout=None, key_prefix=None, cach
         headerlist = []
         for header in cc_delim_re.split(response['Vary']):
             header = header.upper().replace('-', '_')
-            if header == 'ACCEPT_LANGUAGE' and is_accept_language_redundant:
-                continue
-            headerlist.append('HTTP_' + header)
+            if header != 'ACCEPT_LANGUAGE' or not is_accept_language_redundant:
+                headerlist.append('HTTP_' + header)
         headerlist.sort()
         cache.set(cache_key, headerlist, cache_timeout)
         return _generate_cache_key(request, request.method, headerlist, key_prefix)

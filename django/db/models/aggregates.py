@@ -31,15 +31,13 @@ class Aggregate(Func):
         return source_expressions
 
     def set_source_expressions(self, exprs):
-        if self.filter:
-            self.filter = exprs.pop()
+        self.filter = self.filter and exprs.pop()
         return super().set_source_expressions(exprs)
 
     def resolve_expression(self, query=None, allow_joins=True, reuse=None, summarize=False, for_save=False):
         # Aggregates are not allowed in UPDATE queries, so ignore for_save
         c = super().resolve_expression(query, allow_joins, reuse, summarize)
-        if c.filter:
-            c.filter = c.filter.resolve_expression(query, allow_joins, reuse, summarize)
+        c.filter = c.filter and c.filter.resolve_expression(query, allow_joins, reuse, summarize)
         if not summarize:
             # Call Aggregate.get_source_expressions() to avoid
             # returning self.filter and including that in this loop.
@@ -93,6 +91,12 @@ class Avg(Aggregate):
         if isinstance(source_field, (IntegerField, DecimalField)):
             return FloatField()
         return super()._resolve_output_field()
+
+    def as_mysql(self, compiler, connection):
+        sql, params = super().as_sql(compiler, connection)
+        if self.output_field.get_internal_type() == 'DurationField':
+            sql = 'CAST(%s as SIGNED)' % sql
+        return sql, params
 
     def as_oracle(self, compiler, connection):
         if self.output_field.get_internal_type() == 'DurationField':
@@ -152,6 +156,12 @@ class StdDev(Aggregate):
 class Sum(Aggregate):
     function = 'SUM'
     name = 'Sum'
+
+    def as_mysql(self, compiler, connection):
+        sql, params = super().as_sql(compiler, connection)
+        if self.output_field.get_internal_type() == 'DurationField':
+            sql = 'CAST(%s as SIGNED)' % sql
+        return sql, params
 
     def as_oracle(self, compiler, connection):
         if self.output_field.get_internal_type() == 'DurationField':

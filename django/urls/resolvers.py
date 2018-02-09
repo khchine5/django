@@ -393,9 +393,7 @@ class URLResolver:
         warnings = []
         for pattern in self.url_patterns:
             warnings.extend(check_resolver(pattern))
-        if not warnings:
-            warnings = self.pattern.check()
-        return warnings
+        return warnings or self.pattern.check()
 
     def _populate(self):
         # Short-circuit if called recursively in this thread to prevent
@@ -572,12 +570,7 @@ class URLResolver:
                 else:
                     if set(kwargs).symmetric_difference(params).difference(defaults):
                         continue
-                    matches = True
-                    for k, v in defaults.items():
-                        if kwargs.get(k, v) != v:
-                            matches = False
-                            break
-                    if not matches:
+                    if any(kwargs.get(k, v) != v for k, v in defaults.items()):
                         continue
                     candidate_subs = kwargs
                 # Convert the candidate subs to text using Converter.to_url().

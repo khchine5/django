@@ -114,13 +114,10 @@ class SQLCompiler:
             for col in cols:
                 expressions.append(col)
         for expr, (sql, params, is_ref) in order_by:
-            if expr.contains_aggregate:
-                continue
-            # We can skip References to select clause, as all expressions in
-            # the select clause are already part of the group by.
-            if is_ref:
-                continue
-            expressions.extend(expr.get_source_expressions())
+            # Skip References to the select clause, as all expressions in the
+            # select clause are already part of the group by.
+            if not expr.contains_aggregate and not is_ref:
+                expressions.extend(expr.get_source_expressions())
         having_group_by = self.having.get_group_by_cols() if self.having else ()
         for expr in having_group_by:
             expressions.append(expr)
@@ -190,7 +187,7 @@ class SQLCompiler:
         "AS alias" for the column (possibly None).
 
         The klass_info structure contains the following information:
-        - Which model to instantiate
+        - The base model of the query.
         - Which columns for that model are present in the query (by
           position of the select clause).
         - related_klass_infos: [f, klass_info] to descent into
@@ -207,20 +204,21 @@ class SQLCompiler:
             select_idx += 1
         assert not (self.query.select and self.query.default_cols)
         if self.query.default_cols:
+            cols = self.get_default_columns()
+        else:
+            # self.query.select is a special case. These columns never go to
+            # any model.
+            cols = self.query.select
+        if cols:
             select_list = []
-            for c in self.get_default_columns():
+            for col in cols:
                 select_list.append(select_idx)
-                select.append((c, None))
+                select.append((col, None))
                 select_idx += 1
             klass_info = {
                 'model': self.query.model,
                 'select_fields': select_list,
             }
-        # self.query.select is a special case. These columns never go to
-        # any model.
-        for col in self.query.select:
-            select.append((col, None))
-            select_idx += 1
         for alias, annotation in self.query.annotation_select.items():
             annotations[alias] = select_idx
             select.append((annotation, alias))
@@ -282,7 +280,7 @@ class SQLCompiler:
                 continue
 
             col, order = get_order_dir(field, asc)
-            descending = True if order == 'DESC' else False
+            descending = order == 'DESC'
 
             if col in self.query.annotation_select:
                 # Reference to expression in SELECT clause
@@ -520,8 +518,7 @@ class SQLCompiler:
                 if grouping:
                     if distinct_fields:
                         raise NotImplementedError('annotate() + distinct(fields) is not implemented.')
-                    if not order_by:
-                        order_by = self.connection.ops.force_no_ordering()
+                    order_by = order_by or self.connection.ops.force_no_ordering()
                     result.append('GROUP BY %s' % ', '.join(grouping))
 
                 if having:
@@ -550,7 +547,9 @@ class SQLCompiler:
                 # to exclude extraneous selects.
                 sub_selects = []
                 sub_params = []
-                for select, _, alias in self.select:
+                for index, (select, _, alias) in enumerate(self.select, start=1):
+                    if not alias and with_col_aliases:
+                        alias = 'col%d' % index
                     if alias:
                         sub_selects.append("%s.%s" % (
                             self.connection.ops.quote_name('subquery'),
@@ -564,7 +563,7 @@ class SQLCompiler:
                 return 'SELECT %s FROM (%s) subquery' % (
                     ', '.join(sub_selects),
                     ' '.join(result),
-                ), sub_params + params
+                ), tuple(sub_params + params)
 
             return ' '.join(result), tuple(params)
         finally:
@@ -587,8 +586,7 @@ class SQLCompiler:
         if opts is None:
             opts = self.query.get_meta()
         only_load = self.deferred_to_columns()
-        if not start_alias:
-            start_alias = self.query.get_initial_alias()
+        start_alias = start_alias or self.query.get_initial_alias()
         # The 'seen_models' is used to optimize checking the needed parent
         # alias for a given field. This also includes None -> start_alias to
         # be used by local fields.
@@ -647,7 +645,7 @@ class SQLCompiler:
         The 'name' is of the form 'field1__field2__...__fieldN'.
         """
         name, order = get_order_dir(name, default_order)
-        descending = True if order == 'DESC' else False
+        descending = order == 'DESC'
         pieces = name.split(LOOKUP_SEP)
         field, targets, alias, joins, path, opts = self._setup_joins(pieces, opts, alias)
 
@@ -656,8 +654,7 @@ class SQLCompiler:
         # of the field is specified.
         if field.is_relation and opts.ordering and getattr(field, 'attname', None) != name:
             # Firstly, avoid infinite loops.
-            if not already_seen:
-                already_seen = set()
+            already_seen = already_seen or set()
             join_tuple = tuple(getattr(self.query.alias_map[j], 'join_cols', None) for j in joins)
             if join_tuple in already_seen:
                 raise FieldError('Infinite loop caused by ordering.')
@@ -679,8 +676,7 @@ class SQLCompiler:
         same input, as the prefixes of get_ordering() and get_distinct() must
         match. Executing SQL where this is not true is an error.
         """
-        if not alias:
-            alias = self.query.get_initial_alias()
+        alias = alias or self.query.get_initial_alias()
         field, targets, opts, joins, path = self.query.setup_joins(
             pieces, opts, alias)
         alias = joins[-1]
@@ -750,11 +746,9 @@ class SQLCompiler:
         # included in the related selection.
         fields_found = set()
         if requested is None:
-            if isinstance(self.query.select_related, dict):
+            restricted = isinstance(self.query.select_related, dict)
+            if restricted:
                 requested = self.query.select_related
-                restricted = True
-            else:
-                restricted = False
 
         def get_related_klass_infos(klass_info, related_klass_infos):
             klass_info['related_klass_infos'] = related_klass_infos
@@ -1036,8 +1030,7 @@ class SQLCompiler:
         is needed, as the filters describe an empty set. In that case, None is
         returned, to avoid any unnecessary database interaction.
         """
-        if not result_type:
-            result_type = NO_RESULTS
+        result_type = result_type or NO_RESULTS
         try:
             sql, params = self.as_sql()
             if not sql:

@@ -32,7 +32,7 @@ sys.path.append(abspath(join(dirname(__file__), "_ext")))
 # -- General configuration -----------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
-needs_sphinx = '1.3'  # Actually 1.3.4, but micro versions aren't supported here.
+needs_sphinx = '1.5.5'
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
@@ -112,7 +112,7 @@ today_fmt = '%B %d, %Y'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['_build']
+exclude_patterns = ['_build', '_theme']
 
 # The reST default role (used for this markup: `text`) to use for all documents.
 # default_role = None
@@ -284,7 +284,7 @@ man_pages = [(
     'Utility script for the Django Web framework',
     ['Django Software Foundation'],
     1
-), ]
+)]
 
 
 # -- Options for Texinfo output ------------------------------------------------

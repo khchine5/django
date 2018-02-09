@@ -35,6 +35,18 @@ Minor features
 * :attr:`.ModelAdmin.search_fields` now accepts any lookup such as
   ``field__exact``.
 
+* jQuery is upgraded from version 2.2.3 to 3.2.1.
+
+* The new :meth:`.ModelAdmin.delete_queryset` method allows customizing the
+  deletion process of the "delete selected objects" action.
+
+* You can now :ref:`override the the default admin site
+  <overriding-default-admin-site>`.
+
+* The new :attr:`.ModelAdmin.sortable_by` attribute and
+  :meth:`.ModelAdmin.get_sortable_by` method allow limiting the columns that
+  can be sorted in the change list page.
+
 :mod:`django.contrib.admindocs`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -45,6 +57,10 @@ Minor features
 
 * :djadmin:`createsuperuser` now gives a prompt to allow bypassing the
   :setting:`AUTH_PASSWORD_VALIDATORS` checks.
+
+* :class:`~django.contrib.auth.forms.UserCreationForm` and
+  :class:`~django.contrib.auth.forms.UserChangeForm` no longer need to be
+  rewritten for a custom user model.
 
 :mod:`django.contrib.contenttypes`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -99,7 +115,8 @@ Minor features
 Cache
 ~~~~~
 
-* ...
+* The :ref:`local-memory cache backend <local-memory-caching>` now uses a
+  least-recently-used (LRU) culling strategy rather than a pseudo-random one.
 
 CSRF
 ~~~~
@@ -145,7 +162,8 @@ Internationalization
 Management Commands
 ~~~~~~~~~~~~~~~~~~~
 
-* ...
+* The new :option:`inspectdb --include-views` option allows creating models
+  for database views.
 
 Migrations
 ~~~~~~~~~~
@@ -159,6 +177,15 @@ Models
 
 * A ``BinaryField`` may now be set to ``editable=True`` if you wish to include
   it in model forms.
+
+* The new :class:`~django.db.models.functions.Replace` database function
+  replaces strings in an expression.
+
+* The new :class:`~django.db.models.functions.TruncWeek` function truncates
+  :class:`~django.db.models.DateField` and
+  :class:`~django.db.models.DateTimeField` to the Monday of a week.
+
+* Query expressions can now be negated using a minus sign.
 
 Requests and Responses
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -178,12 +205,17 @@ Signals
 Templates
 ~~~~~~~~~
 
-* ...
+* The new :tfilter:`json_script` filter safely outputs a Python object as JSON,
+  wrapped in a ``<script>`` tag, ready for use with JavaScript.
 
 Tests
 ~~~~~
 
-* ...
+* Added test :class:`~django.test.Client` support for 307 and 308 redirects.
+
+* The test :class:`~django.test.Client` now serializes a request data
+  dictionary as JSON if ``content_type='application/json'``. You can customize
+  the JSON encoder with test client's ``json_encoder`` parameter.
 
 URLs
 ~~~~
@@ -207,6 +239,9 @@ Database backend API
   feature are changed from :exc:`NotImplementedError` to
   :exc:`django.db.NotSupportedError`.
 
+* Renamed the ``allow_sliced_subqueries`` database feature flag to
+  ``allow_sliced_subqueries_with_in``.
+
 :mod:`django.contrib.gis`
 -------------------------
 
@@ -227,7 +262,29 @@ supports PostgreSQL 9.4 and higher.
 Miscellaneous
 -------------
 
-* ...
+* The minimum supported version of ``mysqlclient`` is increased from 1.3.3 to
+  1.3.7.
+
+* The date format of ``Set-Cookie``'s ``Expires`` directive is changed to
+  follow :rfc:`7231#section-7.1.1.1` instead of Netscape's cookie standard.
+  Hyphens present in dates like ``Tue, 25-Dec-2018 22:26:13 GMT`` are removed.
+  This change should be merely cosmetic except perhaps for antiquated browsers
+  that don't parse the new format.
+
+* ``allowed_hosts`` is now a required argument of private API
+  ``django.utils.http.is_safe_url()``.
+
+* The ``multiple`` attribute rendered by the
+  :class:`~django.forms.SelectMultiple` widget now uses HTML5 boolean syntax
+  rather than XHTML's ``multiple="multiple"``.
+
+* HTML rendered by form widgets no longer includes a closing slash on void
+  elements, e.g. ``<br>``. This is incompatible within XHTML, although some
+  widgets already used aspects of HTML5 such as boolean attributes.
+
+* The value of :class:`~django.forms.SelectDateWidget`'s empty options is
+  changed from 0 to an empty string, which mainly may require some adjustments
+  in tests that compare HTML.
 
 .. _deprecated-features-2.1:
 
@@ -237,7 +294,18 @@ Features deprecated in 2.1
 Miscellaneous
 -------------
 
-* ...
+* The ``ForceRHR`` GIS function is deprecated in favor of the new
+  :class:`~django.contrib.gis.db.models.functions.ForcePolygonCW` function.
+
+* ``django.utils.http.cookie_date()`` is deprecated in favor of
+  :func:`~django.utils.http.http_date`, which follows the format of the latest
+  RFC.
+
+* ``{% load staticfiles %}`` and ``{% load admin_static %}`` are deprecated
+  in favor of ``{% load static %}``, which works the same.
+
+* ``django.contrib.staticfiles.templatetags.static()`` is deprecated in favor
+  of ``django.templatetags.static.static()``.
 
 .. _removed-features-2.1:
 
