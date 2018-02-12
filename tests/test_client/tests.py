@@ -54,6 +54,11 @@ class ClientTest(TestCase):
         self.assertEqual(response.context['var'], '\xf2')
         self.assertEqual(response.templates[0].name, 'GET Template')
 
+    def test_query_string_encoding(self):
+        # WSGI requires latin-1 encoded strings.
+        response = self.client.get('/get_view/?var=1\ufffd')
+        self.assertEqual(response.context['var'], '1\ufffd')
+
     def test_get_post_view(self):
         "GET a view that normally expects POSTs"
         response = self.client.get('/post_view/', {})
@@ -111,6 +116,13 @@ class ClientTest(TestCase):
         client.post('/json_view/', {'value': 37}, content_type='application/vnd.api+json')
         self.assertTrue(mock_encoder.called)
         self.assertTrue(mock_encoding.encode.called)
+
+    def test_put(self):
+        response = self.client.put('/put_view/', {'foo': 'bar'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.templates[0].name, 'PUT Template')
+        self.assertEqual(response.context['data'], "{'foo': 'bar'}")
+        self.assertEqual(response.context['Content-Length'], 14)
 
     def test_trace(self):
         """TRACE a view"""
