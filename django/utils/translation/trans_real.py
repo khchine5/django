@@ -377,7 +377,12 @@ def all_locale_paths():
     """
     globalpath = os.path.join(
         os.path.dirname(sys.modules[settings.__module__].__file__), 'locale')
-    return [globalpath] + list(settings.LOCALE_PATHS)
+    app_paths = []
+    for app_config in apps.get_app_configs():
+        locale_path = os.path.join(app_config.path, 'locale')
+        if os.path.exists(locale_path):
+            app_paths.append(locale_path)
+    return [globalpath] + list(settings.LOCALE_PATHS) + app_paths
 
 
 @functools.lru_cache(maxsize=1000)
@@ -411,11 +416,11 @@ def get_languages():
 @functools.lru_cache(maxsize=1000)
 def get_supported_language_variant(lang_code, strict=False):
     """
-    Return the language-code that's listed in supported languages, possibly
+    Return the language code that's listed in supported languages, possibly
     selecting a more generic variant. Raise LookupError if nothing is found.
 
-    If `strict` is False (the default), look for an alternative
-    country-specific variant when the currently checked is not found.
+    If `strict` is False (the default), look for a country-specific variant
+    when neither the language code nor its generic variant is found.
 
     lru_cache should have a maxsize to prevent from memory exhaustion attacks,
     as the provided language codes are taken from the HTTP request. See also
@@ -445,11 +450,10 @@ def get_supported_language_variant(lang_code, strict=False):
 
 def get_language_from_path(path, strict=False):
     """
-    Return the language-code if there is a valid language-code
-    found in the `path`.
+    Return the language code if there's a valid language code found in `path`.
 
-    If `strict` is False (the default), the function will look for an alternative
-    country-specific variant when the currently checked is not found.
+    If `strict` is False (the default), look for a country-specific variant
+    when neither the language code nor its generic variant is found.
     """
     regex_match = language_code_prefix_re.match(path)
     if not regex_match:
