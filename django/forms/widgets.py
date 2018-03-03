@@ -161,10 +161,8 @@ def media_property(cls):
                     for medium in extend:
                         m = m + base[medium]
                 return m + Media(definition)
-            else:
-                return Media(definition)
-        else:
-            return base
+            return Media(definition)
+        return base
     return property(_media)
 
 
@@ -188,10 +186,7 @@ class Widget(metaclass=MediaDefiningClass):
     supports_microseconds = True
 
     def __init__(self, attrs=None):
-        if attrs is not None:
-            self.attrs = attrs.copy()
-        else:
-            self.attrs = {}
+        self.attrs = {} if attrs is None else attrs.copy()
 
     def __deepcopy__(self, memo):
         obj = copy.copy(self)
@@ -958,35 +953,29 @@ class SelectDateWidget(Widget):
         year_choices = [(i, str(i)) for i in self.years]
         if not self.is_required:
             year_choices.insert(0, self.year_none_value)
-        year_attrs = context['widget']['attrs'].copy()
         year_name = self.year_field % name
-        year_attrs['id'] = 'id_%s' % year_name
         date_context['year'] = self.select_widget(attrs, choices=year_choices).get_context(
             name=year_name,
             value=context['widget']['value']['year'],
-            attrs=year_attrs,
+            attrs={**context['widget']['attrs'], 'id': 'id_%s' % year_name},
         )
         month_choices = list(self.months.items())
         if not self.is_required:
             month_choices.insert(0, self.month_none_value)
-        month_attrs = context['widget']['attrs'].copy()
         month_name = self.month_field % name
-        month_attrs['id'] = 'id_%s' % month_name
         date_context['month'] = self.select_widget(attrs, choices=month_choices).get_context(
             name=month_name,
             value=context['widget']['value']['month'],
-            attrs=month_attrs,
+            attrs={**context['widget']['attrs'], 'id': 'id_%s' % month_name},
         )
         day_choices = [(i, i) for i in range(1, 32)]
         if not self.is_required:
             day_choices.insert(0, self.day_none_value)
-        day_attrs = context['widget']['attrs'].copy()
         day_name = self.day_field % name
-        day_attrs['id'] = 'id_%s' % day_name
         date_context['day'] = self.select_widget(attrs, choices=day_choices,).get_context(
             name=day_name,
             value=context['widget']['value']['day'],
-            attrs=day_attrs,
+            attrs={**context['widget']['attrs'], 'id': 'id_%s' % day_name},
         )
         subwidgets = []
         for field in self._parse_date_fmt():

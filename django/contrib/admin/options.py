@@ -1728,6 +1728,13 @@ class ModelAdmin(BaseModelAdmin):
             'admin/change_list.html'
         ], context)
 
+    def get_deleted_objects(self, objs, request):
+        """
+        Hook for customizing the delete process for the delete view and the
+        "delete selected" action.
+        """
+        return get_deleted_objects(objs, request.user, self.admin_site)
+
     @csrf_protect_m
     def delete_view(self, request, object_id, extra_context=None):
         with transaction.atomic(using=router.db_for_write(self.model)):
@@ -1750,13 +1757,9 @@ class ModelAdmin(BaseModelAdmin):
         if obj is None:
             return self._get_obj_does_not_exist_redirect(request, opts, object_id)
 
-        using = router.db_for_write(self.model)
-
         # Populate deleted_objects, a data structure of all related objects that
         # will also be deleted.
-        deleted_objects, model_count, perms_needed, protected = get_deleted_objects(
-            [obj], request.user, self.admin_site, using,
-        )
+        deleted_objects, model_count, perms_needed, protected = self.get_deleted_objects([obj], request)
 
         if request.POST and not protected:  # The user has confirmed the deletion.
             if perms_needed:

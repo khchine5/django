@@ -315,8 +315,10 @@ class BaseExpression:
 
     def relabeled_clone(self, change_map):
         clone = self.copy()
-        clone.set_source_expressions(
-            [e.relabeled_clone(change_map) for e in self.get_source_expressions()])
+        clone.set_source_expressions([
+            e.relabeled_clone(change_map) if e is not None else None
+            for e in self.get_source_expressions()
+        ])
         return clone
 
     def copy(self):
@@ -369,7 +371,12 @@ class BaseExpression:
 
     def __hash__(self):
         path, args, kwargs = self.deconstruct()
-        return hash((path,) + args + tuple(kwargs.items()))
+        kwargs = kwargs.copy()
+        output_field = type(kwargs.pop('output_field', None))
+        return hash((path, output_field) + args + tuple([
+            (key, tuple(value)) if isinstance(value, list) else (key, value)
+            for key, value in kwargs.items()
+        ]))
 
 
 class Expression(BaseExpression, Combinable):

@@ -1998,6 +1998,36 @@ templates used by the :class:`ModelAdmin` views:
         def get_changeform_initial_data(self, request):
             return {'name': 'custom_initial_value'}
 
+.. method:: ModelAdmin.get_deleted_objects(objs, request)
+
+    .. versionadded:: 2.1
+
+    A hook for customizing the deletion process of the :meth:`delete_view` and
+    the "delete selected" :doc:`action <actions>`.
+
+    The ``objs`` argument is a homogeneous iterable of objects (a ``QuerySet``
+    or a list of model instances) to be deleted, and ``request`` is the
+    :class:`~django.http.HttpRequest`.
+
+    This method must return a 4-tuple of
+    ``(deleted_objects, model_count, perms_needed, protected)``.
+
+    ``deleted_objects`` is a list of strings representing all the objects that
+    will be deleted. If there are any related objects to be deleted, the list
+    is nested and includes those related objects. The list is formatted in the
+    template using the :tfilter:`unordered_list` filter.
+
+    ``model_count`` is a dictionary mapping each model's
+    :attr:`~django.db.models.Options.verbose_name_plural` to the number of
+    objects that will be deleted.
+
+    ``perms_needed`` is a set of :attr:`~django.db.models.Options.verbose_name`\s
+    of the models that the user doesn't have permission to delete.
+
+    ``protected`` is a list of strings representing of all the protected
+    related objects that can't be deleted. The list is displayed in the
+    template.
+
 Other methods
 ~~~~~~~~~~~~~
 
@@ -2644,18 +2674,36 @@ And that's it! If we placed this file in the ``templates/admin/my_app``
 directory, our link would appear on the change form for all models within
 my_app.
 
+.. _admin-templates-overridden-per-app-or-model:
+
 Templates which may be overridden per app or model
 --------------------------------------------------
 
 Not every template in ``contrib/admin/templates/admin`` may be overridden per
 app or per model. The following can:
 
+* ``actions.html``
 * ``app_index.html``
 * ``change_form.html``
+* ``change_form_object_tools.html``
 * ``change_list.html``
+* ``change_list_object_tools.html``
+* ``change_list_results.html``
+* ``date_hierarchy.html``
 * ``delete_confirmation.html``
 * ``object_history.html``
+* ``pagination.html``
 * ``popup_response.html``
+* ``prepopulated_fields_js.html``
+* ``search_form.html``
+* ``submit_line.html``
+
+.. versionchanged:: 2.1
+
+    The ability to override the ``actions.html``, ``change_form_object_tools.html``,
+    ``change_list_object_tools.html``, ``change_list_results.html``,
+    ``date_hierarchy.html``, ``pagination.html``, ``prepopulated_fields_js.html``,
+    ``search_form.html``, and ``submit_line.html`` templates was added.
 
 For those templates that cannot be overridden in this way, you may still
 override them for your entire project. Just place the new version in your

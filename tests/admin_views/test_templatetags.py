@@ -8,8 +8,8 @@ from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
-from .admin import site
-from .models import Question
+from .admin import ArticleAdmin, site
+from .models import Article, Question
 from .tests import AdminViewBasicTestCase
 
 
@@ -27,6 +27,48 @@ class AdminTemplateTagsTest(AdminViewBasicTestCase):
         template_context = submit_row(response.context_data)
         self.assertIs(template_context['extra'], True)
         self.assertIs(template_context['show_save'], True)
+
+    def test_override_change_form_template_tags(self):
+        """
+        admin_modify template tags follow the standard search pattern
+        admin/app_label/model/template.html.
+        """
+        factory = RequestFactory()
+        article = Article.objects.all()[0]
+        request = factory.get(reverse('admin:admin_views_article_change', args=[article.pk]))
+        request.user = self.superuser
+        admin = ArticleAdmin(Article, site)
+        extra_context = {'show_publish': True, 'extra': True}
+        response = admin.change_view(request, str(article.pk), extra_context=extra_context)
+        response.render()
+        self.assertIs(response.context_data['show_publish'], True)
+        self.assertIs(response.context_data['extra'], True)
+        content = str(response.content)
+        self.assertIn('name="_save"', content)
+        self.assertIn('name="_publish"', content)
+        self.assertIn('override-change_form_object_tools', content)
+        self.assertIn('override-prepopulated_fields_js', content)
+
+    def test_override_change_list_template_tags(self):
+        """
+        admin_list template tags follow the standard search pattern
+        admin/app_label/model/template.html.
+        """
+        factory = RequestFactory()
+        request = factory.get(reverse('admin:admin_views_article_changelist'))
+        request.user = self.superuser
+        admin = ArticleAdmin(Article, site)
+        admin.date_hierarchy = 'date'
+        admin.search_fields = ('title', 'content')
+        response = admin.changelist_view(request)
+        response.render()
+        content = str(response.content)
+        self.assertIn('override-actions', content)
+        self.assertIn('override-change_list_object_tools', content)
+        self.assertIn('override-change_list_results', content)
+        self.assertIn('override-date_hierarchy', content)
+        self.assertIn('override-pagination', content)
+        self.assertIn('override-search_form', content)
 
 
 class DateHierarchyTests(TestCase):
