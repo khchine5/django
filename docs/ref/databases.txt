@@ -321,7 +321,7 @@ MySQL has a couple drivers that implement the Python Database API described in
   require the MySQL client library or any Python modules outside the standard
   library.
 
-.. _mysqlclient: https://pypi.python.org/pypi/mysqlclient
+.. _mysqlclient: https://pypi.org/project/mysqlclient/
 .. _MySQL Connector/Python: https://dev.mysql.com/downloads/connector/python
 
 These drivers are thread-safe and provide connection pooling.
@@ -489,12 +489,6 @@ this entry are the four standard isolation levels:
 or ``None`` to use the server's configured isolation level. However, Django
 works best with and defaults to read committed rather than MySQL's default,
 repeatable read. Data loss is possible with repeatable read.
-
-.. versionchanged:: 2.0
-
-    In older versions, the MySQL database backend defaults to using the
-    database's isolation level (which defaults to repeatable read) rather
-    than read committed.
 
 .. _transaction isolation level: https://dev.mysql.com/doc/refman/en/innodb-transaction-isolation-levels.html
 
@@ -919,7 +913,7 @@ unofficial backends, along with any support queries, should be directed to
 the support channels provided by each 3rd party project.
 
 .. _SAP SQL Anywhere: https://github.com/sqlanywhere/sqlany-django
-.. _IBM DB2: https://pypi.python.org/pypi/ibm_db/
+.. _IBM DB2: https://pypi.org/project/ibm_db/
 .. _Microsoft SQL Server: https://django-mssql.readthedocs.io/en/latest/
 .. _Firebird: https://github.com/maxirobaina/django-firebird
 .. _ODBC: https://github.com/lionheart/django-pyodbc/

@@ -51,6 +51,8 @@ def mock_inputs(inputs):
                 assert '__proxy__' not in prompt
                 response = None
                 for key, val in inputs.items():
+                    if val == 'KeyboardInterrupt':
+                        raise KeyboardInterrupt
                     # get() fallback because sometimes 'key' is the actual
                     # prompt rather than a shortcut name.
                     prompt_msgs = MOCK_INPUT_KEY_TO_PROMPTS.get(key, key)
@@ -566,6 +568,22 @@ class CreatesuperuserManagementCommandTestCase(TestCase):
 
         test(self)
 
+    def test_blank_username_non_interactive(self):
+        new_io = StringIO()
+
+        def test(self):
+            with self.assertRaisesMessage(CommandError, 'Username cannot be blank.'):
+                call_command(
+                    'createsuperuser',
+                    username='',
+                    interactive=False,
+                    stdin=MockTTY(),
+                    stdout=new_io,
+                    stderr=new_io,
+                )
+
+        test(self)
+
     def test_password_validation_bypass(self):
         """
         Password validation can be bypassed by entering 'y' at the prompt.
@@ -626,6 +644,19 @@ class CreatesuperuserManagementCommandTestCase(TestCase):
 
         test(self)
 
+    @mock_inputs({'username': 'KeyboardInterrupt'})
+    def test_keyboard_interrupt(self):
+        new_io = StringIO()
+        with self.assertRaises(SystemExit):
+            call_command(
+                'createsuperuser',
+                interactive=True,
+                stdin=MockTTY(),
+                stdout=new_io,
+                stderr=new_io,
+            )
+        self.assertEqual(new_io.getvalue(), '\nOperation cancelled.\n')
+
     def test_existing_username(self):
         """Creation fails if the username already exists."""
         user = User.objects.create(username='janet')
@@ -656,6 +687,19 @@ class CreatesuperuserManagementCommandTestCase(TestCase):
             )
 
         test(self)
+
+    def test_existing_username_non_interactive(self):
+        """Creation fails if the username already exists."""
+        User.objects.create(username='janet')
+        new_io = StringIO()
+        with self.assertRaisesMessage(CommandError, "Error: That username is already taken."):
+            call_command(
+                'createsuperuser',
+                username='janet',
+                email='',
+                interactive=False,
+                stdout=new_io,
+            )
 
     def test_validation_mismatched_passwords(self):
         """
@@ -767,10 +811,10 @@ class CreatePermissionsTests(TestCase):
         ]
         create_permissions(self.app_config, verbosity=0)
 
-        # add/change/delete permission by default + custom permission
+        # view/add/change/delete permission by default + custom permission
         self.assertEqual(Permission.objects.filter(
             content_type=permission_content_type,
-        ).count(), 4)
+        ).count(), 5)
 
         Permission.objects.filter(content_type=permission_content_type).delete()
         Permission._meta.default_permissions = []

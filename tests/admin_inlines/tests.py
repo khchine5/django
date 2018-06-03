@@ -175,6 +175,21 @@ class TestInline(TestDataMixin, TestCase):
             1
         )
 
+    def test_tabular_model_form_meta_readonly_field(self):
+        """
+        Tabular inlines use ModelForm.Meta.help_texts and labels for read-only
+        fields.
+        """
+        response = self.client.get(reverse('admin:admin_inlines_someparentmodel_add'))
+        self.assertContains(
+            response,
+            '<img src="/static/admin/img/icon-unknown.svg" '
+            'class="help help-tooltip" width="10" height="10" '
+            'alt="(Help text from ModelForm.Meta)" '
+            'title="Help text from ModelForm.Meta">'
+        )
+        self.assertContains(response, 'Label from ModelForm.Meta')
+
     def test_inline_hidden_field_no_column(self):
         """#18263 -- Make sure hidden fields don't get a column in tabular inlines"""
         parent = SomeParentModel.objects.create(name='a')
@@ -431,6 +446,16 @@ class TestInline(TestDataMixin, TestCase):
         response = self.client.get(reverse('admin:admin_inlines_poll_change', args=(poll.pk,)))
         self.assertTrue(response.context['inline_admin_formset'].opts.has_registered_model)
         self.assertNotContains(response, INLINE_CHANGELINK_HTML)
+
+    def test_noneditable_inline_has_field_inputs(self):
+        """Inlines without change permission shows field inputs on add form."""
+        response = self.client.get(reverse('admin:admin_inlines_novelreadonlychapter_add'))
+        self.assertContains(
+            response,
+            '<input type="text" name="chapter_set-0-name" '
+            'class="vTextField" maxlength="40" id="id_chapter_set-0-name">',
+            html=True
+        )
 
 
 @override_settings(ROOT_URLCONF='admin_inlines.urls')

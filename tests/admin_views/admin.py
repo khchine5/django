@@ -156,6 +156,10 @@ class RowLevelChangePermissionModelAdmin(admin.ModelAdmin):
         """ Only allow changing objects with even id number """
         return request.user.is_staff and (obj is not None) and (obj.id % 2 == 0)
 
+    def has_view_permission(self, request, obj=None):
+        """Only allow viewing objects if id is a multiple of 3."""
+        return request.user.is_staff and obj is not None and obj.id % 3 == 0
+
 
 class CustomArticleAdmin(admin.ModelAdmin):
     """
@@ -282,8 +286,7 @@ download.short_description = 'Download subscription'
 
 
 def no_perm(modeladmin, request, selected):
-    return HttpResponse(content='No permission to perform this action',
-                        status=403)
+    return HttpResponse(content='No permission to perform this action', status=403)
 
 
 no_perm.short_description = 'No permission to run'
@@ -685,11 +688,7 @@ class ReportAdmin(admin.ModelAdmin):
 
     def get_urls(self):
         # Corner case: Don't call parent implementation
-        return [
-            url(r'^extra/$',
-                self.extra,
-                name='cable_extra'),
-        ]
+        return [url(r'^extra/$', self.extra, name='cable_extra')]
 
 
 class CustomTemplateBooleanFieldListFilter(BooleanFieldListFilter):

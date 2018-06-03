@@ -79,8 +79,8 @@ After installing Memcached itself, you'll need to install a Memcached
 binding. There are several Python Memcached bindings available; the
 two most common are `python-memcached`_ and `pylibmc`_.
 
-.. _`python-memcached`: https://pypi.python.org/pypi/python-memcached
-.. _`pylibmc`: https://pypi.python.org/pypi/pylibmc
+.. _`python-memcached`: https://pypi.org/project/python-memcached/
+.. _`pylibmc`: https://pypi.org/project/pylibmc/
 
 To use Memcached with Django:
 
@@ -659,10 +659,6 @@ example:
         .. sidebar ..
     {% endcache %}
 
-.. versionchanged:: 2.0
-
-    Older versions don't allow a ``None`` timeout.
-
 Sometimes you might want to cache multiple copies of a fragment depending on
 some dynamic data that appears inside the fragment. For example, you might want a
 separate cached copy of the sidebar used in the previous example for every user
@@ -734,6 +730,7 @@ a cached item, for example:
     >>> key = make_template_fragment_key('sidebar', [username])
     >>> cache.delete(key) # invalidates cached template fragment
 
+.. _low-level-cache-api:
 
 The low-level cache API
 =======================
@@ -871,10 +868,6 @@ Like ``cache.set()``, ``set_many()`` takes an optional ``timeout`` parameter.
 On supported backends (memcached), ``set_many()`` returns a list of keys that
 failed to be inserted.
 
-.. versionchanged:: 2.0
-
-    The return value containing list of failing keys was added.
-
 You can delete keys explicitly with ``delete()``. This is an easy way of
 clearing the cache for a particular object::
 
@@ -890,6 +883,22 @@ Finally, if you want to delete all the keys in the cache, use
 from the cache, not just the keys set by your application. ::
 
     >>> cache.clear()
+
+``cache.touch()`` sets a new expiration for a key. For example, to update a key
+to expire 10 seconds from now::
+
+    >>> cache.touch('a', 10)
+    True
+
+Like other methods, the ``timeout`` argument is optional and defaults to the
+``TIMEOUT`` option of the appropriate backend in the :setting:`CACHES` setting.
+
+``touch()`` returns ``True`` if the key was successfully touched, ``False``
+otherwise.
+
+.. versionchanged:: 2.1
+
+    The ``cache.touch()`` method was added.
 
 You can also increment or decrement a key that already exists using the
 ``incr()`` or ``decr()`` methods, respectively. By default, the existing cache

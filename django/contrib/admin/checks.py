@@ -1,3 +1,4 @@
+import warnings
 from itertools import chain
 
 from django.apps import apps
@@ -13,6 +14,8 @@ from django.forms.models import (
     BaseModelForm, BaseModelFormSet, _get_foreign_key,
 )
 from django.template.engine import Engine
+from django.utils.deprecation import RemovedInDjango30Warning
+from django.utils.inspect import get_func_args
 
 
 def check_admin_app(app_configs, **kwargs):
@@ -206,12 +209,13 @@ class BaseModelAdminChecks:
         elif not isinstance(obj.fieldsets, (list, tuple)):
             return must_be('a list or tuple', option='fieldsets', obj=obj, id='admin.E007')
         else:
+            seen_fields = []
             return list(chain.from_iterable(
-                self._check_fieldsets_item(obj, obj.model, fieldset, 'fieldsets[%d]' % index)
+                self._check_fieldsets_item(obj, obj.model, fieldset, 'fieldsets[%d]' % index, seen_fields)
                 for index, fieldset in enumerate(obj.fieldsets)
             ))
 
-    def _check_fieldsets_item(self, obj, model, fieldset, label):
+    def _check_fieldsets_item(self, obj, model, fieldset, label, seen_fields):
         """ Check an item of `fieldsets`, i.e. check that this is a pair of a
         set name and a dictionary containing "fields" key. """
 
@@ -232,8 +236,8 @@ class BaseModelAdminChecks:
         elif not isinstance(fieldset[1]['fields'], (list, tuple)):
             return must_be('a list or tuple', option="%s[1]['fields']" % label, obj=obj, id='admin.E008')
 
-        fields = flatten(fieldset[1]['fields'])
-        if len(fields) != len(set(fields)):
+        seen_fields.extend(flatten(fieldset[1]['fields']))
+        if len(seen_fields) != len(set(seen_fields)):
             return [
                 checks.Error(
                     "There are duplicate field(s) in '%s[1]'." % label,
@@ -884,6 +888,7 @@ class ModelAdminChecks(BaseModelAdminChecks):
 class InlineModelAdminChecks(BaseModelAdminChecks):
 
     def check(self, inline_obj, **kwargs):
+        self._check_has_add_permission(inline_obj)
         parent_model = inline_obj.parent_model
         return [
             *super().check(inline_obj),
@@ -967,6 +972,20 @@ class InlineModelAdminChecks(BaseModelAdminChecks):
             return must_inherit_from(parent='BaseModelFormSet', option='formset', obj=obj, id='admin.E206')
         else:
             return []
+
+    def _check_has_add_permission(self, obj):
+        cls = obj.__class__
+        try:
+            func = cls.has_add_permission
+        except AttributeError:
+            pass
+        else:
+            args = get_func_args(func)
+            if 'obj' not in args:
+                warnings.warn(
+                    "Update %s.has_add_permission() to accept a positional "
+                    "`obj` argument." % cls.__name__, RemovedInDjango30Warning
+                )
 
 
 def must_be(type, option, obj, id):

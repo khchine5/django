@@ -223,6 +223,10 @@ class Query:
 
         self._filtered_relations = {}
 
+        self.explain_query = False
+        self.explain_format = None
+        self.explain_options = {}
+
     @property
     def extra(self):
         if self._extra is None:
@@ -510,6 +514,14 @@ class Query:
         q.set_limits(high=1)
         compiler = q.get_compiler(using=using)
         return compiler.has_results()
+
+    def explain(self, using, format=None, **options):
+        q = self.clone()
+        q.explain_query = True
+        q.explain_format = format
+        q.explain_options = options
+        compiler = q.get_compiler(using=using)
+        return '\n'.join(compiler.explain_query())
 
     def combine(self, rhs, connector):
         """
@@ -1083,8 +1095,8 @@ class Query:
 
         lookup = lookup_class(lhs, rhs)
         # Interpret '__exact=None' as the sql 'is NULL'; otherwise, reject all
-        # uses of None as a query value.
-        if lookup.rhs is None:
+        # uses of None as a query value unless the lookup supports it.
+        if lookup.rhs is None and not lookup.can_use_none_as_rhs:
             if lookup_name not in ('exact', 'iexact'):
                 raise ValueError("Cannot use None as a query value")
             return lhs.get_lookup('isnull')(lhs, True)
@@ -1215,7 +1227,7 @@ class Query:
         clause.add(condition, AND)
 
         require_outer = lookup_type == 'isnull' and condition.rhs is True and not current_negated
-        if current_negated and (lookup_type != 'isnull' or condition.rhs is False):
+        if current_negated and (lookup_type != 'isnull' or condition.rhs is False) and condition.rhs is not None:
             require_outer = True
             if (lookup_type != 'isnull' and (
                     self.is_nullable(targets[0]) or

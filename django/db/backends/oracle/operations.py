@@ -51,13 +51,12 @@ END;
 
     # Oracle doesn't support string without precision; use the max string size.
     cast_char_field_without_max_length = 'NVARCHAR2(2000)'
+    cast_data_types = {
+        'TextField': cast_char_field_without_max_length,
+    }
 
     def cache_key_culling_sql(self):
-        return """
-            SELECT cache_key
-              FROM (SELECT cache_key, rank() OVER (ORDER BY cache_key) AS rank FROM %s)
-             WHERE rank = %%s + 1
-        """
+        return 'SELECT cache_key FROM %s ORDER BY cache_key OFFSET %%s ROWS FETCH FIRST 1 ROWS ONLY'
 
     def date_extract_sql(self, lookup_type, field_name):
         if lookup_type == 'week_day':
@@ -224,7 +223,8 @@ END;
     def fetch_returned_insert_id(self, cursor):
         try:
             return int(cursor._insert_id_var.getvalue())
-        except TypeError:
+        except (IndexError, TypeError):
+            # cx_Oracle < 6.3 returns None, >= 6.3 raises IndexError.
             raise DatabaseError(
                 'The database did not return a new row id. Probably "ORA-1403: '
                 'no data found" was raised internally but was hidden by the '

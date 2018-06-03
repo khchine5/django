@@ -289,8 +289,8 @@ The next step is to point the root URLconf at the ``polls.urls`` module. In
 .. snippet::
     :filename: mysite/urls.py
 
-    from django.urls import include, path
     from django.contrib import admin
+    from django.urls import include, path
 
     urlpatterns = [
         path('polls/', include('polls.urls')),
@@ -323,6 +323,11 @@ working, run the following command:
 Go to http://localhost:8000/polls/ in your browser, and you should see the
 text "*Hello, world. You're at the polls index.*", which you defined in the
 ``index`` view.
+
+.. admonition:: Page not found?
+
+    If you get an error page here, check that you're going to
+    http://localhost:8000/polls/ and not http://localhost:8000/.
 
 The :func:`~django.urls.path` function is passed four arguments, two required:
 ``route`` and ``view``, and two optional: ``kwargs``, and ``name``.

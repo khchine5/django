@@ -1,6 +1,6 @@
 import inspect
-import os
 from importlib import import_module
+from pathlib import Path
 
 from django.apps import apps
 from django.conf import settings
@@ -22,6 +22,8 @@ from django.utils.inspect import (
 )
 from django.utils.translation import gettext as _
 from django.views.generic import TemplateView
+
+from .utils import get_view_name
 
 # Exclude methods starting with these strings from documentation
 MODEL_METHODS_EXCLUDE = ('_', 'add_', 'delete', 'save', 'set_')
@@ -124,18 +126,13 @@ class TemplateFilterIndexView(BaseAdminDocsView):
 class ViewIndexView(BaseAdminDocsView):
     template_name = 'admin_doc/view_index.html'
 
-    @staticmethod
-    def _get_full_name(func):
-        mod_name = func.__module__
-        return '%s.%s' % (mod_name, func.__qualname__)
-
     def get_context_data(self, **kwargs):
         views = []
         urlconf = import_module(settings.ROOT_URLCONF)
         view_functions = extract_views_from_urlpatterns(urlconf.urlpatterns)
         for (func, regex, namespace, name) in view_functions:
             views.append({
-                'full_name': self._get_full_name(func),
+                'full_name': get_view_name(func),
                 'url': simplify_regex(regex),
                 'url_name': ':'.join((namespace or []) + (name and [name] or [])),
                 'namespace': ':'.join((namespace or [])),
@@ -334,15 +331,15 @@ class TemplateDetailView(BaseAdminDocsView):
         else:
             # This doesn't account for template loaders (#24128).
             for index, directory in enumerate(default_engine.dirs):
-                template_file = os.path.join(directory, template)
-                if os.path.exists(template_file):
-                    with open(template_file) as f:
+                template_file = Path(directory) / template
+                if template_file.exists():
+                    with template_file.open() as f:
                         template_contents = f.read()
                 else:
                     template_contents = ''
                 templates.append({
                     'file': template_file,
-                    'exists': os.path.exists(template_file),
+                    'exists': template_file.exists(),
                     'contents': template_contents,
                     'order': index,
                 })

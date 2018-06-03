@@ -84,8 +84,8 @@ as a shorter alias, ``_``, to save typing.
 In this example, the text ``"Welcome to my site."`` is marked as a translation
 string::
 
-    from django.utils.translation import gettext as _
     from django.http import HttpResponse
+    from django.utils.translation import gettext as _
 
     def my_view(request):
         output = _("Welcome to my site.")
@@ -94,8 +94,8 @@ string::
 Obviously, you could code this without using the alias. This example is
 identical to the previous one::
 
-    from django.utils.translation import gettext
     from django.http import HttpResponse
+    from django.utils.translation import gettext
 
     def my_view(request):
         output = gettext("Welcome to my site.")
@@ -137,6 +137,13 @@ For this reason, you should use named-string interpolation (e.g., ``%(day)s``)
 instead of positional interpolation (e.g., ``%s`` or ``%d``) whenever you
 have more than a single parameter. If you used positional interpolation,
 translations wouldn't be able to reorder placeholder text.
+
+Since string extraction is done by the ``xgettext`` command, only syntaxes
+supported by ``gettext`` are supported by Django. Python f-strings_ and
+`JavaScript template strings`_ are not yet supported by ``xgettext``.
+
+.. _f-strings: https://docs.python.org/3/reference/lexical_analysis.html#f-strings
+.. _JavaScript template strings: https://savannah.gnu.org/bugs/?50920
 
 .. _translator-comments:
 
@@ -198,8 +205,8 @@ of its value.)
 
 For example::
 
-    from django.utils.translation import ngettext
     from django.http import HttpResponse
+    from django.utils.translation import ngettext
 
     def hello_world(request, count):
         page = ngettext(
@@ -235,7 +242,7 @@ sophisticated, but will produce incorrect results for some languages::
         'name': name
     }
 
-Don't try to implement your own singular-or-plural logic, it won't be correct.
+Don't try to implement your own singular-or-plural logic; it won't be correct.
 In a case like this, consider something like the following::
 
     text = ngettext(
@@ -421,7 +428,7 @@ Working with lazy translation objects
 The result of a ``gettext_lazy()`` call can be used wherever you would use a
 string (a :class:`str` object) in other Django code, but it may not work with
 arbitrary Python code. For example, the following won't work because the
-`requests <https://pypi.python.org/pypi/requests/>`_ library doesn't handle
+`requests <https://pypi.org/project/requests/>`_ library doesn't handle
 ``gettext_lazy`` objects::
 
     body = gettext_lazy("I \u2764 Django")  # (unicode :heart:)
@@ -2125,5 +2132,5 @@ aware of certain limitations:
 * When an English variant is activated and English strings are missing, the
   fallback language will not be the :setting:`LANGUAGE_CODE` of the project,
   but the original strings. For example, an English user visiting a site with
-  Spanish as the default language and original strings written in Russian will
-  fallback to Russian, not to Spanish.
+  :setting:`LANGUAGE_CODE` set to Spanish and original strings written in
+  Russian will see Russian text rather than Spanish.

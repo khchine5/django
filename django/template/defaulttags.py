@@ -54,7 +54,7 @@ class CsrfTokenNode(Node):
             if csrf_token == 'NOTPROVIDED':
                 return format_html("")
             else:
-                return format_html("<input type='hidden' name='csrfmiddlewaretoken' value='{}'>", csrf_token)
+                return format_html('<input type="hidden" name="csrfmiddlewaretoken" value="{}">', csrf_token)
         else:
             # It's very probable that the token is missing because of
             # misconfiguration, so we raise a warning
@@ -483,9 +483,9 @@ class WidthRatioNode(Node):
             ratio = (value / max_value) * max_width
             result = str(round(ratio))
         except ZeroDivisionError:
-            return '0'
+            result = '0'
         except (ValueError, TypeError, OverflowError):
-            return ''
+            result = ''
 
         if self.asvar:
             context[self.asvar] = result

@@ -7,6 +7,14 @@ in a backward incompatible way, following their deprecation, as per the
 :ref:`deprecation policy <internal-release-deprecation-policy>`. More details
 about each item can often be found in the release notes of two versions prior.
 
+.. _deprecation-removed-in-3.1:
+
+3.1
+---
+
+See the :ref:`Django 2.2 release notes <deprecated-features-2.2>` for more
+details on these changes.
+
 .. _deprecation-removed-in-3.0:
 
 3.0
@@ -29,6 +37,9 @@ details on these changes.
 * The ``field_name`` keyword argument of ``QuerySet.earliest()`` and
   ``latest()`` will be removed.
 
+See the :ref:`Django 2.1 release notes <deprecated-features-2.1>` for more
+details on these changes.
+
 * ``django.contrib.gis.db.models.functions.ForceRHR`` will be removed.
 
 * ``django.utils.http.cookie_date()`` will be removed.
@@ -38,8 +49,8 @@ details on these changes.
 
 * ``django.contrib.staticfiles.templatetags.static()`` will be removed.
 
-See the :ref:`Django 2.1 release notes <deprecated-features-2.1>` for more
-details on these changes.
+* The shim to allow ``InlineModelAdmin.has_add_permission()`` to be defined
+  without an ``obj`` argument will be removed.
 
 .. _deprecation-removed-in-2.1:
 
@@ -629,9 +640,6 @@ details on these changes.
 
 * Support for the Python Imaging Library (PIL) module will be removed, as it
   no longer appears to be actively maintained & does not work on Python 3.
-  You are advised to install `Pillow`_, which should be used instead.
-
-  .. _`Pillow`: https://pypi.python.org/pypi/Pillow
 
 * The following private APIs will be removed:
 

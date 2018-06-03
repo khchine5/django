@@ -67,7 +67,9 @@ Model field                         Form field
                                     ``True`` on the model field, otherwise not
                                     represented in the form.
 
-:class:`BooleanField`               :class:`~django.forms.BooleanField`
+:class:`BooleanField`               :class:`~django.forms.BooleanField`, or
+                                    :class:`~django.forms.NullBooleanField` if
+                                    ``null=True``.
 
 :class:`CharField`                  :class:`~django.forms.CharField` with
                                     ``max_length`` set to the model field's
@@ -293,8 +295,8 @@ You can override the error messages from ``NON_FIELD_ERRORS`` raised by model
 validation by adding the :data:`~django.core.exceptions.NON_FIELD_ERRORS` key
 to the ``error_messages`` dictionary of the ``ModelForm``’s inner ``Meta`` class::
 
-    from django.forms import ModelForm
     from django.core.exceptions import NON_FIELD_ERRORS
+    from django.forms import ModelForm
 
     class ArticleForm(ModelForm):
         class Meta:
@@ -571,7 +573,7 @@ fields like you would in a regular ``Form``.
 If you want to specify a field's validators, you can do so by defining
 the field declaratively and setting its ``validators`` parameter::
 
-    from django.forms import ModelForm, CharField
+    from django.forms import CharField, ModelForm
     from myapp.models import Article
 
     class ArticleForm(ModelForm):
@@ -1069,14 +1071,14 @@ There are three ways to render a formset in a Django template.
 
 First, you can let the formset do most of the work::
 
-    <form method="post" action="">
+    <form method="post">
         {{ formset }}
     </form>
 
 Second, you can manually render the formset, but let the form deal with
 itself::
 
-    <form method="post" action="">
+    <form method="post">
         {{ formset.management_form }}
         {% for form in formset %}
             {{ form }}
@@ -1089,7 +1091,7 @@ form as shown above. See the :ref:`management form documentation
 
 Third, you can manually render each field::
 
-    <form method="post" action="">
+    <form method="post">
         {{ formset.management_form }}
         {% for form in formset %}
             {% for field in form %}
@@ -1102,7 +1104,7 @@ If you opt to use this third method and you don't iterate over the fields with
 a ``{% for %}`` loop, you'll need to render the primary key field. For example,
 if you were rendering the ``name`` and ``age`` fields of a model::
 
-    <form method="post" action="">
+    <form method="post">
         {{ formset.management_form }}
         {% for form in formset %}
             {{ form.id }}

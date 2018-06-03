@@ -1,4 +1,5 @@
 import datetime
+import pickle
 import unittest
 import uuid
 from copy import deepcopy
@@ -373,7 +374,8 @@ class BasicExpressionsTests(TestCase):
         # other lookups could not reuse.
         qs = Employee.objects.filter(
             company_ceo_set__num_chairs=F('company_ceo_set__num_employees'),
-            company_ceo_set__num_chairs__gte=1)
+            company_ceo_set__num_chairs__gte=1,
+        )
         self.assertEqual(str(qs.query).count('JOIN'), 1)
 
     def test_ticket_18375_kwarg_ordering_2(self):
@@ -584,6 +586,11 @@ class BasicExpressionsTests(TestCase):
         outer = Company.objects.filter(pk__in=Subquery(inner.values('pk')))
         self.assertEqual(outer.get().name, 'Test GmbH')
 
+    def test_pickle_expression(self):
+        expr = Value(1, output_field=models.IntegerField())
+        expr.convert_value  # populate cached property
+        self.assertEqual(pickle.loads(pickle.dumps(expr)), expr)
+
 
 class IterableLookupInnerExpressionsTests(TestCase):
     @classmethod
@@ -793,17 +800,20 @@ class ExpressionsTests(TestCase):
         self.assertQuerysetEqual(
             Employee.objects.filter(firstname__contains=F('lastname')),
             ["<Employee: %Joh\\nny %Joh\\n>", "<Employee: Jean-Claude Claude>", "<Employee: Johnny John>"],
-            ordered=False)
+            ordered=False,
+        )
 
         self.assertQuerysetEqual(
             Employee.objects.filter(firstname__startswith=F('lastname')),
             ["<Employee: %Joh\\nny %Joh\\n>", "<Employee: Johnny John>"],
-            ordered=False)
+            ordered=False,
+        )
 
         self.assertQuerysetEqual(
             Employee.objects.filter(firstname__endswith=F('lastname')),
             ["<Employee: Jean-Claude Claude>"],
-            ordered=False)
+            ordered=False,
+        )
 
     def test_insensitive_patterns_escape(self):
         r"""
@@ -825,17 +835,20 @@ class ExpressionsTests(TestCase):
         self.assertQuerysetEqual(
             Employee.objects.filter(firstname__icontains=F('lastname')),
             ["<Employee: %Joh\\nny %joh\\n>", "<Employee: Jean-Claude claude>", "<Employee: Johnny john>"],
-            ordered=False)
+            ordered=False,
+        )
 
         self.assertQuerysetEqual(
             Employee.objects.filter(firstname__istartswith=F('lastname')),
             ["<Employee: %Joh\\nny %joh\\n>", "<Employee: Johnny john>"],
-            ordered=False)
+            ordered=False,
+        )
 
         self.assertQuerysetEqual(
             Employee.objects.filter(firstname__iendswith=F('lastname')),
             ["<Employee: Jean-Claude claude>"],
-            ordered=False)
+            ordered=False,
+        )
 
 
 class ExpressionsNumericTests(TestCase):

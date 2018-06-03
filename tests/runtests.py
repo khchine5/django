@@ -17,11 +17,22 @@ from django.test import TestCase, TransactionTestCase
 from django.test.runner import default_test_processes
 from django.test.selenium import SeleniumTestCaseBase
 from django.test.utils import get_runner
-from django.utils.deprecation import RemovedInDjango30Warning
+from django.utils.deprecation import (
+    RemovedInDjango30Warning, RemovedInDjango31Warning,
+)
 from django.utils.log import DEFAULT_LOGGING
+
+try:
+    import MySQLdb
+except ImportError:
+    pass
+else:
+    # Ignore informational warnings from QuerySet.explain().
+    warnings.filterwarnings('ignore', r'\(1003, *', category=MySQLdb.Warning)
 
 # Make deprecation warnings errors to ensure no usage of deprecated features.
 warnings.simplefilter("error", RemovedInDjango30Warning)
+warnings.simplefilter('error', RemovedInDjango31Warning)
 # Make runtime warning errors to ensure no usage of error prone patterns.
 warnings.simplefilter("error", RuntimeWarning)
 # Ignore known warnings in test dependencies.

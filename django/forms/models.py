@@ -278,7 +278,8 @@ class ModelFormMetaclass(DeclarativeFieldsMetaclass):
 class BaseModelForm(BaseForm):
     def __init__(self, data=None, files=None, auto_id='id_%s', prefix=None,
                  initial=None, error_class=ErrorList, label_suffix=None,
-                 empty_permitted=False, instance=None, use_required_attribute=None):
+                 empty_permitted=False, instance=None, use_required_attribute=None,
+                 renderer=None):
         opts = self._meta
         if opts.model is None:
             raise ValueError('ModelForm has no model class specified.')
@@ -299,6 +300,7 @@ class BaseModelForm(BaseForm):
         super().__init__(
             data, files, auto_id, prefix, object_data, error_class,
             label_suffix, empty_permitted, use_required_attribute=use_required_attribute,
+            renderer=renderer,
         )
         for formfield in self.fields.values():
             apply_limit_choices_to_to_formfield(formfield)
@@ -1132,13 +1134,19 @@ class ModelChoiceIterator:
             yield ("", self.field.empty_label)
         queryset = self.queryset
         # Can't use iterator() when queryset uses prefetch_related()
-        if not queryset._prefetch_related_lookups and queryset._result_cache is None:
+        if not queryset._prefetch_related_lookups:
             queryset = queryset.iterator()
         for obj in queryset:
             yield self.choice(obj)
 
     def __len__(self):
-        return len(self.queryset) + (1 if self.field.empty_label is not None else 0)
+        # count() adds a query but uses less memory since the QuerySet results
+        # won't be cached. In most cases, the choices will only be iterated on,
+        # and __len__() won't be called.
+        return self.queryset.count() + (1 if self.field.empty_label is not None else 0)
+
+    def __bool__(self):
+        return self.field.empty_label is not None or self.queryset.exists()
 
     def choice(self, obj):
         return (self.field.prepare_value(obj), self.field.label_from_instance(obj))

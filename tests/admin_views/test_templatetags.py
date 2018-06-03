@@ -43,11 +43,10 @@ class AdminTemplateTagsTest(AdminViewBasicTestCase):
         response.render()
         self.assertIs(response.context_data['show_publish'], True)
         self.assertIs(response.context_data['extra'], True)
-        content = str(response.content)
-        self.assertIn('name="_save"', content)
-        self.assertIn('name="_publish"', content)
-        self.assertIn('override-change_form_object_tools', content)
-        self.assertIn('override-prepopulated_fields_js', content)
+        self.assertContains(response, 'name="_save"')
+        self.assertContains(response, 'name="_publish"')
+        self.assertContains(response, 'override-change_form_object_tools')
+        self.assertContains(response, 'override-prepopulated_fields_js')
 
     def test_override_change_list_template_tags(self):
         """
@@ -62,17 +61,19 @@ class AdminTemplateTagsTest(AdminViewBasicTestCase):
         admin.search_fields = ('title', 'content')
         response = admin.changelist_view(request)
         response.render()
-        content = str(response.content)
-        self.assertIn('override-actions', content)
-        self.assertIn('override-change_list_object_tools', content)
-        self.assertIn('override-change_list_results', content)
-        self.assertIn('override-date_hierarchy', content)
-        self.assertIn('override-pagination', content)
-        self.assertIn('override-search_form', content)
+        self.assertContains(response, 'override-actions')
+        self.assertContains(response, 'override-change_list_object_tools')
+        self.assertContains(response, 'override-change_list_results')
+        self.assertContains(response, 'override-date_hierarchy')
+        self.assertContains(response, 'override-pagination')
+        self.assertContains(response, 'override-search_form')
 
 
 class DateHierarchyTests(TestCase):
     factory = RequestFactory()
+
+    def setUp(self):
+        self.superuser = User.objects.create_superuser(username='super', password='secret', email='super@example.com')
 
     def test_choice_links(self):
         modeladmin = ModelAdmin(Question, site)
@@ -99,6 +100,7 @@ class DateHierarchyTests(TestCase):
             with self.subTest(query=query):
                 query = {'posted__%s' % q: val for q, val in query.items()}
                 request = self.factory.get('/', query)
+                request.user = self.superuser
                 changelist = modeladmin.get_changelist_instance(request)
                 spec = date_hierarchy(changelist)
                 choices = [choice['link'] for choice in spec['choices']]

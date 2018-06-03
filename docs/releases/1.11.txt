@@ -576,7 +576,7 @@ It's automatically installed along with Django.
 Support for ``settings.TIME_ZONE = None`` is removed as the behavior isn't
 commonly used and is questionably useful. If you want to automatically detect
 the timezone based on the system timezone, you can use `tzlocal
-<https://pypi.python.org/pypi/tzlocal>`_::
+<https://pypi.org/project/tzlocal/>`_::
 
     from tzlocal import get_localzone
 
@@ -639,6 +639,17 @@ custom operation that works with model classes or model instances from the
 you must render model states using the ``clear_delayed_apps_cache()`` method as
 described in :ref:`writing your own migration operation
 <writing-your-own-migration-operation>`.
+
+Server-side cursors on PostgreSQL
+---------------------------------
+
+The change to make :meth:`.QuerySet.iterator()` use server-side cursors on
+PostgreSQL prevents running Django with `pgBouncer` in transaction pooling
+mode. To reallow that, use the :setting:`DISABLE_SERVER_SIDE_CURSORS
+<DATABASE-DISABLE_SERVER_SIDE_CURSORS>` setting (added in Django 1.11.1) in
+:setting:`DATABASES`.
+
+See :ref:`transaction-pooling-server-side-cursors` for more discussion.
 
 Miscellaneous
 -------------

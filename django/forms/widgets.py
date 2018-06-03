@@ -621,12 +621,12 @@ class ChoiceWidget(Widget):
             'attrs': option_attrs,
             'type': self.input_type,
             'template_name': self.option_template_name,
+            'wrap_label': True,
         }
 
     def get_context(self, name, value, attrs):
         context = super().get_context(name, value, attrs)
         context['widget']['optgroups'] = self.optgroups(name, context['widget']['value'], attrs)
-        context['wrap_label'] = True
         return context
 
     def id_for_label(self, id_, index='0'):
@@ -649,6 +649,8 @@ class ChoiceWidget(Widget):
 
     def format_value(self, value):
         """Return selected values as a list."""
+        if value is None and self.allow_multiple_selected:
+            return []
         if not isinstance(value, (tuple, list)):
             value = [value]
         return [str(v) if v is not None else '' for v in value]

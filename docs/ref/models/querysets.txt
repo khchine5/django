@@ -712,10 +712,6 @@ not having any author::
     >>> Entry.objects.values_list('authors')
     <QuerySet [('Noam Chomsky',), ('George Orwell',), (None,)]>
 
-.. versionchanged:: 2.0
-
-    The ``named`` parameter was added.
-
 ``dates()``
 ~~~~~~~~~~~
 
@@ -1737,10 +1733,6 @@ raised if ``select_for_update()`` is used in autocommit mode.
     PostgreSQL doesn't support ``select_for_update()`` with
     :class:`~django.db.models.expressions.Window` expressions.
 
-.. versionchanged:: 2.0
-
-    The ``of`` argument was added.
-
 ``raw()``
 ~~~~~~~~~
 
@@ -1857,8 +1849,20 @@ The above example can be rewritten using ``get_or_create()`` like so::
 
 Any keyword arguments passed to ``get_or_create()`` — *except* an optional one
 called ``defaults`` — will be used in a :meth:`get()` call. If an object is
-found, ``get_or_create()`` returns a tuple of that object and ``False``. If
-multiple objects are found, ``get_or_create`` raises
+found, ``get_or_create()`` returns a tuple of that object and ``False``.
+
+You can specify more complex conditions for the retrieved object by chaining
+``get_or_create()`` with ``filter()`` and using :class:`Q objects
+<django.db.models.Q>`. For example, to retrieve Robert or Bob Marley if either
+exists, and create the latter otherwise::
+
+    from django.db.models import Q
+
+    obj, created = Person.objects.filter(
+        Q(first_name='Bob') | Q(first_name='Robert'),
+    ).get_or_create(last_name='Marley', defaults={'first_name': 'Bob'})
+
+If multiple objects are found, ``get_or_create()`` raises
 :exc:`~django.core.exceptions.MultipleObjectsReturned`. If an object is *not*
 found, ``get_or_create()`` will instantiate and save a new object, returning a
 tuple of the new object and ``True``. The new object will be created roughly
@@ -2087,10 +2091,6 @@ Example::
 
 If you pass ``in_bulk()`` an empty list, you'll get an empty dictionary.
 
-.. versionchanged:: 2.0
-
-    The ``field_name`` parameter was added.
-
 ``iterator()``
 ~~~~~~~~~~~~~~
 
@@ -2155,10 +2155,6 @@ psycopg mailing list <https://www.postgresql.org/message-id/4D2F2C71.8080805%40d
     between the number of rows transferred and the data discarded if the loop
     is exited early.
 
-.. versionchanged:: 2.0
-
-    The ``chunk_size`` parameter was added.
-
 ``latest()``
 ~~~~~~~~~~~~
 
@@ -2192,10 +2188,6 @@ given parameters.
 
 Note that ``earliest()`` and ``latest()`` exist purely for convenience and
 readability.
-
-.. versionchanged:: 2.0
-
-    Support for several arguments was added.
 
 .. admonition:: ``earliest()`` and ``latest()`` may return instances with null dates.
 
@@ -2463,6 +2455,49 @@ detail subject to change.
 Class method that returns an instance of :class:`~django.db.models.Manager`
 with a copy of the ``QuerySet``’s methods. See
 :ref:`create-manager-with-queryset-methods` for more details.
+
+``explain()``
+~~~~~~~~~~~~~
+
+.. versionadded:: 2.1
+
+.. method:: explain(format=None, **options)
+
+Returns a string of the ``QuerySet``’s execution plan, which details how the
+database would execute the query, including any indexes or joins that would be
+used. Knowing these details may help you improve the performance of slow
+queries.
+
+For example, when using PostgreSQL::
+
+    >>> print(Blog.objects.filter(title='My Blog').explain())
+    Seq Scan on blog  (cost=0.00..35.50 rows=10 width=12)
+      Filter: (title = 'My Blog'::bpchar)
+
+The output differs significantly between databases.
+
+``explain()`` is supported by all built-in database backends except Oracle
+because an implementation there isn't straightforward.
+
+The ``format`` parameter changes the output format from the databases's default,
+usually text-based. PostgreSQL supports ``'TEXT'``, ``'JSON'``, ``'YAML'``, and
+``'XML'``. MySQL supports ``'TEXT'`` (also called ``'TRADITIONAL'``) and
+``'JSON'``.
+
+Some databases accept flags that can return more information about the query.
+Pass these flags as keyword arguments. For example, when using PostgreSQL::
+
+    >>> print(Blog.objects.filter(title='My Blog').explain(verbose=True))
+    Seq Scan on public.blog  (cost=0.00..35.50 rows=10 width=12) (actual time=0.004..0.004 rows=10 loops=1)
+      Output: id, title
+      Filter: (blog.title = 'My Blog'::bpchar)
+    Planning time: 0.064 ms
+    Execution time: 0.058 ms
+
+On some databases, flags may cause the query to be executed which could have
+adverse effects on your database. For example, PostgreSQL's ``ANALYZE`` flag
+could result in changes to data if there are triggers or if a function is
+called, even for a ``SELECT`` query.
 
 .. _field-lookups:
 
@@ -2888,7 +2923,7 @@ in the database <database-time-zone-definitions>`.
 
 For date and datetime fields, return the week number (1-52 or 53) according
 to `ISO-8601 <https://en.wikipedia.org/wiki/ISO-8601>`_, i.e., weeks start
-on a Monday and the first week starts on or before Thursday.
+on a Monday and the first week contains the year's first Thursday.
 
 Example::
 
@@ -2933,8 +2968,6 @@ in the database <database-time-zone-definitions>`.
 ``quarter``
 ~~~~~~~~~~~
 
-.. versionadded:: 2.0
-
 For date and datetime fields, a 'quarter of the year' match. Allows chaining
 additional field lookups. Takes an integer value between 1 and 4 representing
 the quarter of the year.
@@ -2961,7 +2994,7 @@ lookups. Takes a :class:`datetime.time` value.
 Example::
 
     Entry.objects.filter(pub_date__time=datetime.time(14, 30))
-    Entry.objects.filter(pub_date__time__between=(datetime.time(8), datetime.time(17)))
+    Entry.objects.filter(pub_date__time__range=(datetime.time(8), datetime.time(17)))
 
 (No equivalent SQL code fragment is included for this lookup because
 implementation of the relevant query varies among different database engines.)
@@ -3160,8 +3193,6 @@ of the return value
 
 ``filter``
 ~~~~~~~~~~
-
-.. versionadded:: 2.0
 
 An optional :class:`Q object <django.db.models.Q>` that's used to filter the
 rows that are aggregated.
@@ -3372,8 +3403,6 @@ lookups or :class:`Prefetch` objects you want to prefetch for. For example::
 
 ``FilteredRelation()`` objects
 ------------------------------
-
-.. versionadded:: 2.0
 
 .. class:: FilteredRelation(relation_name, *, condition=Q())
 

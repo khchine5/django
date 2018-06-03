@@ -10,7 +10,6 @@ import tempfile
 import threading
 import time
 import unittest
-import warnings
 from unittest import mock
 
 from django.conf import settings
@@ -140,6 +139,10 @@ class DummyCacheTests(SimpleTestCase):
             cache.decr('answer')
         with self.assertRaises(ValueError):
             cache.decr('does_not_exist')
+
+    def test_touch(self):
+        """Dummy cache can't do touch()."""
+        self.assertIs(cache.touch('whatever'), False)
 
     def test_data_types(self):
         "All data types are ignored equally by the dummy cache"
@@ -427,6 +430,23 @@ class BaseCacheTests:
         self.assertEqual(cache.get("expire2"), "newvalue")
         self.assertFalse(cache.has_key("expire3"))
 
+    def test_touch(self):
+        # cache.touch() updates the timeout.
+        cache.set('expire1', 'very quickly', timeout=1)
+        self.assertIs(cache.touch('expire1', timeout=4), True)
+        time.sleep(2)
+        self.assertTrue(cache.has_key('expire1'))
+        time.sleep(3)
+        self.assertFalse(cache.has_key('expire1'))
+
+        # cache.touch() works without the timeout argument.
+        cache.set('expire1', 'very quickly', timeout=1)
+        self.assertIs(cache.touch('expire1'), True)
+        time.sleep(2)
+        self.assertTrue(cache.has_key('expire1'))
+
+        self.assertIs(cache.touch('nonexistent'), False)
+
     def test_unicode(self):
         # Unicode values can be cached
         stuff = {
@@ -549,6 +569,11 @@ class BaseCacheTests:
         self.assertEqual(cache.get('key3'), 'sausage')
         self.assertEqual(cache.get('key4'), 'lobster bisque')
 
+        cache.set('key5', 'belgian fries', timeout=1)
+        cache.touch('key5', timeout=None)
+        time.sleep(2)
+        self.assertEqual(cache.get('key5'), 'belgian fries')
+
     def test_zero_timeout(self):
         """
         Passing in zero into timeout results in a value that is not cached
@@ -562,6 +587,10 @@ class BaseCacheTests:
         cache.set_many({'key3': 'sausage', 'key4': 'lobster bisque'}, 0)
         self.assertIsNone(cache.get('key3'))
         self.assertIsNone(cache.get('key4'))
+
+        cache.set('key5', 'belgian fries', timeout=5)
+        cache.touch('key5', timeout=0)
+        self.assertIsNone(cache.get('key5'))
 
     def test_float_timeout(self):
         # Make sure a timeout given as a float doesn't crash anything.
@@ -602,12 +631,8 @@ class BaseCacheTests:
         cache.key_func = func
 
         try:
-            with warnings.catch_warnings(record=True) as w:
-                warnings.simplefilter("always")
+            with self.assertWarnsMessage(CacheKeyWarning, expected_warning):
                 cache.set(key, 'value')
-                self.assertEqual(len(w), 1)
-                self.assertIsInstance(w[0].message, CacheKeyWarning)
-                self.assertEqual(str(w[0].message.args[0]), expected_warning)
         finally:
             cache.key_func = old_func
 
