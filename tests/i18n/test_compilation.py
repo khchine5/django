@@ -3,7 +3,8 @@ import os
 import stat
 import unittest
 from io import StringIO
-from subprocess import Popen
+from pathlib import Path
+from subprocess import run
 from unittest import mock
 
 from django.core.management import (
@@ -35,9 +36,10 @@ class PoFileTests(MessageCompilationTests):
     MO_FILE = 'locale/%s/LC_MESSAGES/django.mo' % LOCALE
 
     def test_bom_rejection(self):
-        with self.assertRaises(CommandError) as cm:
-            call_command('compilemessages', locale=[self.LOCALE], stdout=StringIO())
-        self.assertIn("file has a BOM (Byte Order Mark)", cm.exception.args[0])
+        stderr = StringIO()
+        with self.assertRaisesMessage(CommandError, 'compilemessages generated one or more errors.'):
+            call_command('compilemessages', locale=[self.LOCALE], stdout=StringIO(), stderr=stderr)
+        self.assertIn('file has a BOM (Byte Order Mark)', stderr.getvalue())
         self.assertFalse(os.path.exists(self.MO_FILE))
 
     def test_no_write_access(self):
@@ -47,9 +49,9 @@ class PoFileTests(MessageCompilationTests):
         old_mode = os.stat(mo_file_en).st_mode
         os.chmod(mo_file_en, stat.S_IREAD)
         try:
-            call_command('compilemessages', locale=['en'], stderr=err_buffer, verbosity=0)
-            err = err_buffer.getvalue()
-            self.assertIn("not writable location", err)
+            with self.assertRaisesMessage(CommandError, 'compilemessages generated one or more errors.'):
+                call_command('compilemessages', locale=['en'], stderr=err_buffer, verbosity=0)
+            self.assertIn('not writable location', err_buffer.getvalue())
         finally:
             os.chmod(mo_file_en, old_mode)
 
@@ -133,23 +135,63 @@ class ExcludedLocaleCompilationTests(MessageCompilationTests):
         self.assertFalse(os.path.exists(self.MO_FILE % 'it'))
 
 
+class IgnoreDirectoryCompilationTests(MessageCompilationTests):
+    # Reuse the exclude directory since it contains some locale fixtures.
+    work_subdir = 'exclude'
+    MO_FILE = '%s/%s/LC_MESSAGES/django.mo'
+    CACHE_DIR = Path('cache') / 'locale'
+    NESTED_DIR = Path('outdated') / 'v1' / 'locale'
+
+    def setUp(self):
+        super().setUp()
+        copytree('canned_locale', 'locale')
+        copytree('canned_locale', self.CACHE_DIR)
+        copytree('canned_locale', self.NESTED_DIR)
+
+    def assertAllExist(self, dir, langs):
+        self.assertTrue(all(Path(self.MO_FILE % (dir, lang)).exists() for lang in langs))
+
+    def assertNoneExist(self, dir, langs):
+        self.assertTrue(all(Path(self.MO_FILE % (dir, lang)).exists() is False for lang in langs))
+
+    def test_one_locale_dir_ignored(self):
+        call_command('compilemessages', ignore=['cache'], verbosity=0)
+        self.assertAllExist('locale', ['en', 'fr', 'it'])
+        self.assertNoneExist(self.CACHE_DIR, ['en', 'fr', 'it'])
+        self.assertAllExist(self.NESTED_DIR, ['en', 'fr', 'it'])
+
+    def test_multiple_locale_dirs_ignored(self):
+        call_command('compilemessages', ignore=['cache/locale', 'outdated'], verbosity=0)
+        self.assertAllExist('locale', ['en', 'fr', 'it'])
+        self.assertNoneExist(self.CACHE_DIR, ['en', 'fr', 'it'])
+        self.assertNoneExist(self.NESTED_DIR, ['en', 'fr', 'it'])
+
+    def test_ignores_based_on_pattern(self):
+        call_command('compilemessages', ignore=['*/locale'], verbosity=0)
+        self.assertAllExist('locale', ['en', 'fr', 'it'])
+        self.assertNoneExist(self.CACHE_DIR, ['en', 'fr', 'it'])
+        self.assertNoneExist(self.NESTED_DIR, ['en', 'fr', 'it'])
+
+
 class CompilationErrorHandling(MessageCompilationTests):
     def test_error_reported_by_msgfmt(self):
         # po file contains wrong po formatting.
         with self.assertRaises(CommandError):
-            call_command('compilemessages', locale=['ja'], verbosity=0)
+            call_command('compilemessages', locale=['ja'], verbosity=0, stderr=StringIO())
 
     def test_msgfmt_error_including_non_ascii(self):
         # po file contains invalid msgstr content (triggers non-ascii error content).
         # Make sure the output of msgfmt is unaffected by the current locale.
         env = os.environ.copy()
         env.update({'LANG': 'C'})
-        with mock.patch('django.core.management.utils.Popen', lambda *args, **kwargs: Popen(*args, env=env, **kwargs)):
+        with mock.patch('django.core.management.utils.run', lambda *args, **kwargs: run(*args, env=env, **kwargs)):
             cmd = MakeMessagesCommand()
             if cmd.gettext_version < (0, 18, 3):
                 self.skipTest("python-brace-format is a recent gettext addition.")
-            with self.assertRaisesMessage(CommandError, "' cannot start a field name"):
-                call_command('compilemessages', locale=['ko'], verbosity=0)
+            stderr = StringIO()
+            with self.assertRaisesMessage(CommandError, 'compilemessages generated one or more errors'):
+                call_command('compilemessages', locale=['ko'], stdout=StringIO(), stderr=stderr)
+            self.assertIn("' cannot start a field name", stderr.getvalue())
 
 
 class ProjectAndAppTests(MessageCompilationTests):
@@ -185,3 +227,12 @@ class AppCompilationTest(ProjectAndAppTests):
         call_command('compilemessages', locale=[self.LOCALE], stdout=StringIO())
         self.assertTrue(os.path.exists(self.PROJECT_MO_FILE))
         self.assertTrue(os.path.exists(self.APP_MO_FILE))
+
+
+class PathLibLocaleCompilationTests(MessageCompilationTests):
+    work_subdir = 'exclude'
+
+    def test_locale_paths_pathlib(self):
+        with override_settings(LOCALE_PATHS=[Path(self.test_dir) / 'canned_locale']):
+            call_command('compilemessages', locale=['fr'], stdout=StringIO())
+            self.assertTrue(os.path.exists('canned_locale/fr/LC_MESSAGES/django.mo'))

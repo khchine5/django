@@ -128,7 +128,7 @@
 
     var Downcoder = {
         'Initialize': function() {
-            if (Downcoder.map) {  // already made
+            if (Downcoder.map) { // already made
                 return;
             }
             Downcoder.map = {};
@@ -177,19 +177,20 @@
             var r = new RegExp('\\b(' + removeList.join('|') + ')\\b', 'gi');
             s = s.replace(r, '');
         }
+        s = s.toLowerCase(); // convert to lowercase
         // if downcode doesn't hit, the char will be stripped here
         if (allowUnicode) {
             // Keep Unicode letters including both lowercase and uppercase
             // characters, whitespace, and dash; remove other characters.
             s = XRegExp.replace(s, XRegExp('[^-_\\p{L}\\p{N}\\s]', 'g'), '');
         } else {
-            s = s.replace(/[^-\w\s]/g, '');  // remove unneeded chars
+            s = s.replace(/[^-\w\s]/g, ''); // remove unneeded chars
         }
-        s = s.replace(/^\s+|\s+$/g, '');   // trim leading/trailing spaces
-        s = s.replace(/[-\s]+/g, '-');     // convert spaces to hyphens
-        s = s.substring(0, num_chars);     // trim to first num_chars chars
-        s = s.replace(/-+$/g, '');         // trim any trailing hyphens
-        return s.toLowerCase();            // convert to lowercase
+        s = s.replace(/^\s+|\s+$/g, ''); // trim leading/trailing spaces
+        s = s.replace(/[-\s]+/g, '-'); // convert spaces to hyphens
+        s = s.substring(0, num_chars); // trim to first num_chars chars
+        s = s.replace(/-+$/g, ''); // trim any trailing hyphens
+        return s;
     }
     window.URLify = URLify;
 })();

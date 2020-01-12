@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.core.exceptions import FieldDoesNotExist, FieldError
 from django.db.models import (
     BooleanField, CharField, Count, DateTimeField, ExpressionWrapper, F, Func,
-    IntegerField, NullBooleanField, Q, Sum, Value,
+    IntegerField, NullBooleanField, OuterRef, Q, Subquery, Sum, Value,
 )
 from django.db.models.expressions import RawSQL
 from django.db.models.functions import Length, Lower
@@ -209,7 +209,7 @@ class NonAggregateAnnotationTestCase(TestCase):
         lengths = Employee.objects.annotate(
             name_len=Length('first_name'),
         ).distinct('name_len').values_list('name_len', flat=True)
-        self.assertSequenceEqual(lengths, [3, 7, 8])
+        self.assertCountEqual(lengths, [3, 7, 8])
 
     def test_filter_annotation(self):
         books = Book.objects.annotate(
@@ -405,6 +405,28 @@ class NonAggregateAnnotationTestCase(TestCase):
             lambda a: (a['age'], a['age_count'])
         )
 
+    def test_raw_sql_with_inherited_field(self):
+        DepartmentStore.objects.create(
+            name='Angus & Robinson',
+            original_opening=datetime.date(2014, 3, 8),
+            friday_night_closing=datetime.time(21),
+            chain='Westfield',
+            area=123,
+        )
+        tests = (
+            ('name', 'Angus & Robinson'),
+            ('surface', 123),
+            ("case when name='Angus & Robinson' then chain else name end", 'Westfield'),
+        )
+        for sql, expected_result in tests:
+            with self.subTest(sql=sql):
+                self.assertSequenceEqual(
+                    DepartmentStore.objects.annotate(
+                        annotation=RawSQL(sql, ()),
+                    ).values_list('annotation', flat=True),
+                    [expected_result],
+                )
+
     def test_annotate_exists(self):
         authors = Author.objects.annotate(c=Count('id')).filter(c__gt=1)
         self.assertFalse(authors.exists())
@@ -569,3 +591,31 @@ class NonAggregateAnnotationTestCase(TestCase):
             Book.objects.annotate(is_book=True)
         with self.assertRaisesMessage(TypeError, msg % ', '.join([str(BooleanField()), 'True'])):
             Book.objects.annotate(BooleanField(), Value(False), is_book=True)
+
+    def test_chaining_annotation_filter_with_m2m(self):
+        qs = Author.objects.filter(
+            name='Adrian Holovaty',
+            friends__age=35,
+        ).annotate(
+            jacob_name=F('friends__name'),
+        ).filter(
+            friends__age=29,
+        ).annotate(
+            james_name=F('friends__name'),
+        ).values('jacob_name', 'james_name')
+        self.assertCountEqual(
+            qs,
+            [{'jacob_name': 'Jacob Kaplan-Moss', 'james_name': 'James Bennett'}],
+        )
+
+    def test_annotation_filter_with_subquery(self):
+        long_books_qs = Book.objects.filter(
+            publisher=OuterRef('pk'),
+            pages__gt=400,
+        ).values('publisher').annotate(count=Count('pk')).values('count')
+        publisher_books_qs = Publisher.objects.annotate(
+            total_books=Count('book'),
+        ).filter(
+            total_books=Subquery(long_books_qs, output_field=IntegerField()),
+        ).values('name')
+        self.assertCountEqual(publisher_books_qs, [{'name': 'Sams'}, {'name': 'Morgan Kaufmann'}])

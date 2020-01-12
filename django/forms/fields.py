@@ -5,6 +5,7 @@ Field classes.
 import copy
 import datetime
 import math
+import operator
 import os
 import re
 import uuid
@@ -14,8 +15,6 @@ from urllib.parse import urlsplit, urlunsplit
 
 from django.core import validators
 from django.core.exceptions import ValidationError
-# Provide this import for backwards compatibility.
-from django.core.validators import EMPTY_VALUES  # NOQA
 from django.forms.boundfield import BoundField
 from django.forms.utils import from_current_timezone, to_current_timezone
 from django.forms.widgets import (
@@ -26,9 +25,10 @@ from django.forms.widgets import (
     URLInput,
 )
 from django.utils import formats
-from django.utils.dateparse import parse_duration
+from django.utils.dateparse import parse_datetime, parse_duration
 from django.utils.duration import duration_string
 from django.utils.ipv6 import clean_ipv6_address
+from django.utils.regex_helper import _lazy_re_compile
 from django.utils.translation import gettext_lazy as _, ngettext_lazy
 
 __all__ = (
@@ -200,6 +200,7 @@ class Field:
         result = copy.copy(self)
         memo[id(self)] = result
         result.widget = copy.deepcopy(self.widget, memo)
+        result.error_messages = self.error_messages.copy()
         result.validators = self.validators[:]
         return result
 
@@ -243,7 +244,7 @@ class IntegerField(Field):
     default_error_messages = {
         'invalid': _('Enter a whole number.'),
     }
-    re_decimal = re.compile(r'\.0*\s*$')
+    re_decimal = _lazy_re_compile(r'\.0*\s*$')
 
     def __init__(self, *, max_value=None, min_value=None, **kwargs):
         self.max_value, self.min_value = max_value, min_value
@@ -434,9 +435,15 @@ class TimeField(BaseTemporalField):
         return datetime.datetime.strptime(value, format).time()
 
 
+class DateTimeFormatsIterator:
+    def __iter__(self):
+        yield from formats.get_format('DATETIME_INPUT_FORMATS')
+        yield from formats.get_format('DATE_INPUT_FORMATS')
+
+
 class DateTimeField(BaseTemporalField):
     widget = DateTimeInput
-    input_formats = formats.get_format_lazy('DATETIME_INPUT_FORMATS')
+    input_formats = DateTimeFormatsIterator()
     default_error_messages = {
         'invalid': _('Enter a valid date/time.'),
     }
@@ -458,7 +465,12 @@ class DateTimeField(BaseTemporalField):
         if isinstance(value, datetime.date):
             result = datetime.datetime(value.year, value.month, value.day)
             return from_current_timezone(result)
-        result = super().to_python(value)
+        try:
+            result = parse_datetime(value.strip())
+        except ValueError:
+            raise ValidationError(self.error_messages['invalid'], code='invalid')
+        if not result:
+            result = super().to_python(value)
         return from_current_timezone(result)
 
     def strptime(self, value, format):
@@ -468,12 +480,7 @@ class DateTimeField(BaseTemporalField):
 class DurationField(Field):
     default_error_messages = {
         'invalid': _('Enter a valid duration.'),
-        'overflow': _(
-            'The number of days must be between {min_days} and {max_days}.'.format(
-                min_days=datetime.timedelta.min.days,
-                max_days=datetime.timedelta.max.days,
-            )
-        )
+        'overflow': _('The number of days must be between {min_days} and {max_days}.')
     }
 
     def prepare_value(self, value):
@@ -489,7 +496,10 @@ class DurationField(Field):
         try:
             value = parse_duration(str(value))
         except OverflowError:
-            raise ValidationError(self.error_messages['overflow'], code='overflow')
+            raise ValidationError(self.error_messages['overflow'].format(
+                min_days=datetime.timedelta.min.days,
+                max_days=datetime.timedelta.max.days,
+            ), code='overflow')
         if value is None:
             raise ValidationError(self.error_messages['invalid'], code='invalid')
         return value
@@ -1106,17 +1116,16 @@ class FilePathField(ChoiceField):
                             f = os.path.join(root, f)
                             self.choices.append((f, f.replace(path, "", 1)))
         else:
-            try:
-                for f in sorted(os.listdir(self.path)):
-                    if f == '__pycache__':
-                        continue
-                    full_file = os.path.join(self.path, f)
-                    if (((self.allow_files and os.path.isfile(full_file)) or
-                            (self.allow_folders and os.path.isdir(full_file))) and
-                            (self.match is None or self.match_re.search(f))):
-                        self.choices.append((full_file, f))
-            except OSError:
-                pass
+            choices = []
+            for f in os.scandir(self.path):
+                if f.name == '__pycache__':
+                    continue
+                if (((self.allow_files and f.is_file()) or
+                        (self.allow_folders and f.is_dir())) and
+                        (self.match is None or self.match_re.search(f.name))):
+                    choices.append((f.path, f.name))
+            choices.sort(key=operator.itemgetter(1))
+            self.choices.extend(choices)
 
         self.widget.choices = self.choices
 
@@ -1189,7 +1198,7 @@ class UUIDField(CharField):
 
     def prepare_value(self, value):
         if isinstance(value, uuid.UUID):
-            return value.hex
+            return str(value)
         return value
 
     def to_python(self, value):

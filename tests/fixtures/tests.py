@@ -17,14 +17,15 @@ from django.db import IntegrityError, connection
 from django.test import TestCase, TransactionTestCase, skipUnlessDBFeature
 
 from .models import (
-    Article, Category, PrimaryKeyUUIDModel, ProxySpy, Spy, Tag, Visa,
+    Article, Category, NaturalKeyThing, PrimaryKeyUUIDModel, ProxySpy, Spy,
+    Tag, Visa,
 )
 
 
 class TestCaseFixtureLoadingTests(TestCase):
     fixtures = ['fixture1.json', 'fixture2.json']
 
-    def testClassFixtures(self):
+    def test_class_fixtures(self):
         "Test case has installed 3 fixture objects"
         self.assertEqual(Article.objects.count(), 3)
         self.assertQuerysetEqual(Article.objects.all(), [
@@ -40,7 +41,7 @@ class SubclassTestCaseFixtureLoadingTests(TestCaseFixtureLoadingTests):
     """
     fixtures = []
 
-    def testClassFixtures(self):
+    def test_class_fixtures(self):
         "There were no fixture objects installed"
         self.assertEqual(Article.objects.count(), 0)
 
@@ -52,17 +53,21 @@ class DumpDataAssertMixin:
                          use_base_manager=False, exclude_list=[], primary_keys=''):
         new_io = StringIO()
         filename = filename and os.path.join(tempfile.gettempdir(), filename)
-        management.call_command('dumpdata', *args, **{'format': format,
-                                                      'stdout': new_io,
-                                                      'stderr': new_io,
-                                                      'output': filename,
-                                                      'use_natural_foreign_keys': natural_foreign_keys,
-                                                      'use_natural_primary_keys': natural_primary_keys,
-                                                      'use_base_manager': use_base_manager,
-                                                      'exclude': exclude_list,
-                                                      'primary_keys': primary_keys})
+        management.call_command(
+            'dumpdata',
+            *args,
+            format=format,
+            stdout=new_io,
+            stderr=new_io,
+            output=filename,
+            use_natural_foreign_keys=natural_foreign_keys,
+            use_natural_primary_keys=natural_primary_keys,
+            use_base_manager=use_base_manager,
+            exclude=exclude_list,
+            primary_keys=primary_keys,
+        )
         if filename:
-            with open(filename, "r") as f:
+            with open(filename) as f:
                 command_output = f.read()
             os.remove(filename)
         else:
@@ -371,7 +376,7 @@ class FixtureLoadingTests(DumpDataAssertMixin, TestCase):
         with self.assertRaisesMessage(management.CommandError, "Unknown model: fixtures.FooModel"):
             self._dumpdata_assert(['fixtures', 'sites'], '', exclude_list=['fixtures.FooModel'])
 
-    @unittest.skipIf(sys.platform.startswith('win'), "Windows doesn't support '?' in filenames.")
+    @unittest.skipIf(sys.platform == 'win32', "Windows doesn't support '?' in filenames.")
     def test_load_fixture_with_special_characters(self):
         management.call_command('loaddata', 'fixture_with[special]chars', verbosity=0)
         self.assertQuerysetEqual(Article.objects.all(), ['<Article: How To Deal With Special Characters>'])
@@ -694,7 +699,7 @@ class FixtureLoadingTests(DumpDataAssertMixin, TestCase):
         fixture_json = os.path.join(tests_dir, 'fixtures', 'fixture1.json')
         fixture_xml = os.path.join(tests_dir, 'fixtures', 'fixture3.xml')
 
-        with mock.patch('django.core.management.commands.loaddata.sys.stdin', open(fixture_json, 'r')):
+        with mock.patch('django.core.management.commands.loaddata.sys.stdin', open(fixture_json)):
             management.call_command('loaddata', '--format=json', '-', verbosity=0)
             self.assertEqual(Article.objects.count(), 2)
             self.assertQuerysetEqual(Article.objects.all(), [
@@ -702,7 +707,7 @@ class FixtureLoadingTests(DumpDataAssertMixin, TestCase):
                 '<Article: Poker has no place on ESPN>',
             ])
 
-        with mock.patch('django.core.management.commands.loaddata.sys.stdin', open(fixture_xml, 'r')):
+        with mock.patch('django.core.management.commands.loaddata.sys.stdin', open(fixture_xml)):
             management.call_command('loaddata', '--format=xml', '-', verbosity=0)
             self.assertEqual(Article.objects.count(), 3)
             self.assertQuerysetEqual(Article.objects.all(), [
@@ -780,3 +785,21 @@ class FixtureTransactionTests(DumpDataAssertMixin, TransactionTestCase):
             '<Article: Time to reform copyright>',
             '<Article: Poker has no place on ESPN>',
         ])
+
+
+class ForwardReferenceTests(TestCase):
+    def test_forward_reference_fk(self):
+        management.call_command('loaddata', 'forward_reference_fk.json', verbosity=0)
+        self.assertEqual(NaturalKeyThing.objects.count(), 2)
+        t1, t2 = NaturalKeyThing.objects.all()
+        self.assertEqual(t1.other_thing, t2)
+        self.assertEqual(t2.other_thing, t1)
+
+    def test_forward_reference_m2m(self):
+        management.call_command('loaddata', 'forward_reference_m2m.json', verbosity=0)
+        self.assertEqual(NaturalKeyThing.objects.count(), 3)
+        t1 = NaturalKeyThing.objects.get_by_natural_key('t1')
+        self.assertQuerysetEqual(
+            t1.other_things.order_by('key'),
+            ['<NaturalKeyThing: t2>', '<NaturalKeyThing: t3>']
+        )

@@ -1,7 +1,11 @@
-from django.db import transaction
-from django.test import TestCase
+from unittest import mock
 
-from .models import Article, InheritedArticleA, InheritedArticleB, Publication
+from django.db import transaction
+from django.test import TestCase, skipIfDBFeature, skipUnlessDBFeature
+
+from .models import (
+    Article, InheritedArticleA, InheritedArticleB, Publication, User,
+)
 
 
 class ManyToManyTests(TestCase):
@@ -57,7 +61,8 @@ class ManyToManyTests(TestCase):
         )
 
         # Adding an object of the wrong type raises TypeError
-        with self.assertRaisesMessage(TypeError, "'Publication' instance expected, got <Article"):
+        msg = "'Publication' instance expected, got <Article: Django lets you create Web apps easily>"
+        with self.assertRaisesMessage(TypeError, msg):
             with transaction.atomic():
                 a6.publications.add(a5)
 
@@ -72,6 +77,38 @@ class ManyToManyTests(TestCase):
                 '<Publication: The Python Journal>',
             ]
         )
+
+    def test_add_remove_set_by_pk(self):
+        a5 = Article.objects.create(headline='Django lets you create Web apps easily')
+        a5.publications.add(self.p1.pk)
+        self.assertQuerysetEqual(
+            a5.publications.all(),
+            ['<Publication: The Python Journal>'],
+        )
+        a5.publications.set([self.p2.pk])
+        self.assertQuerysetEqual(
+            a5.publications.all(),
+            ['<Publication: Science News>'],
+        )
+        a5.publications.remove(self.p2.pk)
+        self.assertQuerysetEqual(a5.publications.all(), [])
+
+    def test_add_remove_set_by_to_field(self):
+        user_1 = User.objects.create(username='Jean')
+        user_2 = User.objects.create(username='Joe')
+        a5 = Article.objects.create(headline='Django lets you create Web apps easily')
+        a5.authors.add(user_1.username)
+        self.assertQuerysetEqual(a5.authors.all(), ['<User: Jean>'])
+        a5.authors.set([user_2.username])
+        self.assertQuerysetEqual(a5.authors.all(), ['<User: Joe>'])
+        a5.authors.remove(user_2.username)
+        self.assertQuerysetEqual(a5.authors.all(), [])
+
+    def test_add_remove_invalid_type(self):
+        msg = "Field 'id' expected a number but got 'invalid'."
+        for method in ['add', 'remove']:
+            with self.subTest(method), self.assertRaisesMessage(ValueError, msg):
+                getattr(self.a1.publications, method)('invalid')
 
     def test_reverse_add(self):
         # Adding via the 'other' end of an m2m
@@ -110,6 +147,37 @@ class ManyToManyTests(TestCase):
                 '<Publication: The Python Journal>',
             ]
         )
+
+    @skipUnlessDBFeature('supports_ignore_conflicts')
+    def test_fast_add_ignore_conflicts(self):
+        """
+        A single query is necessary to add auto-created through instances if
+        the database backend supports bulk_create(ignore_conflicts) and no
+        m2m_changed signals receivers are connected.
+        """
+        with self.assertNumQueries(1):
+            self.a1.publications.add(self.p1, self.p2)
+
+    @skipIfDBFeature('supports_ignore_conflicts')
+    def test_add_existing_different_type(self):
+        # A single SELECT query is necessary to compare existing values to the
+        # provided one; no INSERT should be attempted.
+        with self.assertNumQueries(1):
+            self.a1.publications.add(str(self.p1.pk))
+        self.assertEqual(self.a1.publications.get(), self.p1)
+
+    @skipUnlessDBFeature('supports_ignore_conflicts')
+    def test_slow_add_ignore_conflicts(self):
+        manager_cls = self.a1.publications.__class__
+        # Simulate a race condition between the missing ids retrieval and
+        # the bulk insertion attempt.
+        missing_target_ids = {self.p1.id}
+        # Disable fast-add to test the case where the slow add path is taken.
+        add_plan = (True, False, False)
+        with mock.patch.object(manager_cls, '_get_missing_target_ids', return_value=missing_target_ids) as mocked:
+            with mock.patch.object(manager_cls, '_get_add_plan', return_value=add_plan):
+                self.a1.publications.add(self.p1)
+        mocked.assert_called_once()
 
     def test_related_sets(self):
         # Article objects have access to their related Publication objects.
@@ -401,6 +469,19 @@ class ManyToManyTests(TestCase):
         self.a4.publications.set([], clear=True)
         self.assertQuerysetEqual(self.a4.publications.all(), [])
 
+    def test_set_existing_different_type(self):
+        # Existing many-to-many relations remain the same for values provided
+        # with a different type.
+        ids = set(Publication.article_set.through.objects.filter(
+            article__in=[self.a4, self.a3],
+            publication=self.p2,
+        ).values_list('id', flat=True))
+        self.p2.article_set.set([str(self.a4.pk), str(self.a3.pk)])
+        new_ids = set(Publication.article_set.through.objects.filter(
+            publication=self.p2,
+        ).values_list('id', flat=True))
+        self.assertEqual(ids, new_ids)
+
     def test_assign_forward(self):
         msg = (
             "Direct assignment to the reverse side of a many-to-many set is "
@@ -554,3 +635,9 @@ class ManyToManyTests(TestCase):
             ]
         )
         self.assertQuerysetEqual(b.publications.all(), ['<Publication: Science Weekly>'])
+
+    def test_custom_default_manager_exists_count(self):
+        a5 = Article.objects.create(headline='deleted')
+        a5.publications.add(self.p2)
+        self.assertEqual(self.p2.article_set.count(), self.p2.article_set.all().count())
+        self.assertEqual(self.p3.article_set.exists(), self.p3.article_set.all().exists())

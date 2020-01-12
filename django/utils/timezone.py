@@ -2,13 +2,12 @@
 Timezone-related classes and functions.
 """
 
-import datetime
 import functools
 from contextlib import ContextDecorator
-from datetime import timedelta, tzinfo
-from threading import local
+from datetime import datetime, timedelta, timezone, tzinfo
 
 import pytz
+from asgiref.local import Local
 
 from django.conf import settings
 
@@ -22,39 +21,8 @@ __all__ = [
 ]
 
 
-# UTC and local time zones
-
-ZERO = timedelta(0)
-
-
-class FixedOffset(tzinfo):
-    """
-    Fixed offset in minutes east from UTC. Taken from Python's docs.
-
-    Kept as close as possible to the reference version. __init__ was changed
-    to make its arguments optional, according to Python's requirement that
-    tzinfo subclasses can be instantiated without arguments.
-    """
-
-    def __init__(self, offset=None, name=None):
-        if offset is not None:
-            self.__offset = timedelta(minutes=offset)
-        if name is not None:
-            self.__name = name
-
-    def utcoffset(self, dt):
-        return self.__offset
-
-    def tzname(self, dt):
-        return self.__name
-
-    def dst(self, dt):
-        return ZERO
-
-
 # UTC time zone as a tzinfo instance.
-# (Use utc = datetime.timezone.utc here when PY35 isn't supported.)
-utc = datetime.timezone(ZERO, 'UTC')
+utc = pytz.utc
 
 
 def get_fixed_timezone(offset):
@@ -64,7 +32,7 @@ def get_fixed_timezone(offset):
     sign = '-' if offset < 0 else '+'
     hhmm = '%02d%02d' % divmod(abs(offset), 60)
     name = sign + hhmm
-    return FixedOffset(offset, name)
+    return timezone(timedelta(minutes=offset), name)
 
 
 # In order to avoid accessing settings at compile time,
@@ -85,7 +53,7 @@ def get_default_timezone_name():
     return _get_timezone_name(get_default_timezone())
 
 
-_active = local()
+_active = Local()
 
 
 def get_current_timezone():
@@ -174,7 +142,7 @@ def template_localtime(value, use_tz=None):
     This function is designed for use by the template engine.
     """
     should_convert = (
-        isinstance(value, datetime.datetime) and
+        isinstance(value, datetime) and
         (settings.USE_TZ if use_tz is None else use_tz) and
         not is_naive(value) and
         getattr(value, 'convert_to_local_time', True)
@@ -221,7 +189,11 @@ def now():
     """
     Return an aware or naive datetime.datetime, depending on settings.USE_TZ.
     """
-    return datetime.datetime.now(utc if settings.USE_TZ else None)
+    if settings.USE_TZ:
+        # timeit shows that datetime.now(tz=utc) is 24% slower
+        return datetime.utcnow().replace(tzinfo=utc)
+    else:
+        return datetime.now()
 
 
 # By design, these four functions don't perform any checks on their arguments.
@@ -232,7 +204,7 @@ def is_aware(value):
     Determine if a given datetime.datetime is aware.
 
     The concept is defined in Python's docs:
-    http://docs.python.org/library/datetime.html#datetime.tzinfo
+    https://docs.python.org/library/datetime.html#datetime.tzinfo
 
     Assuming value.tzinfo is either None or a proper datetime.tzinfo,
     value.utcoffset() implements the appropriate logic.
@@ -245,7 +217,7 @@ def is_naive(value):
     Determine if a given datetime.datetime is naive.
 
     The concept is defined in Python's docs:
-    http://docs.python.org/library/datetime.html#datetime.tzinfo
+    https://docs.python.org/library/datetime.html#datetime.tzinfo
 
     Assuming value.tzinfo is either None or a proper datetime.tzinfo,
     value.utcoffset() implements the appropriate logic.

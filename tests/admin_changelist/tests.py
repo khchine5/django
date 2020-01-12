@@ -8,7 +8,8 @@ from django.contrib.admin.tests import AdminSeleniumTestCase
 from django.contrib.admin.views.main import ALL_VAR, SEARCH_VAR
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
-from django.db import connection
+from django.contrib.messages.storage.cookie import CookieStorage
+from django.db import connection, models
 from django.db.models import F
 from django.db.models.fields import Field, IntegerField
 from django.db.models.functions import Upper
@@ -16,7 +17,9 @@ from django.db.models.lookups import Contains, Exact
 from django.template import Context, Template, TemplateSyntaxError
 from django.test import TestCase, override_settings
 from django.test.client import RequestFactory
-from django.test.utils import CaptureQueriesContext
+from django.test.utils import (
+    CaptureQueriesContext, isolate_apps, register_lookup,
+)
 from django.urls import reverse
 from django.utils import formats
 
@@ -49,10 +52,11 @@ def build_tbody_html(pk, href, extra_fields):
 
 @override_settings(ROOT_URLCONF="admin_changelist.urls")
 class ChangeListTests(TestCase):
+    factory = RequestFactory()
 
-    def setUp(self):
-        self.factory = RequestFactory()
-        self.superuser = User.objects.create_superuser(username='super', email='a@b.com', password='xxx')
+    @classmethod
+    def setUpTestData(cls):
+        cls.superuser = User.objects.create_superuser(username='super', email='a@b.com', password='xxx')
 
     def _create_superuser(self, username):
         return User.objects.create_superuser(username=username, email='a@b.com', password='xxx')
@@ -76,6 +80,17 @@ class ChangeListTests(TestCase):
         request.user = self.superuser
         cl = m.get_changelist_instance(request)
         self.assertEqual(cl.get_ordering_field_columns(), {3: 'desc', 2: 'asc'})
+
+    def test_specified_ordering_by_f_expression_without_asc_desc(self):
+        class OrderedByFBandAdmin(admin.ModelAdmin):
+            list_display = ['name', 'genres', 'nr_of_members']
+            ordering = (F('nr_of_members'), Upper('name'), F('genres'))
+
+        m = OrderedByFBandAdmin(Band, custom_site)
+        request = self.factory.get('/band/')
+        request.user = self.superuser
+        cl = m.get_changelist_instance(request)
+        self.assertEqual(cl.get_ordering_field_columns(), {3: 'asc', 2: 'asc'})
 
     def test_select_related_preserved(self):
         """
@@ -336,7 +351,7 @@ class ChangeListTests(TestCase):
         """
         Regression test for #13902: When using a ManyToMany in list_filter,
         results shouldn't appear more than once. Model managed in the
-        admin inherits from the one that defins the relationship.
+        admin inherits from the one that defines the relationship.
         """
         lead = Musician.objects.create(name='John')
         four = Quartet.objects.create(name='The Beatles')
@@ -391,6 +406,22 @@ class ChangeListTests(TestCase):
         cl = m.get_changelist_instance(request)
         # Make sure distinct() was called
         self.assertEqual(cl.queryset.count(), 1)
+
+    def test_changelist_search_form_validation(self):
+        m = ConcertAdmin(Concert, custom_site)
+        tests = [
+            ({SEARCH_VAR: '\x00'}, 'Null characters are not allowed.'),
+            ({SEARCH_VAR: 'some\x00thing'}, 'Null characters are not allowed.'),
+        ]
+        for case, error in tests:
+            with self.subTest(case=case):
+                request = self.factory.get('/concert/', case)
+                request.user = self.superuser
+                request._messages = CookieStorage(request)
+                m.get_changelist_instance(request)
+                messages = [m.message for m in request._messages]
+                self.assertEqual(1, len(messages))
+                self.assertEqual(error, messages[0])
 
     def test_distinct_for_non_unique_related_object_in_search_fields(self):
         """
@@ -469,8 +500,7 @@ class ChangeListTests(TestCase):
 
         m = ConcertAdmin(Concert, custom_site)
         m.search_fields = ['group__name__cc']
-        Field.register_lookup(Contains, 'cc')
-        try:
+        with register_lookup(Field, Contains, lookup_name='cc'):
             request = self.factory.get('/', data={SEARCH_VAR: 'Hype'})
             request.user = self.superuser
             cl = m.get_changelist_instance(request)
@@ -480,8 +510,6 @@ class ChangeListTests(TestCase):
             request.user = self.superuser
             cl = m.get_changelist_instance(request)
             self.assertCountEqual(cl.queryset, [])
-        finally:
-            Field._unregister_lookup(Contains, 'cc')
 
     def test_spanning_relations_with_custom_lookup_in_search_fields(self):
         hype = Group.objects.create(name='The Hype')
@@ -490,8 +518,7 @@ class ChangeListTests(TestCase):
         Membership.objects.create(music=vox, group=hype)
         # Register a custom lookup on IntegerField to ensure that field
         # traversing logic in ModelAdmin.get_search_results() works.
-        IntegerField.register_lookup(Exact, 'exactly')
-        try:
+        with register_lookup(IntegerField, Exact, lookup_name='exactly'):
             m = ConcertAdmin(Concert, custom_site)
             m.search_fields = ['group__members__age__exactly']
 
@@ -504,8 +531,6 @@ class ChangeListTests(TestCase):
             request.user = self.superuser
             cl = m.get_changelist_instance(request)
             self.assertCountEqual(cl.queryset, [])
-        finally:
-            IntegerField._unregister_lookup(Exact, 'exactly')
 
     def test_custom_lookup_with_pk_shortcut(self):
         self.assertEqual(CharPK._meta.pk.name, 'char_pk')  # Not equal to 'pk'.
@@ -819,6 +844,26 @@ class ChangeListTests(TestCase):
         queryset = m._get_list_editable_queryset(request, prefix='form')
         self.assertEqual(queryset.count(), 2)
 
+    def test_get_list_editable_queryset_with_regex_chars_in_prefix(self):
+        a = Swallow.objects.create(origin='Swallow A', load=4, speed=1)
+        Swallow.objects.create(origin='Swallow B', load=2, speed=2)
+        data = {
+            'form$-TOTAL_FORMS': '2',
+            'form$-INITIAL_FORMS': '2',
+            'form$-MIN_NUM_FORMS': '0',
+            'form$-MAX_NUM_FORMS': '1000',
+            'form$-0-uuid': str(a.pk),
+            'form$-0-load': '10',
+            '_save': 'Save',
+        }
+        superuser = self._create_superuser('superuser')
+        self.client.force_login(superuser)
+        changelist_url = reverse('admin:admin_changelist_swallow_changelist')
+        m = SwallowAdmin(Swallow, custom_site)
+        request = self.factory.post(changelist_url, data=data)
+        queryset = m._get_list_editable_queryset(request, prefix='form$')
+        self.assertEqual(queryset.count(), 1)
+
     def test_changelist_view_list_editable_changed_objects_uses_filter(self):
         """list_editable edits use a filtered queryset to limit memory usage."""
         a = Swallow.objects.create(origin='Swallow A', load=4, speed=1)
@@ -931,6 +976,81 @@ class ChangeListTests(TestCase):
         OrderedObjectAdmin.ordering = ['id', 'bool']
         check_results_order(ascending=True)
 
+    @isolate_apps('admin_changelist')
+    def test_total_ordering_optimization(self):
+        class Related(models.Model):
+            unique_field = models.BooleanField(unique=True)
+
+            class Meta:
+                ordering = ('unique_field',)
+
+        class Model(models.Model):
+            unique_field = models.BooleanField(unique=True)
+            unique_nullable_field = models.BooleanField(unique=True, null=True)
+            related = models.ForeignKey(Related, models.CASCADE)
+            other_related = models.ForeignKey(Related, models.CASCADE)
+            related_unique = models.OneToOneField(Related, models.CASCADE)
+            field = models.BooleanField()
+            other_field = models.BooleanField()
+            null_field = models.BooleanField(null=True)
+
+            class Meta:
+                unique_together = {
+                    ('field', 'other_field'),
+                    ('field', 'null_field'),
+                    ('related', 'other_related_id'),
+                }
+
+        class ModelAdmin(admin.ModelAdmin):
+            def get_queryset(self, request):
+                return Model.objects.none()
+
+        request = self._mocked_authenticated_request('/', self.superuser)
+        site = admin.AdminSite(name='admin')
+        model_admin = ModelAdmin(Model, site)
+        change_list = model_admin.get_changelist_instance(request)
+        tests = (
+            ([], ['-pk']),
+            # Unique non-nullable field.
+            (['unique_field'], ['unique_field']),
+            (['-unique_field'], ['-unique_field']),
+            # Unique nullable field.
+            (['unique_nullable_field'], ['unique_nullable_field', '-pk']),
+            # Field.
+            (['field'], ['field', '-pk']),
+            # Related field introspection is not implemented.
+            (['related__unique_field'], ['related__unique_field', '-pk']),
+            # Related attname unique.
+            (['related_unique_id'], ['related_unique_id']),
+            # Related ordering introspection is not implemented.
+            (['related_unique'], ['related_unique', '-pk']),
+            # Composite unique.
+            (['field', '-other_field'], ['field', '-other_field']),
+            # Composite unique nullable.
+            (['-field', 'null_field'], ['-field', 'null_field', '-pk']),
+            # Composite unique nullable.
+            (['-field', 'null_field'], ['-field', 'null_field', '-pk']),
+            # Composite unique nullable.
+            (['-field', 'null_field'], ['-field', 'null_field', '-pk']),
+            # Composite unique and nullable.
+            (['-field', 'null_field', 'other_field'], ['-field', 'null_field', 'other_field']),
+            # Composite unique attnames.
+            (['related_id', '-other_related_id'], ['related_id', '-other_related_id']),
+            # Composite unique names.
+            (['related', '-other_related_id'], ['related', '-other_related_id', '-pk']),
+        )
+        # F() objects composite unique.
+        total_ordering = [F('field'), F('other_field').desc(nulls_last=True)]
+        # F() objects composite unique nullable.
+        non_total_ordering = [F('field'), F('null_field').desc(nulls_last=True)]
+        tests += (
+            (total_ordering, total_ordering),
+            (non_total_ordering, non_total_ordering + ['-pk']),
+        )
+        for ordering, expected in tests:
+            with self.subTest(ordering=ordering):
+                self.assertEqual(change_list._get_deterministic_ordering(ordering), expected)
+
     def test_dynamic_list_filter(self):
         """
         Regression tests for ticket #17646: dynamic list_filter support.
@@ -1032,7 +1152,7 @@ class GetAdminLogTests(TestCase):
             '{{ entry|safe }}'
             '{% endfor %}'
         )
-        self.assertEqual(t.render(Context({})), 'Added "<User: jondoe>".')
+        self.assertEqual(t.render(Context({})), 'Added “<User: jondoe>”.')
 
     def test_missing_args(self):
         msg = "'get_admin_log' statements require two arguments"

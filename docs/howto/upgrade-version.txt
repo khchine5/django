@@ -68,11 +68,11 @@ environment variable. For example, to show warnings while running tests:
 
 If you're not using the Django test runner, you may need to also ensure that
 any console output is not captured which would hide deprecation warnings. For
-example, if you use `py.test`:
+example, if you use `pytest <https://pytest.org/>`__:
 
 .. code-block:: console
 
-    $ PYTHONWARNINGS=always py.test tests --capture=no
+    $ PYTHONWARNINGS=always pytest tests --capture=no
 
 Resolve any deprecation warnings with your current version of Django before
 continuing the upgrade process.
@@ -93,7 +93,7 @@ If you installed Django with pip_, you can use the ``--upgrade`` or ``-U`` flag:
 
 .. console::
 
-   $ pip install -U Django
+   $ python -m pip install -U Django
 
 .. _pip: https://pip.pypa.io/
 .. _virtualenv: https://virtualenv.pypa.io/

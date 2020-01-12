@@ -508,6 +508,27 @@ class AssertRedirectsTests(SimpleTestCase):
             with self.assertRaises(AssertionError):
                 self.assertRedirects(response, 'http://testserver/secure_view/', status_code=302)
 
+    def test_redirect_fetch_redirect_response(self):
+        """Preserve extra headers of requests made with django.test.Client."""
+        methods = (
+            'get', 'post', 'head', 'options', 'put', 'patch', 'delete', 'trace',
+        )
+        for method in methods:
+            with self.subTest(method=method):
+                req_method = getattr(self.client, method)
+                response = req_method(
+                    '/redirect_based_on_extra_headers_1/',
+                    follow=False,
+                    HTTP_REDIRECT='val',
+                )
+                self.assertRedirects(
+                    response,
+                    '/redirect_based_on_extra_headers_2/',
+                    fetch_redirect_response=True,
+                    status_code=302,
+                    target_status_code=302,
+                )
+
 
 @override_settings(ROOT_URLCONF='test_client_regress.urls')
 class AssertFormErrorTests(SimpleTestCase):
@@ -1196,15 +1217,26 @@ class RequestMethodStringDataTests(SimpleTestCase):
         response = self.client.head('/body/', data='', content_type='application/json')
         self.assertEqual(response.content, b'')
 
+    def test_json_bytes(self):
+        response = self.client.post('/body/', data=b"{'value': 37}", content_type='application/json')
+        self.assertEqual(response.content, b"{'value': 37}")
+
     def test_json(self):
         response = self.client.get('/json_response/')
         self.assertEqual(response.json(), {'key': 'value'})
 
-    def test_json_vendor(self):
+    def test_json_charset(self):
+        response = self.client.get('/json_response_latin1/')
+        self.assertEqual(response.charset, 'latin1')
+        self.assertEqual(response.json(), {'a': 'Å'})
+
+    def test_json_structured_suffixes(self):
         valid_types = (
             'application/vnd.api+json',
             'application/vnd.api.foo+json',
             'application/json; charset=utf-8',
+            'application/activity+json',
+            'application/activity+json; charset=utf-8',
         )
         for content_type in valid_types:
             response = self.client.get('/json_response/', {'content_type': content_type})
@@ -1419,3 +1451,9 @@ class RequestFactoryEnvironmentTests(SimpleTestCase):
         self.assertEqual(request.META.get('SERVER_PORT'), '80')
         self.assertEqual(request.META.get('SERVER_PROTOCOL'), 'HTTP/1.1')
         self.assertEqual(request.META.get('SCRIPT_NAME') + request.META.get('PATH_INFO'), '/path/')
+
+    def test_cookies(self):
+        factory = RequestFactory()
+        factory.cookies.load('A="B"; C="D"; Path=/; Version=1')
+        request = factory.get('/')
+        self.assertEqual(request.META['HTTP_COOKIE'], 'A="B"; C="D"')

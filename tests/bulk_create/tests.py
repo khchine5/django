@@ -1,6 +1,7 @@
+from math import ceil
 from operator import attrgetter
 
-from django.db import connection
+from django.db import IntegrityError, NotSupportedError, connection
 from django.db.models import FileField, Value
 from django.db.models.functions import Lower
 from django.test import (
@@ -48,6 +49,16 @@ class BulkCreateTests(TestCase):
         """
         Country.objects.bulk_create([Country(description='Ж' * 3000)])
         self.assertEqual(Country.objects.count(), 1)
+
+    @skipUnlessDBFeature('has_bulk_insert')
+    def test_long_and_short_text(self):
+        Country.objects.bulk_create([
+            Country(description='a' * 4001),
+            Country(description='a'),
+            Country(description='Ж' * 2001),
+            Country(description='Ж'),
+        ])
+        self.assertEqual(Country.objects.count(), 4)
 
     def test_multi_table_inheritance_unsupported(self):
         expected_message = "Can't bulk create a multi-table inherited model"
@@ -113,7 +124,7 @@ class BulkCreateTests(TestCase):
             Country.objects.bulk_create([valid_country, invalid_country])
 
     def test_batch_same_vals(self):
-        # Sqlite had a problem where all the same-valued models were
+        # SQLite had a problem where all the same-valued models were
         # collapsed to one insert.
         Restaurant.objects.bulk_create([
             Restaurant(name='foo') for i in range(0, 2)
@@ -205,6 +216,14 @@ class BulkCreateTests(TestCase):
             TwoFields.objects.bulk_create(objs, len(objs))
 
     @skipUnlessDBFeature('has_bulk_insert')
+    def test_explicit_batch_size_respects_max_batch_size(self):
+        objs = [Country() for i in range(1000)]
+        fields = ['name', 'iso_two_letter', 'description']
+        max_batch_size = max(connection.ops.bulk_batch_size(fields, objs), 1)
+        with self.assertNumQueries(ceil(len(objs) / max_batch_size)):
+            Country.objects.bulk_create(objs, batch_size=max_batch_size + 1)
+
+    @skipUnlessDBFeature('has_bulk_insert')
     def test_bulk_insert_expressions(self):
         Restaurant.objects.bulk_create([
             Restaurant(name="Sam's Shake Shack"),
@@ -226,14 +245,14 @@ class BulkCreateTests(TestCase):
                 field_value = '' if isinstance(field, FileField) else None
                 self.assertEqual(NullableFields.objects.filter(**{field.name: field_value}).count(), 1)
 
-    @skipUnlessDBFeature('can_return_ids_from_bulk_insert')
+    @skipUnlessDBFeature('can_return_rows_from_bulk_insert')
     def test_set_pk_and_insert_single_item(self):
         with self.assertNumQueries(1):
             countries = Country.objects.bulk_create([self.data[0]])
         self.assertEqual(len(countries), 1)
         self.assertEqual(Country.objects.get(pk=countries[0].pk), countries[0])
 
-    @skipUnlessDBFeature('can_return_ids_from_bulk_insert')
+    @skipUnlessDBFeature('can_return_rows_from_bulk_insert')
     def test_set_pk_and_query_efficiency(self):
         with self.assertNumQueries(1):
             countries = Country.objects.bulk_create(self.data)
@@ -243,7 +262,7 @@ class BulkCreateTests(TestCase):
         self.assertEqual(Country.objects.get(pk=countries[2].pk), countries[2])
         self.assertEqual(Country.objects.get(pk=countries[3].pk), countries[3])
 
-    @skipUnlessDBFeature('can_return_ids_from_bulk_insert')
+    @skipUnlessDBFeature('can_return_rows_from_bulk_insert')
     def test_set_state(self):
         country_nl = Country(name='Netherlands', iso_two_letter='NL')
         country_be = Country(name='Belgium', iso_two_letter='BE')
@@ -261,3 +280,37 @@ class BulkCreateTests(TestCase):
         # Objects save via bulk_create() and save() should have equal state.
         self.assertEqual(state_ca._state.adding, state_ny._state.adding)
         self.assertEqual(state_ca._state.db, state_ny._state.db)
+
+    @skipIfDBFeature('supports_ignore_conflicts')
+    def test_ignore_conflicts_value_error(self):
+        message = 'This database backend does not support ignoring conflicts.'
+        with self.assertRaisesMessage(NotSupportedError, message):
+            TwoFields.objects.bulk_create(self.data, ignore_conflicts=True)
+
+    @skipUnlessDBFeature('supports_ignore_conflicts')
+    def test_ignore_conflicts_ignore(self):
+        data = [
+            TwoFields(f1=1, f2=1),
+            TwoFields(f1=2, f2=2),
+            TwoFields(f1=3, f2=3),
+        ]
+        TwoFields.objects.bulk_create(data)
+        self.assertEqual(TwoFields.objects.count(), 3)
+        # With ignore_conflicts=True, conflicts are ignored.
+        conflicting_objects = [
+            TwoFields(f1=2, f2=2),
+            TwoFields(f1=3, f2=3),
+        ]
+        TwoFields.objects.bulk_create([conflicting_objects[0]], ignore_conflicts=True)
+        TwoFields.objects.bulk_create(conflicting_objects, ignore_conflicts=True)
+        self.assertEqual(TwoFields.objects.count(), 3)
+        self.assertIsNone(conflicting_objects[0].pk)
+        self.assertIsNone(conflicting_objects[1].pk)
+        # New objects are created and conflicts are ignored.
+        new_object = TwoFields(f1=4, f2=4)
+        TwoFields.objects.bulk_create(conflicting_objects + [new_object], ignore_conflicts=True)
+        self.assertEqual(TwoFields.objects.count(), 4)
+        self.assertIsNone(new_object.pk)
+        # Without ignore_conflicts=True, there's a problem.
+        with self.assertRaises(IntegrityError):
+            TwoFields.objects.bulk_create(conflicting_objects)

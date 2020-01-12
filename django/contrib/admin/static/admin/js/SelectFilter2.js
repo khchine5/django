@@ -26,10 +26,10 @@ Requires jQuery, core.js, and SelectBox.js.
 
             var ps = from_box.parentNode.getElementsByTagName('p');
             for (var i = 0; i < ps.length; i++) {
-                if (ps[i].className.indexOf("info") !== -1) {
+                if (ps[i].classList.contains("info")) {
                     // Remove <p class="info">, because it just gets in the way.
                     from_box.parentNode.removeChild(ps[i]);
-                } else if (ps[i].className.indexOf("help") !== -1) {
+                } else if (ps[i].classList.contains("help")) {
                     // Move help text up to the top so it isn't below the select
                     // boxes or wrapped off on the side to the right of the add
                     // button:
@@ -103,16 +103,16 @@ Requires jQuery, core.js, and SelectBox.js.
                 )
             );
 
-            var to_box = quickElement('select', selector_chosen, '', 'id', field_id + '_to', 'multiple', 'multiple', 'size', from_box.size, 'name', from_box.getAttribute('name'));
+            var to_box = quickElement('select', selector_chosen, '', 'id', field_id + '_to', 'multiple', 'multiple', 'size', from_box.size, 'name', from_box.name);
             to_box.className = 'filtered';
             var clear_all = quickElement('a', selector_chosen, gettext('Remove all'), 'title', interpolate(gettext('Click to remove all chosen %s at once.'), [field_name]), 'href', '#', 'id', field_id + '_remove_all_link');
             clear_all.className = 'selector-clearall';
 
-            from_box.setAttribute('name', from_box.getAttribute('name') + '_old');
+            from_box.name = from_box.name + '_old';
 
             // Set up the JavaScript event handlers for the select box filter interface
             var move_selection = function(e, elem, move_func, from, to) {
-                if (elem.className.indexOf('active') !== -1) {
+                if (elem.classList.contains('active')) {
                     move_func(from, to);
                     SelectFilter.refresh_icons(field_id);
                 }
@@ -164,15 +164,9 @@ Requires jQuery, core.js, and SelectBox.js.
 
             if (!is_stacked) {
                 // In horizontal mode, give the same height to the two boxes.
-                var j_from_box = $(from_box);
-                var j_to_box = $(to_box);
-                var resize_filters = function() { j_to_box.height($(filter_p).outerHeight() + j_from_box.outerHeight()); };
-                if (j_from_box.outerHeight() > 0) {
-                    resize_filters(); // This fieldset is already open. Resize now.
-                } else {
-                    // This fieldset is probably collapsed. Wait for its 'show' event.
-                    j_to_box.closest('fieldset').one('show.fieldset', resize_filters);
-                }
+                var j_from_box = $('#' + field_id + '_from');
+                var j_to_box = $('#' + field_id + '_to');
+                j_to_box.height($(filter_p).outerHeight() + j_from_box.outerHeight());
             }
 
             // Initial icon refresh
@@ -185,11 +179,11 @@ Requires jQuery, core.js, and SelectBox.js.
                 // This is much faster in WebKit browsers than the fallback.
                 field.attr('required', 'required');
                 any_selected = field.is(':valid');
-                field.removeAttr('required');
             } catch (e) {
                 // Browsers that don't support :valid (IE < 10)
                 any_selected = field.find('option:selected').length > 0;
             }
+            field.removeAttr('required');
             return any_selected;
         },
         refresh_icons: function(field_id) {

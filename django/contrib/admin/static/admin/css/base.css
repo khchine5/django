@@ -284,11 +284,14 @@ tr.alt {
     background: #f6f6f6;
 }
 
-.row1 {
+.row1, .row-form-errors {
     background: #fff;
 }
 
-.row2 {
+.row2,
+.row2 .errorlist,
+.row1 + .row-form-errors,
+.row1 + .row-form-errors .errorlist {
     background: #f9f9f9;
 }
 
@@ -441,6 +444,8 @@ select {
 }
 
 select[multiple] {
+    /* Allow HTML size attribute to override the height in the rule above. */
+    height: auto;
     min-height: 150px;
 }
 

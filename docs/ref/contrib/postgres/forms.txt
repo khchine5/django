@@ -15,8 +15,7 @@ Fields
 
 .. class:: SimpleArrayField(base_field, delimiter=',', max_length=None, min_length=None)
 
-    A simple field which maps to an array. It is represented by an HTML
-    ``<input>``.
+    A field which maps to an array. It is represented by an HTML ``<input>``.
 
     .. attribute:: base_field
 
@@ -193,14 +192,14 @@ not greater than the upper bound. All of these fields use
     :class:`~django.contrib.postgres.fields.IntegerRangeField` and
     :class:`~django.contrib.postgres.fields.BigIntegerRangeField`.
 
-``FloatRangeField``
-~~~~~~~~~~~~~~~~~~~
+``DecimalRangeField``
+~~~~~~~~~~~~~~~~~~~~~
 
-.. class:: FloatRangeField
+.. class:: DecimalRangeField
 
-    Based on :class:`~django.forms.FloatField` and translates its input into
+    Based on :class:`~django.forms.DecimalField` and translates its input into
     :class:`~psycopg2:psycopg2.extras.NumericRange`. Default for
-    :class:`~django.contrib.postgres.fields.FloatRangeField`.
+    :class:`~django.contrib.postgres.fields.DecimalRangeField`.
 
 ``DateTimeRangeField``
 ~~~~~~~~~~~~~~~~~~~~~~

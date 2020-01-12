@@ -3,13 +3,13 @@ MySQL database backend for Django.
 
 Requires mysqlclient: https://pypi.org/project/mysqlclient/
 """
-import re
-
 from django.core.exceptions import ImproperlyConfigured
 from django.db import utils
 from django.db.backends import utils as backend_utils
 from django.db.backends.base.base import BaseDatabaseWrapper
+from django.utils.asyncio import async_unsafe
 from django.utils.functional import cached_property
+from django.utils.regex_helper import _lazy_re_compile
 
 try:
     import MySQLdb as Database
@@ -32,8 +32,8 @@ from .schema import DatabaseSchemaEditor                    # isort:skip
 from .validation import DatabaseValidation                  # isort:skip
 
 version = Database.version_info
-if version < (1, 3, 7):
-    raise ImproperlyConfigured('mysqlclient 1.3.7 or newer is required; you have %s.' % Database.__version__)
+if version < (1, 3, 13):
+    raise ImproperlyConfigured('mysqlclient 1.3.13 or newer is required; you have %s.' % Database.__version__)
 
 
 # MySQLdb returns TIME columns as timedelta -- they are more like timedelta in
@@ -46,7 +46,7 @@ django_conversions = {
 
 # This should match the numerical portion of the version numbers (we can treat
 # versions like 5.0.24 and 5.0.24a as the same).
-server_version_re = re.compile(r'(\d{1,2})\.(\d{1,2})\.(\d{1,2})')
+server_version_re = _lazy_re_compile(r'(\d{1,2})\.(\d{1,2})\.(\d{1,2})')
 
 
 class CursorWrapper:
@@ -60,6 +60,8 @@ class CursorWrapper:
     codes_for_integrityerror = (
         1048,  # Column cannot be null
         1690,  # BIGINT UNSIGNED value is out of range
+        3819,  # CHECK constraint is violated
+        4025,  # CHECK constraint failed
     )
 
     def __init__(self, cursor):
@@ -95,7 +97,6 @@ class CursorWrapper:
 
 class DatabaseWrapper(BaseDatabaseWrapper):
     vendor = 'mysql'
-    display_name = 'MySQL'
     # This dictionary maps Field objects to their associated MySQL column
     # types, as strings. Column-type strings can contain format strings; they'll
     # be interpolated against the values of Field.__dict__ before being output.
@@ -119,18 +120,22 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'GenericIPAddressField': 'char(39)',
         'NullBooleanField': 'bool',
         'OneToOneField': 'integer',
+        'PositiveBigIntegerField': 'bigint UNSIGNED',
         'PositiveIntegerField': 'integer UNSIGNED',
         'PositiveSmallIntegerField': 'smallint UNSIGNED',
         'SlugField': 'varchar(%(max_length)s)',
+        'SmallAutoField': 'smallint AUTO_INCREMENT',
         'SmallIntegerField': 'smallint',
         'TextField': 'longtext',
         'TimeField': 'time(6)',
         'UUIDField': 'char(32)',
     }
 
-    # For these columns, MySQL doesn't:
-    # - accept default values and implicitly treats these columns as nullable
-    # - support a database index
+    # For these data types:
+    # - MySQL < 8.0.13 and MariaDB < 10.2.1 don't accept default values and
+    #   implicitly treat them as nullable
+    # - all versions of MySQL and MariaDB don't support full width database
+    #   indexes
     _limited_data_types = (
         'tinyblob', 'blob', 'mediumblob', 'longblob', 'tinytext', 'text',
         'mediumtext', 'longtext', 'json',
@@ -141,8 +146,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'iexact': 'LIKE %s',
         'contains': 'LIKE BINARY %s',
         'icontains': 'LIKE %s',
-        'regex': 'REGEXP BINARY %s',
-        'iregex': 'REGEXP %s',
         'gt': '> %s',
         'gte': '>= %s',
         'lt': '< %s',
@@ -225,6 +228,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         kwargs.update(options)
         return kwargs
 
+    @async_unsafe
     def get_new_connection(self, conn_params):
         return Database.connect(**conn_params)
 
@@ -244,6 +248,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             with self.cursor() as cursor:
                 cursor.execute('; '.join(assignments))
 
+    @async_unsafe
     def create_cursor(self, name=None):
         cursor = self.connection.cursor()
         return CursorWrapper(cursor)
@@ -328,11 +333,32 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             return True
 
     @cached_property
-    def mysql_version(self):
+    def display_name(self):
+        return 'MariaDB' if self.mysql_is_mariadb else 'MySQL'
+
+    @cached_property
+    def data_type_check_constraints(self):
+        if self.features.supports_column_check_constraints:
+            return {
+                'PositiveBigIntegerField': '`%(column)s` >= 0',
+                'PositiveIntegerField': '`%(column)s` >= 0',
+                'PositiveSmallIntegerField': '`%(column)s` >= 0',
+            }
+        return {}
+
+    @cached_property
+    def mysql_server_info(self):
         with self.temporary_connection() as cursor:
             cursor.execute('SELECT VERSION()')
-            server_info = cursor.fetchone()[0]
-        match = server_version_re.match(server_info)
+            return cursor.fetchone()[0]
+
+    @cached_property
+    def mysql_version(self):
+        match = server_version_re.match(self.mysql_server_info)
         if not match:
-            raise Exception('Unable to determine MySQL version from version string %r' % server_info)
+            raise Exception('Unable to determine MySQL version from version string %r' % self.mysql_server_info)
         return tuple(int(x) for x in match.groups())
+
+    @cached_property
+    def mysql_is_mariadb(self):
+        return 'mariadb' in self.mysql_server_info.lower()

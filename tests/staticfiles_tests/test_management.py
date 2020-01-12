@@ -1,10 +1,10 @@
-import codecs
 import datetime
 import os
 import shutil
 import tempfile
 import unittest
 from io import StringIO
+from pathlib import Path
 from unittest import mock
 
 from admin_scripts.tests import AdminScriptTestCase
@@ -63,7 +63,7 @@ class TestFindStatic(TestDefaults, CollectionTestCase):
     """
     def _get_file(self, filepath):
         path = call_command('findstatic', filepath, all=False, verbosity=0, stdout=StringIO())
-        with codecs.open(path, "r", "utf-8") as f:
+        with open(path, encoding='utf-8') as f:
             return f.read()
 
     def test_all_files(self):
@@ -103,6 +103,7 @@ class TestFindStatic(TestDefaults, CollectionTestCase):
         # FileSystemFinder searched locations
         self.assertIn(TEST_SETTINGS['STATICFILES_DIRS'][1][1], searched_locations)
         self.assertIn(TEST_SETTINGS['STATICFILES_DIRS'][0], searched_locations)
+        self.assertIn(str(TEST_SETTINGS['STATICFILES_DIRS'][2]), searched_locations)
         # DefaultStorageFinder searched locations
         self.assertIn(
             os.path.join('staticfiles_tests', 'project', 'site_media', 'media'),
@@ -175,10 +176,20 @@ class TestCollection(TestDefaults, CollectionTestCase):
         self.assertFileNotFound('test/backup~')
         self.assertFileNotFound('test/CVS')
 
+    def test_pathlib(self):
+        self.assertFileContains('pathlib.txt', 'pathlib')
+
+
+class TestCollectionPathLib(TestCollection):
+    def mkdtemp(self):
+        tmp_dir = super().mkdtemp()
+        return Path(tmp_dir)
+
 
 class TestCollectionVerbosity(CollectionTestCase):
     copying_msg = 'Copying '
     run_collectstatic_in_setUp = False
+    post_process_msg = 'Post-processed'
     staticfiles_copied_msg = 'static files copied to'
 
     def test_verbosity_0(self):
@@ -199,6 +210,18 @@ class TestCollectionVerbosity(CollectionTestCase):
         output = stdout.getvalue()
         self.assertIn(self.staticfiles_copied_msg, output)
         self.assertIn(self.copying_msg, output)
+
+    @override_settings(STATICFILES_STORAGE='django.contrib.staticfiles.storage.ManifestStaticFilesStorage')
+    def test_verbosity_1_with_post_process(self):
+        stdout = StringIO()
+        self.run_collectstatic(verbosity=1, stdout=stdout, post_process=True)
+        self.assertNotIn(self.post_process_msg, stdout.getvalue())
+
+    @override_settings(STATICFILES_STORAGE='django.contrib.staticfiles.storage.ManifestStaticFilesStorage')
+    def test_verbosity_2_with_post_process(self):
+        stdout = StringIO()
+        self.run_collectstatic(verbosity=2, stdout=stdout, post_process=True)
+        self.assertIn(self.post_process_msg, stdout.getvalue())
 
 
 class TestCollectionClear(CollectionTestCase):
@@ -306,11 +329,12 @@ class TestCollectionExcludeNoDefaultIgnore(TestDefaults, CollectionTestCase):
 class TestCollectionCustomIgnorePatterns(CollectionTestCase):
     def test_custom_ignore_patterns(self):
         """
-        A custom ignore_patterns list, ['*.css'] in this case, can be specified
-        in an AppConfig definition.
+        A custom ignore_patterns list, ['*.css', '*/vendor/*.js'] in this case,
+        can be specified in an AppConfig definition.
         """
         self.assertFileNotFound('test/nonascii.css')
         self.assertFileContains('test/.hidden', 'should be ignored')
+        self.assertFileNotFound(os.path.join('test', 'vendor', 'module.js'))
 
 
 class TestCollectionDryRun(TestNoFilesCreated, CollectionTestCase):
@@ -319,6 +343,11 @@ class TestCollectionDryRun(TestNoFilesCreated, CollectionTestCase):
     """
     def run_collectstatic(self):
         super().run_collectstatic(dry_run=True)
+
+
+@override_settings(STATICFILES_STORAGE='django.contrib.staticfiles.storage.ManifestStaticFilesStorage')
+class TestCollectionDryRunManifestStaticFilesStorage(TestCollectionDryRun):
+    pass
 
 
 class TestCollectionFilesOverride(CollectionTestCase):

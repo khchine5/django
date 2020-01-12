@@ -1,17 +1,17 @@
-import unittest
+import warnings
 from datetime import datetime
 
 from django.core.paginator import (
     EmptyPage, InvalidPage, PageNotAnInteger, Paginator,
     UnorderedObjectListWarning,
 )
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 
 from .custom import ValidAdjacentNumsPaginator
 from .models import Article
 
 
-class PaginationTests(unittest.TestCase):
+class PaginationTests(SimpleTestCase):
     """
     Tests for the Paginator and Page classes.
     """
@@ -150,6 +150,22 @@ class PaginationTests(unittest.TestCase):
         self.assertEqual(5, paginator.num_pages)
         self.assertEqual([1, 2, 3, 4, 5], list(paginator.page_range))
 
+    def test_count_does_not_silence_attribute_error(self):
+        class AttributeErrorContainer:
+            def count(self):
+                raise AttributeError('abc')
+
+        with self.assertRaisesMessage(AttributeError, 'abc'):
+            Paginator(AttributeErrorContainer(), 10).count
+
+    def test_count_does_not_silence_type_error(self):
+        class TypeErrorContainer:
+            def count(self):
+                raise TypeError('abc')
+
+        with self.assertRaisesMessage(TypeError, 'abc'):
+            Paginator(TypeErrorContainer(), 10).count
+
     def check_indexes(self, params, page_num, indexes):
         """
         Helper method that instantiates a Paginator object from the passed
@@ -281,12 +297,20 @@ class PaginationTests(unittest.TestCase):
         with self.assertRaises(EmptyPage):
             paginator.get_page(1)
 
+    def test_paginator_iteration(self):
+        paginator = Paginator([1, 2, 3], 2)
+        page_iterator = iter(paginator)
+        for page, expected in enumerate(([1, 2], [3]), start=1):
+            with self.subTest(page=page):
+                self.assertEqual(expected, list(next(page_iterator)))
+
 
 class ModelPaginationTests(TestCase):
     """
     Test pagination with Django model instances
     """
-    def setUp(self):
+    @classmethod
+    def setUpTestData(cls):
         # Prepare a list of objects for pagination.
         for x in range(1, 10):
             a = Article(headline='Article %s' % x, pub_date=datetime(2005, 7, 29))
@@ -342,7 +366,8 @@ class ModelPaginationTests(TestCase):
         # Make sure object_list queryset is not evaluated by an invalid __getitem__ call.
         # (this happens from the template engine when using eg: {% page_obj.has_previous %})
         self.assertIsNone(p.object_list._result_cache)
-        with self.assertRaises(TypeError):
+        msg = 'Page indices must be integers or slices, not str.'
+        with self.assertRaisesMessage(TypeError, msg):
             p['has_previous']
         self.assertIsNone(p.object_list._result_cache)
         self.assertNotIsInstance(p.object_list, list)
@@ -368,9 +393,14 @@ class ModelPaginationTests(TestCase):
         # is appropriate).
         self.assertEqual(cm.filename, __file__)
 
+    def test_paginating_empty_queryset_does_not_warn(self):
+        with warnings.catch_warnings(record=True) as recorded:
+            Paginator(Article.objects.none(), 5)
+        self.assertEqual(len(recorded), 0)
+
     def test_paginating_unordered_object_list_raises_warning(self):
         """
-        Unordered object list warning with an object that has an orderd
+        Unordered object list warning with an object that has an ordered
         attribute but not a model attribute.
         """
         class ObjectList:

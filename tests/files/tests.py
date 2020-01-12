@@ -5,6 +5,7 @@ import struct
 import tempfile
 import unittest
 from io import BytesIO, StringIO, TextIOWrapper
+from pathlib import Path
 from unittest import mock
 
 from django.core.files import File
@@ -15,6 +16,7 @@ from django.core.files.uploadedfile import (
     InMemoryUploadedFile, SimpleUploadedFile, TemporaryUploadedFile,
     UploadedFile,
 )
+from django.test import override_settings
 
 try:
     from PIL import Image
@@ -231,6 +233,12 @@ class TemporaryUploadedFileTests(unittest.TestCase):
         with TemporaryUploadedFile('test.txt', 'text/plain', 1, 'utf8') as temp_file:
             self.assertTrue(temp_file.file.name.endswith('.upload.txt'))
 
+    def test_file_upload_temp_dir_pathlib(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with override_settings(FILE_UPLOAD_TEMP_DIR=Path(tmp_dir)):
+                with TemporaryUploadedFile('test.txt', 'text/plain', 1, 'utf-8') as temp_file:
+                    self.assertTrue(os.path.exists(temp_file.file.name))
+
 
 class DimensionClosingBug(unittest.TestCase):
     """
@@ -343,14 +351,21 @@ class GetImageDimensionsTests(unittest.TestCase):
                 size = images.get_image_dimensions(fh)
                 self.assertEqual(size, (None, None))
 
+    def test_webp(self):
+        img_path = os.path.join(os.path.dirname(__file__), 'test.webp')
+        with open(img_path, 'rb') as fh:
+            size = images.get_image_dimensions(fh)
+        self.assertEqual(size, (540, 405))
+
 
 class FileMoveSafeTests(unittest.TestCase):
     def test_file_move_overwrite(self):
         handle_a, self.file_a = tempfile.mkstemp()
         handle_b, self.file_b = tempfile.mkstemp()
 
-        # file_move_safe should raise an IOError exception if destination file exists and allow_overwrite is False
-        with self.assertRaises(IOError):
+        # file_move_safe() raises OSError if the destination file exists and
+        # allow_overwrite is False.
+        with self.assertRaises(FileExistsError):
             file_move_safe(self.file_a, self.file_b, allow_overwrite=False)
 
         # should allow it and continue on if allow_overwrite is True

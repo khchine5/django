@@ -1,7 +1,7 @@
 import os
 import sys
 import unittest
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from unittest import mock
 
 from django.conf import ENVIRONMENT_VARIABLE, LazySettings, Settings, settings
@@ -12,6 +12,7 @@ from django.test import (
     override_settings, signals,
 )
 from django.test.utils import requires_tz_support
+from django.urls import clear_script_prefix, set_script_prefix
 
 
 @modify_settings(ITEMS={
@@ -318,6 +319,17 @@ class SettingsTests(SimpleTestCase):
         with self.assertRaisesMessage(RuntimeError, 'Settings already configured.'):
             settings.configure()
 
+    def test_nonupper_settings_prohibited_in_configure(self):
+        s = LazySettings()
+        with self.assertRaisesMessage(TypeError, "Setting 'foo' must be uppercase."):
+            s.configure(foo='bar')
+
+    def test_nonupper_settings_ignored_in_default_settings(self):
+        s = LazySettings()
+        s.configure(SimpleNamespace(foo='bar'))
+        with self.assertRaises(AttributeError):
+            getattr(s, 'foo')
+
     @requires_tz_support
     @mock.patch('django.conf.global_settings.TIME_ZONE', 'test')
     def test_incorrect_timezone(self):
@@ -350,22 +362,34 @@ class SecureProxySslHeaderTest(SimpleTestCase):
         req = HttpRequest()
         self.assertIs(req.is_secure(), False)
 
-    @override_settings(SECURE_PROXY_SSL_HEADER=('HTTP_X_FORWARDED_PROTOCOL', 'https'))
+    @override_settings(SECURE_PROXY_SSL_HEADER=('HTTP_X_FORWARDED_PROTO', 'https'))
     def test_set_without_xheader(self):
         req = HttpRequest()
         self.assertIs(req.is_secure(), False)
 
-    @override_settings(SECURE_PROXY_SSL_HEADER=('HTTP_X_FORWARDED_PROTOCOL', 'https'))
+    @override_settings(SECURE_PROXY_SSL_HEADER=('HTTP_X_FORWARDED_PROTO', 'https'))
     def test_set_with_xheader_wrong(self):
         req = HttpRequest()
-        req.META['HTTP_X_FORWARDED_PROTOCOL'] = 'wrongvalue'
+        req.META['HTTP_X_FORWARDED_PROTO'] = 'wrongvalue'
         self.assertIs(req.is_secure(), False)
 
-    @override_settings(SECURE_PROXY_SSL_HEADER=('HTTP_X_FORWARDED_PROTOCOL', 'https'))
+    @override_settings(SECURE_PROXY_SSL_HEADER=('HTTP_X_FORWARDED_PROTO', 'https'))
     def test_set_with_xheader_right(self):
         req = HttpRequest()
-        req.META['HTTP_X_FORWARDED_PROTOCOL'] = 'https'
+        req.META['HTTP_X_FORWARDED_PROTO'] = 'https'
         self.assertIs(req.is_secure(), True)
+
+    @override_settings(SECURE_PROXY_SSL_HEADER=('HTTP_X_FORWARDED_PROTO', 'https'))
+    def test_xheader_preferred_to_underlying_request(self):
+        class ProxyRequest(HttpRequest):
+            def _get_scheme(self):
+                """Proxy always connecting via HTTPS"""
+                return 'https'
+
+        # Client connects via HTTP.
+        req = ProxyRequest()
+        req.META['HTTP_X_FORWARDED_PROTO'] = 'http'
+        self.assertIs(req.is_secure(), False)
 
 
 class IsOverriddenTest(SimpleTestCase):
@@ -441,3 +465,154 @@ class TestListSettings(unittest.TestCase):
             finally:
                 del sys.modules['fake_settings_module']
                 delattr(settings_module, setting)
+
+
+class SettingChangeEnterException(Exception):
+    pass
+
+
+class SettingChangeExitException(Exception):
+    pass
+
+
+class OverrideSettingsIsolationOnExceptionTests(SimpleTestCase):
+    """
+    The override_settings context manager restore settings if one of the
+    receivers of "setting_changed" signal fails. Check the three cases of
+    receiver failure detailed in receiver(). In each case, ALL receivers are
+    called when exiting the context manager.
+    """
+    def setUp(self):
+        signals.setting_changed.connect(self.receiver)
+        self.addCleanup(signals.setting_changed.disconnect, self.receiver)
+        # Create a spy that's connected to the `setting_changed` signal and
+        # executed AFTER `self.receiver`.
+        self.spy_receiver = mock.Mock()
+        signals.setting_changed.connect(self.spy_receiver)
+        self.addCleanup(signals.setting_changed.disconnect, self.spy_receiver)
+
+    def receiver(self, **kwargs):
+        """
+        A receiver that fails while certain settings are being changed.
+        - SETTING_BOTH raises an error while receiving the signal
+          on both entering and exiting the context manager.
+        - SETTING_ENTER raises an error only on enter.
+        - SETTING_EXIT raises an error only on exit.
+        """
+        setting = kwargs['setting']
+        enter = kwargs['enter']
+        if setting in ('SETTING_BOTH', 'SETTING_ENTER') and enter:
+            raise SettingChangeEnterException
+        if setting in ('SETTING_BOTH', 'SETTING_EXIT') and not enter:
+            raise SettingChangeExitException
+
+    def check_settings(self):
+        """Assert that settings for these tests aren't present."""
+        self.assertFalse(hasattr(settings, 'SETTING_BOTH'))
+        self.assertFalse(hasattr(settings, 'SETTING_ENTER'))
+        self.assertFalse(hasattr(settings, 'SETTING_EXIT'))
+        self.assertFalse(hasattr(settings, 'SETTING_PASS'))
+
+    def check_spy_receiver_exit_calls(self, call_count):
+        """
+        Assert that `self.spy_receiver` was called exactly `call_count` times
+        with the ``enter=False`` keyword argument.
+        """
+        kwargs_with_exit = [
+            kwargs for args, kwargs in self.spy_receiver.call_args_list
+            if ('enter', False) in kwargs.items()
+        ]
+        self.assertEqual(len(kwargs_with_exit), call_count)
+
+    def test_override_settings_both(self):
+        """Receiver fails on both enter and exit."""
+        with self.assertRaises(SettingChangeEnterException):
+            with override_settings(SETTING_PASS='BOTH', SETTING_BOTH='BOTH'):
+                pass
+
+        self.check_settings()
+        # Two settings were touched, so expect two calls of `spy_receiver`.
+        self.check_spy_receiver_exit_calls(call_count=2)
+
+    def test_override_settings_enter(self):
+        """Receiver fails on enter only."""
+        with self.assertRaises(SettingChangeEnterException):
+            with override_settings(SETTING_PASS='ENTER', SETTING_ENTER='ENTER'):
+                pass
+
+        self.check_settings()
+        # Two settings were touched, so expect two calls of `spy_receiver`.
+        self.check_spy_receiver_exit_calls(call_count=2)
+
+    def test_override_settings_exit(self):
+        """Receiver fails on exit only."""
+        with self.assertRaises(SettingChangeExitException):
+            with override_settings(SETTING_PASS='EXIT', SETTING_EXIT='EXIT'):
+                pass
+
+        self.check_settings()
+        # Two settings were touched, so expect two calls of `spy_receiver`.
+        self.check_spy_receiver_exit_calls(call_count=2)
+
+    def test_override_settings_reusable_on_enter(self):
+        """
+        Error is raised correctly when reusing the same override_settings
+        instance.
+        """
+        @override_settings(SETTING_ENTER='ENTER')
+        def decorated_function():
+            pass
+
+        with self.assertRaises(SettingChangeEnterException):
+            decorated_function()
+        signals.setting_changed.disconnect(self.receiver)
+        # This call shouldn't raise any errors.
+        decorated_function()
+
+
+class MediaURLStaticURLPrefixTest(SimpleTestCase):
+    def set_script_name(self, val):
+        clear_script_prefix()
+        if val is not None:
+            set_script_prefix(val)
+
+    def test_not_prefixed(self):
+        # Don't add SCRIPT_NAME prefix to valid URLs, absolute paths or None.
+        tests = (
+            '/path/',
+            'http://myhost.com/path/',
+            None,
+        )
+        for setting in ('MEDIA_URL', 'STATIC_URL'):
+            for path in tests:
+                new_settings = {setting: path}
+                with self.settings(**new_settings):
+                    for script_name in ['/somesubpath', '/somesubpath/', '/', '', None]:
+                        with self.subTest(script_name=script_name, **new_settings):
+                            try:
+                                self.set_script_name(script_name)
+                                self.assertEqual(getattr(settings, setting), path)
+                            finally:
+                                clear_script_prefix()
+
+    def test_add_script_name_prefix(self):
+        tests = (
+            # Relative paths.
+            ('/somesubpath', 'path/', '/somesubpath/path/'),
+            ('/somesubpath/', 'path/', '/somesubpath/path/'),
+            ('/', 'path/', '/path/'),
+            # Invalid URLs.
+            ('/somesubpath/', 'htp://myhost.com/path/', '/somesubpath/htp://myhost.com/path/'),
+            # Blank settings.
+            ('/somesubpath/', '', '/somesubpath/'),
+        )
+        for setting in ('MEDIA_URL', 'STATIC_URL'):
+            for script_name, path, expected_path in tests:
+                new_settings = {setting: path}
+                with self.settings(**new_settings):
+                    with self.subTest(script_name=script_name, **new_settings):
+                        try:
+                            self.set_script_name(script_name)
+                            self.assertEqual(getattr(settings, setting), expected_path)
+                        finally:
+                            clear_script_prefix()

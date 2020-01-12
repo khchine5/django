@@ -26,11 +26,11 @@ allow a visitor to do things like enter text, select options, manipulate
 objects or controls, and so on, and then send that information back to the
 server.
 
-Some of these form interface elements - text input or checkboxes - are fairly
-simple and are built into HTML itself. Others are much more complex; an
-interface that pops up a date picker or allows you to move a slider or
-manipulate controls will typically use JavaScript and CSS as well as HTML form
-``<input>`` elements to achieve these effects.
+Some of these form interface elements - text input or checkboxes - are built
+into HTML itself. Others are much more complex; an interface that pops up a
+date picker or allows you to move a slider or manipulate controls will
+typically use JavaScript and CSS as well as HTML form ``<input>`` elements to
+achieve these effects.
 
 As well as its ``<input>`` elements, a form must specify two things:
 
@@ -148,9 +148,9 @@ Instantiating, processing, and rendering forms
 
 When rendering an object in Django, we generally:
 
-1. get hold of it in the view (fetch it from the database, for example)
-2. pass it to the template context
-3. expand it to HTML markup using template variables
+#. get hold of it in the view (fetch it from the database, for example)
+#. pass it to the template context
+#. expand it to HTML markup using template variables
 
 Rendering a form in a template involves nearly the same work as rendering any
 other kind of object, but there are some key differences.
@@ -226,8 +226,8 @@ The :class:`Form` class
 We already know what we want our HTML form to look like. Our starting point for
 it in Django is this:
 
-.. snippet::
-    :filename: forms.py
+.. code-block:: python
+    :caption: forms.py
 
     from django import forms
 
@@ -276,8 +276,8 @@ logic.
 To handle the form we need to instantiate it in the view for the URL where we
 want it to be published:
 
-.. snippet::
-    :filename: views.py
+.. code-block:: python
+    :caption: views.py
 
     from django.http import HttpResponseRedirect
     from django.shortcuts import render
@@ -326,8 +326,7 @@ telling it where to go next.
 The template
 ~~~~~~~~~~~~
 
-We don't need to do much in our ``name.html`` template. The simplest example
-is:
+We don't need to do much in our ``name.html`` template:
 
 .. code-block:: html+django
 
@@ -404,8 +403,8 @@ More on fields
 Consider a more useful form than our minimal example above, which we could use
 to implement "contact me" functionality on a personal website:
 
-.. snippet::
-    :filename: forms.py
+.. code-block:: python
+    :caption: forms.py
 
     from django import forms
 
@@ -453,8 +452,8 @@ values to a Python ``int`` and ``float`` respectively.
 
 Here's how the form data could be processed in the view that handles this form:
 
-.. snippet::
-    :filename: views.py
+.. code-block:: python
+    :caption: views.py
 
     from django.core.mail import send_mail
 
@@ -671,8 +670,7 @@ Useful attributes on ``{{ field }}`` include:
     Outputs a ``<ul class="errorlist">`` containing any validation errors
     corresponding to this field. You can customize the presentation of
     the errors with a ``{% for error in field.errors %}`` loop. In this
-    case, each object in the loop is a simple string containing the error
-    message.
+    case, each object in the loop is a string containing the error message.
 
 ``{{ field.is_hidden }}``
     This attribute is ``True`` if the form field is a hidden field and

@@ -15,8 +15,8 @@ class FlatPage(models.Model):
         max_length=70,
         blank=True,
         help_text=_(
-            "Example: 'flatpages/contact_page.html'. If this isn't provided, "
-            "the system will use 'flatpages/default.html'."
+            'Example: “flatpages/contact_page.html”. If this isn’t provided, '
+            'the system will use “flatpages/default.html”.'
         ),
     )
     registration_required = models.BooleanField(
@@ -30,7 +30,7 @@ class FlatPage(models.Model):
         db_table = 'django_flatpage'
         verbose_name = _('flat page')
         verbose_name_plural = _('flat pages')
-        ordering = ('url',)
+        ordering = ['url']
 
     def __str__(self):
         return "%s -- %s" % (self.url, self.title)

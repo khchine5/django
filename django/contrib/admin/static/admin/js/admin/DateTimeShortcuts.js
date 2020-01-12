@@ -1,4 +1,4 @@
-/*global Calendar, findPosX, findPosY, getStyle, get_format, gettext, gettext_noop, interpolate, ngettext, quickElement*/
+/*global Calendar, findPosX, findPosY, get_format, gettext, gettext_noop, interpolate, ngettext, quickElement*/
 // Inserts shortcut buttons after all of the following:
 //     <input type="text" class="vDateField">
 //     <input type="text" class="vTimeField">
@@ -20,16 +20,16 @@
         dismissClockFunc: [],
         dismissCalendarFunc: [],
         calendarDivName1: 'calendarbox', // name of calendar <div> that gets toggled
-        calendarDivName2: 'calendarin',  // name of <div> that contains calendar
-        calendarLinkName: 'calendarlink',// name of the link that is used to toggle
-        clockDivName: 'clockbox',        // name of clock <div> that gets toggled
-        clockLinkName: 'clocklink',      // name of the link that is used to toggle
+        calendarDivName2: 'calendarin', // name of <div> that contains calendar
+        calendarLinkName: 'calendarlink', // name of the link that is used to toggle
+        clockDivName: 'clockbox', // name of clock <div> that gets toggled
+        clockLinkName: 'clocklink', // name of the link that is used to toggle
         shortCutsClass: 'datetimeshortcuts', // class of the clock and cal shortcuts
         timezoneWarningClass: 'timezonewarning', // class of the warning for timezone mismatch
         timezoneOffset: 0,
         init: function() {
             var body = document.getElementsByTagName('body')[0];
-            var serverOffset = body.getAttribute('data-admin-utc-offset');
+            var serverOffset = body.dataset.adminUtcOffset;
             if (serverOffset) {
                 var localOffset = new Date().getTimezoneOffset() * -60;
                 DateTimeShortcuts.timezoneOffset = localOffset - serverOffset;
@@ -38,11 +38,11 @@
             var inputs = document.getElementsByTagName('input');
             for (var i = 0; i < inputs.length; i++) {
                 var inp = inputs[i];
-                if (inp.getAttribute('type') === 'text' && inp.className.match(/vTimeField/)) {
+                if (inp.type === 'text' && inp.classList.contains('vTimeField')) {
                     DateTimeShortcuts.addClock(inp);
                     DateTimeShortcuts.addTimezoneWarning(inp);
                 }
-                else if (inp.getAttribute('type') === 'text' && inp.className.match(/vDateField/)) {
+                else if (inp.type === 'text' && inp.classList.contains('vDateField')) {
                     DateTimeShortcuts.addCalendar(inp);
                     DateTimeShortcuts.addTimezoneWarning(inp);
                 }
@@ -51,7 +51,7 @@
         // Return the current time while accounting for the server timezone.
         now: function() {
             var body = document.getElementsByTagName('body')[0];
-            var serverOffset = body.getAttribute('data-admin-utc-offset');
+            var serverOffset = body.dataset.adminUtcOffset;
             if (serverOffset) {
                 var localNow = new Date();
                 var localOffset = localNow.getTimezoneOffset() * -60;
@@ -63,7 +63,6 @@
         },
         // Add a warning when the time zone in the browser and backend do not match.
         addTimezoneWarning: function(inp) {
-            var $ = django.jQuery;
             var warningClass = DateTimeShortcuts.timezoneWarningClass;
             var timezoneOffset = DateTimeShortcuts.timezoneOffset / 3600;
 
@@ -73,7 +72,7 @@
             }
 
             // Check if warning is already there.
-            if ($(inp).siblings('.' + warningClass).length) {
+            if (inp.parentNode.querySelectorAll('.' + warningClass).length) {
                 return;
             }
 
@@ -95,13 +94,11 @@
             }
             message = interpolate(message, [timezoneOffset]);
 
-            var $warning = $('<span>');
-            $warning.attr('class', warningClass);
-            $warning.text(message);
-
-            $(inp).parent()
-                .append($('<br>'))
-                .append($warning);
+            var warning = document.createElement('span');
+            warning.className = warningClass;
+            warning.textContent = message;
+            inp.parentNode.appendChild(document.createElement('br'));
+            inp.parentNode.appendChild(warning);
         },
         // Add clock widget to a given field
         addClock: function(inp) {
@@ -114,14 +111,14 @@
             shortcuts_span.className = DateTimeShortcuts.shortCutsClass;
             inp.parentNode.insertBefore(shortcuts_span, inp.nextSibling);
             var now_link = document.createElement('a');
-            now_link.setAttribute('href', "#");
-            now_link.appendChild(document.createTextNode(gettext('Now')));
+            now_link.href = "#";
+            now_link.textContent = gettext('Now');
             now_link.addEventListener('click', function(e) {
                 e.preventDefault();
                 DateTimeShortcuts.handleClockQuicklink(num, -1);
             });
             var clock_link = document.createElement('a');
-            clock_link.setAttribute('href', '#');
+            clock_link.href = '#';
             clock_link.id = DateTimeShortcuts.clockLinkName + num;
             clock_link.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -159,7 +156,7 @@
             clock_box.style.display = 'none';
             clock_box.style.position = 'absolute';
             clock_box.className = 'clockbox module';
-            clock_box.setAttribute('id', DateTimeShortcuts.clockDivName + num);
+            clock_box.id = DateTimeShortcuts.clockDivName + num;
             document.body.appendChild(clock_box);
             clock_box.addEventListener('click', function(e) { e.stopPropagation(); });
 
@@ -200,7 +197,7 @@
 
             // Recalculate the clockbox position
             // is it left-to-right or right-to-left layout ?
-            if (getStyle(document.body, 'direction') !== 'rtl') {
+            if (window.getComputedStyle(document.body).direction !== 'rtl') {
                 clock_box.style.left = findPosX(clock_link) + 17 + 'px';
             }
             else {
@@ -244,14 +241,14 @@
             shortcuts_span.className = DateTimeShortcuts.shortCutsClass;
             inp.parentNode.insertBefore(shortcuts_span, inp.nextSibling);
             var today_link = document.createElement('a');
-            today_link.setAttribute('href', '#');
+            today_link.href = '#';
             today_link.appendChild(document.createTextNode(gettext('Today')));
             today_link.addEventListener('click', function(e) {
                 e.preventDefault();
                 DateTimeShortcuts.handleCalendarQuickLink(num, 0);
             });
             var cal_link = document.createElement('a');
-            cal_link.setAttribute('href', '#');
+            cal_link.href = '#';
             cal_link.id = DateTimeShortcuts.calendarLinkName + num;
             cal_link.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -290,7 +287,7 @@
             cal_box.style.display = 'none';
             cal_box.style.position = 'absolute';
             cal_box.className = 'calendarbox module';
-            cal_box.setAttribute('id', DateTimeShortcuts.calendarDivName1 + num);
+            cal_box.id = DateTimeShortcuts.calendarDivName1 + num;
             document.body.appendChild(cal_box);
             cal_box.addEventListener('click', function(e) { e.stopPropagation(); });
 
@@ -345,7 +342,7 @@
                 e.preventDefault();
                 DateTimeShortcuts.dismissCalendar(num);
             });
-            django.jQuery(document).on('keyup', function(event) {
+            document.addEventListener('keyup', function(event) {
                 if (event.which === 27) {
                     // ESC key closes popup
                     DateTimeShortcuts.dismissCalendar(num);
@@ -373,7 +370,7 @@
 
             // Recalculate the clockbox position
             // is it left-to-right or right-to-left layout ?
-            if (getStyle(document.body, 'direction') !== 'rtl') {
+            if (window.getComputedStyle(document.body).direction !== 'rtl') {
                 cal_box.style.left = findPosX(cal_link) + 17 + 'px';
             }
             else {
@@ -401,11 +398,11 @@
         handleCalendarCallback: function(num) {
             var format = get_format('DATE_INPUT_FORMATS')[0];
             // the format needs to be escaped a little
-            format = format.replace('\\', '\\\\');
-            format = format.replace('\r', '\\r');
-            format = format.replace('\n', '\\n');
-            format = format.replace('\t', '\\t');
-            format = format.replace("'", "\\'");
+            format = format.replace('\\', '\\\\')
+                .replace('\r', '\\r')
+                .replace('\n', '\\n')
+                .replace('\t', '\\t')
+                .replace("'", "\\'");
             return function(y, m, d) {
                 DateTimeShortcuts.calendarInputs[num].value = new Date(y, m - 1, d).strftime(format);
                 DateTimeShortcuts.calendarInputs[num].focus();

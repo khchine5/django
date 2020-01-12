@@ -1,6 +1,8 @@
-============================================
-Django 2.1 release notes - UNDER DEVELOPMENT
-============================================
+========================
+Django 2.1 release notes
+========================
+
+*August 1, 2018*
 
 Welcome to Django 2.1!
 
@@ -55,7 +57,7 @@ Minor features
 * The new :meth:`.ModelAdmin.delete_queryset` method allows customizing the
   deletion process of the "delete selected objects" action.
 
-* You can now :ref:`override the the default admin site
+* You can now :ref:`override the default admin site
   <overriding-default-admin-site>`.
 
 * The new :attr:`.ModelAdmin.sortable_by` attribute and
@@ -82,15 +84,14 @@ Minor features
 * :meth:`.InlineModelAdmin.has_add_permission` is now passed the parent object
   as the second positional argument, ``obj``.
 
+* Admin actions may now :ref:`specify permissions <admin-action-permissions>`
+  to limit their availability to certain users.
+
 :mod:`django.contrib.auth`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * :djadmin:`createsuperuser` now gives a prompt to allow bypassing the
   :setting:`AUTH_PASSWORD_VALIDATORS` checks.
-
-* :class:`~django.contrib.auth.forms.UserCreationForm` and
-  :class:`~django.contrib.auth.forms.UserChangeForm` no longer need to be
-  rewritten for a custom user model.
 
 :mod:`django.contrib.gis`
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -114,8 +115,8 @@ Cache
 * The :ref:`local-memory cache backend <local-memory-caching>` now uses a
   least-recently-used (LRU) culling strategy rather than a pseudo-random one.
 
-* The new ``touch()`` method of the :ref:`low-level cache API
-  <low-level-cache-api>` updates the timeout of cache keys.
+* The new :meth:`~django.core.caches.cache.touch` method of the :ref:`low-level
+  cache API <low-level-cache-api>` updates the timeout of cache keys.
 
 CSRF
 ~~~~
@@ -144,6 +145,11 @@ Management Commands
 
 * The new :option:`inspectdb --include-views` option allows creating models
   for database views.
+
+* The :class:`~django.core.management.BaseCommand` class now uses a custom help
+  formatter so that the standard options like ``--verbosity`` or ``--settings``
+  appear last in the help output, giving a more prominent position to subclassed
+  command's options.
 
 Migrations
 ~~~~~~~~~~
@@ -229,6 +235,9 @@ Backwards incompatible changes in 2.1
 
 Database backend API
 --------------------
+
+This section describes changes that may be needed in third-party database
+backends.
 
 * To adhere to :pep:`249`, exceptions where a database doesn't support a
   feature are changed from :exc:`NotImplementedError` to
@@ -320,15 +329,17 @@ New default view permission could allow unwanted access to admin views
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you have a custom permission with a codename of the form
-``can_view_<modelname>``, the new view permission handling in the admin will
-allow view access to the changelist and detail pages for those models. If this
-is unwanted, you must change your custom permission codename.
+``view_<modelname>``, the new view permission handling in the admin will allow
+view access to the changelist and detail pages for those models. If this is
+unwanted, you must change your custom permission codename.
 
 Miscellaneous
 -------------
 
 * The minimum supported version of ``mysqlclient`` is increased from 1.3.3 to
   1.3.7.
+
+* Support for SQLite < 3.7.15 is removed.
 
 * The date format of ``Set-Cookie``'s ``Expires`` directive is changed to
   follow :rfc:`7231#section-7.1.1.1` instead of Netscape's cookie standard.
@@ -369,6 +380,12 @@ Miscellaneous
 * The admin CSS class ``field-box`` is renamed to ``fieldBox`` to prevent
   conflicts with the class given to model fields named "box".
 
+* Since the admin's ``actions.html``, ``change_list_results.html``,
+  ``date_hierarchy.html``, ``pagination.html``, ``prepopulated_fields_js.html``,
+  ``search_form.html``, and ``submit_line.html`` templates can now be
+  overridden per app or per model, you may need to rename existing templates
+  with those names that were written for a different purpose.
+
 * ``QuerySet.raw()`` now caches its results like regular querysets. Use
   ``iterator()`` if you don't want caching.
 
@@ -382,6 +399,16 @@ Miscellaneous
 
 * Management commands no longer allow the abbreviated forms of the
   ``--settings`` and ``--pythonpath`` arguments.
+
+* The private ``django.db.models.sql.constants.QUERY_TERMS`` constant is
+  removed. The :meth:`~.RegisterLookupMixin.get_lookup`
+  and :meth:`~.RegisterLookupMixin.get_lookups` methods
+  of the :ref:`Lookup Registration API <lookup-registration-api>` may be
+  suitable alternatives. Compared to the ``QUERY_TERMS`` constant, they allow
+  your code to also account for any custom lookups that have been registered.
+
+* Compatibility with ``py-bcrypt`` is removed as it's unmaintained. Use `bcrypt
+  <https://pypi.org/project/bcrypt/>`_ instead.
 
 .. _deprecated-features-2.1:
 
@@ -448,7 +475,8 @@ to remove usage of these features.
 
 * The ``Model._meta.has_auto_field`` attribute is removed.
 
-* Support for regular expression groups with ``iLmsu#`` in ``url()`` is removed.
+* ``url()``'s support for inline flags in regular expression groups (``(?i)``,
+  ``(?L)``, ``(?m)``, ``(?s)``, and ``(?u)``) is removed.
 
 * Support for ``Widget.render()`` methods without the ``renderer`` argument
   is removed.

@@ -123,11 +123,21 @@ class FieldFile(File):
             file.close()
 
     def __getstate__(self):
-        # FieldFile needs access to its associated model field and an instance
-        # it's attached to in order to work properly, but the only necessary
-        # data to be pickled is the file's name itself. Everything else will
-        # be restored later, by FileDescriptor below.
-        return {'name': self.name, 'closed': False, '_committed': True, '_file': None}
+        # FieldFile needs access to its associated model field, an instance and
+        # the file's name. Everything else will be restored later, by
+        # FileDescriptor below.
+        return {
+            'name': self.name,
+            'closed': False,
+            '_committed': True,
+            '_file': None,
+            'instance': self.instance,
+            'field': self.field,
+        }
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.storage = self.field.storage
 
 
 class FileDescriptor:
@@ -141,7 +151,7 @@ class FileDescriptor:
 
     Assign a file object on assignment so you can do::
 
-        >>> with open('/path/to/hello.world', 'r') as f:
+        >>> with open('/path/to/hello.world') as f:
         ...     instance.file = File(f)
     """
     def __init__(self, field):
@@ -302,7 +312,7 @@ class FileField(Field):
         if callable(self.upload_to):
             filename = self.upload_to(instance, filename)
         else:
-            dirname = datetime.datetime.now().strftime(self.upload_to)
+            dirname = datetime.datetime.now().strftime(str(self.upload_to))
             filename = posixpath.join(dirname, filename)
         return self.storage.generate_filename(filename)
 
@@ -377,7 +387,7 @@ class ImageField(FileField):
                 checks.Error(
                     'Cannot use ImageField because Pillow is not installed.',
                     hint=('Get Pillow at https://pypi.org/project/Pillow/ '
-                          'or run command "pip install Pillow".'),
+                          'or run command "python -m pip install Pillow".'),
                     obj=self,
                     id='fields.E210',
                 )

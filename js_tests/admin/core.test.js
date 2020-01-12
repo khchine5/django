@@ -41,16 +41,6 @@ QUnit.test('Date.getTwoDigitSecond', function(assert) {
     assert.equal(new Date(2014, 6, 1, 0, 0, 20).getTwoDigitSecond(), '20', '12:00:20 am is 20');
 });
 
-QUnit.test('Date.getHourMinute', function(assert) {
-    assert.equal(new Date(2014, 6, 1, 11, 0).getHourMinute(), '11:00', '11:00 am is 11:00');
-    assert.equal(new Date(2014, 6, 1, 13, 25).getHourMinute(), '13:25', '1:25 pm is 13:25');
-});
-
-QUnit.test('Date.getHourMinuteSecond', function(assert) {
-    assert.equal(new Date(2014, 6, 1, 11, 0, 0).getHourMinuteSecond(), '11:00:00', '11:00 am is 11:00:00');
-    assert.equal(new Date(2014, 6, 1, 17, 45, 30).getHourMinuteSecond(), '17:45:30', '5:45:30 pm is 17:45:30');
-});
-
 QUnit.test('Date.strftime', function(assert) {
     var date = new Date(2014, 6, 1, 11, 0, 5);
     assert.equal(date.strftime('%Y-%m-%d %H:%M:%S'), '2014-07-01 11:00:05');
@@ -65,6 +55,7 @@ QUnit.test('String.strptime', function(assert) {
     assert.equal(firstParsedDate.getUTCMonth(), 1);
     assert.equal(firstParsedDate.getUTCFullYear(), 1988);
 
+    // A %y value in the range of [69, 99] is in the previous century.
     var secondParsedDate = '26/02/88'.strptime('%d/%m/%y');
     assert.equal(secondParsedDate.getUTCDate(), 26);
     assert.equal(secondParsedDate.getUTCMonth(), 1);
@@ -76,6 +67,12 @@ QUnit.test('String.strptime', function(assert) {
     assert.equal(thirdParsedDate.getUTCDate(), 20);
     assert.equal(thirdParsedDate.getUTCMonth(), 10);
     assert.equal(thirdParsedDate.getUTCFullYear(), 1983);
+
+    // A %y value in the range of [00, 68] is in the current century.
+    var fourthParsedDate = '27/09/68'.strptime('%d/%m/%y');
+    assert.equal(fourthParsedDate.getUTCDate(), 27);
+    assert.equal(fourthParsedDate.getUTCMonth(), 8);
+    assert.equal(fourthParsedDate.getUTCFullYear(), 2068);
 
     // Extracting from a Date object with local time must give the correct
     // result. Without proper conversion, timezones from GMT+0100 to GMT+1200

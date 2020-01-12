@@ -1,3 +1,4 @@
+import os
 import sys
 from io import StringIO
 
@@ -26,6 +27,9 @@ class BaseDatabaseCreation:
         """
         return self.connection._nodb_connection
 
+    def log(self, msg):
+        sys.stderr.write(msg + os.linesep)
+
     def create_test_db(self, verbosity=1, autoclobber=False, serialize=True, keepdb=False):
         """
         Create a test database, prompting the user for confirmation if the
@@ -41,7 +45,7 @@ class BaseDatabaseCreation:
             if keepdb:
                 action = "Using existing"
 
-            print("%s test database for alias %s..." % (
+            self.log('%s test database for alias %s...' % (
                 action,
                 self._get_database_display_str(verbosity, test_database_name),
             ))
@@ -57,16 +61,17 @@ class BaseDatabaseCreation:
         settings.DATABASES[self.connection.alias]["NAME"] = test_database_name
         self.connection.settings_dict["NAME"] = test_database_name
 
-        # We report migrate messages at one level lower than that requested.
-        # This ensures we don't get flooded with messages during testing
-        # (unless you really ask to be flooded).
-        call_command(
-            'migrate',
-            verbosity=max(verbosity - 1, 0),
-            interactive=False,
-            database=self.connection.alias,
-            run_syncdb=True,
-        )
+        if self.connection.settings_dict['TEST']['MIGRATE']:
+            # We report migrate messages at one level lower than that
+            # requested. This ensures we don't get flooded with messages during
+            # testing (unless you really ask to be flooded).
+            call_command(
+                'migrate',
+                verbosity=max(verbosity - 1, 0),
+                interactive=False,
+                database=self.connection.alias,
+                run_syncdb=True,
+            )
 
         # We then serialize the current state of the database into a string
         # and store it on the connection. This slightly horrific process is so people
@@ -170,8 +175,7 @@ class BaseDatabaseCreation:
                 if keepdb:
                     return test_database_name
 
-                sys.stderr.write(
-                    "Got an error creating the test database: %s\n" % e)
+                self.log('Got an error creating the test database: %s' % e)
                 if not autoclobber:
                     confirm = input(
                         "Type 'yes' if you would like to try deleting the test "
@@ -179,17 +183,16 @@ class BaseDatabaseCreation:
                 if autoclobber or confirm == 'yes':
                     try:
                         if verbosity >= 1:
-                            print("Destroying old test database for alias %s..." % (
+                            self.log('Destroying old test database for alias %s...' % (
                                 self._get_database_display_str(verbosity, test_database_name),
                             ))
                         cursor.execute('DROP DATABASE %(dbname)s' % test_db_params)
                         self._execute_create_test_db(cursor, test_db_params, keepdb)
                     except Exception as e:
-                        sys.stderr.write(
-                            "Got an error recreating the test database: %s\n" % e)
+                        self.log('Got an error recreating the test database: %s' % e)
                         sys.exit(2)
                 else:
-                    print("Tests cancelled.")
+                    self.log('Tests cancelled.')
                     sys.exit(1)
 
         return test_database_name
@@ -204,7 +207,7 @@ class BaseDatabaseCreation:
             action = 'Cloning test database'
             if keepdb:
                 action = 'Using existing clone'
-            print("%s for alias %s..." % (
+            self.log('%s for alias %s...' % (
                 action,
                 self._get_database_display_str(verbosity, source_database_name),
             ))
@@ -246,7 +249,7 @@ class BaseDatabaseCreation:
             action = 'Destroying'
             if keepdb:
                 action = 'Preserving'
-            print("%s test database for alias %s..." % (
+            self.log('%s test database for alias %s...' % (
                 action,
                 self._get_database_display_str(verbosity, test_database_name),
             ))

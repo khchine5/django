@@ -114,6 +114,13 @@ class QueryDictTests(SimpleTestCase):
         self.assertEqual(q.urlencode(), 'next=%2Ft%C3%ABst%26key%2F')
         self.assertEqual(q.urlencode(safe='/'), 'next=/t%C3%ABst%26key/')
 
+    def test_urlencode_int(self):
+        # Normally QueryDict doesn't contain non-string values but lazily
+        # written tests may make that mistake.
+        q = QueryDict(mutable=True)
+        q['a'] = 1
+        self.assertEqual(q.urlencode(), 'a=1')
+
     def test_mutable_copy(self):
         """A copy of a QueryDict is mutable."""
         q = QueryDict().copy()
@@ -287,7 +294,7 @@ class HttpResponseTests(unittest.TestCase):
         # ASCII strings or bytes values are converted to strings.
         r['key'] = 'test'
         self.assertEqual(r['key'], 'test')
-        r['key'] = 'test'.encode('ascii')
+        r['key'] = b'test'
         self.assertEqual(r['key'], 'test')
         self.assertIn(b'test', r.serialize_headers())
 
@@ -327,10 +334,10 @@ class HttpResponseTests(unittest.TestCase):
         # Bug #20889: long lines trigger newlines to be added to headers
         # (which is not allowed due to bug #10188)
         h = HttpResponse()
-        f = 'zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz a\xcc\x88'.encode('latin-1')
+        f = b'zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz a\xcc\x88'
         f = f.decode('utf-8')
         h['Content-Disposition'] = 'attachment; filename="%s"' % f
-        # This one is triggering http://bugs.python.org/issue20747, that is Python
+        # This one is triggering https://bugs.python.org/issue20747, that is Python
         # will itself insert a newline in the header
         h['Content-Disposition'] = 'attachment; filename="EdelRot_Blu\u0308te (3)-0.JPG"'
 
@@ -358,6 +365,10 @@ class HttpResponseTests(unittest.TestCase):
         r = HttpResponse()
         r.content = 12345
         self.assertEqual(r.content, b'12345')
+
+    def test_memoryview_content(self):
+        r = HttpResponse(memoryview(b'memoryview'))
+        self.assertEqual(r.content, b'memoryview')
 
     def test_iter_content(self):
         r = HttpResponse(['abc', 'def', 'ghi'])
@@ -733,7 +744,7 @@ class CookieTests(unittest.TestCase):
         # Chunks without an equals sign appear as unnamed values per
         # https://bugzilla.mozilla.org/show_bug.cgi?id=169091
         self.assertIn('django_language', parse_cookie('abc=def; unnamed; django_language=en'))
-        # Even a double quote may be an unamed value.
+        # Even a double quote may be an unnamed value.
         self.assertEqual(parse_cookie('a=b; "; c=d'), {'a': 'b', '': '"', 'c': 'd'})
         # Spaces in names and values, and an equals sign in values.
         self.assertEqual(parse_cookie('a b c=d e = f; gh=i'), {'a b c': 'd e = f', 'gh': 'i'})

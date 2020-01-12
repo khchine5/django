@@ -8,7 +8,7 @@ var GeometryTypeControl = function(opt_options) {
     var element = document.createElement('div');
     element.className = 'switch-type type-' + options.type + ' ol-control ol-unselectable';
     if (options.active) {
-        element.className += " type-active";
+        element.classList.add("type-active");
     }
 
     var self = this;
@@ -21,10 +21,9 @@ var GeometryTypeControl = function(opt_options) {
                 type: options.type
             });
             options.widget.map.addInteraction(options.widget.interactions.draw);
-            var className = options.widget.currentGeometryType.element.className.replace(/ type-active/g, '');
-            options.widget.currentGeometryType.element.className = className;
+            options.widget.currentGeometryType.element.classList.remove('type-active');
             options.widget.currentGeometryType = self;
-            element.className += " type-active";
+            element.classList.add("type-active");
         }
     };
 
@@ -207,15 +206,15 @@ ol.inherits(GeometryTypeControl, ol.control.Control);
             } else {
                 geometry = features[0].getGeometry().clone();
                 for (var j = 1; j < features.length; j++) {
-                    switch(geometry.getType()) {
-                        case "MultiPoint":
-                            geometry.appendPoint(features[j].getGeometry().getPoint(0));
-                            break;
-                        case "MultiLineString":
-                            geometry.appendLineString(features[j].getGeometry().getLineString(0));
-                            break;
-                        case "MultiPolygon":
-                            geometry.appendPolygon(features[j].getGeometry().getPolygon(0));
+                    switch (geometry.getType()) {
+                    case "MultiPoint":
+                        geometry.appendPoint(features[j].getGeometry().getPoint(0));
+                        break;
+                    case "MultiLineString":
+                        geometry.appendLineString(features[j].getGeometry().getLineString(0));
+                        break;
+                    case "MultiPolygon":
+                        geometry.appendPolygon(features[j].getGeometry().getPolygon(0));
                     }
                 }
             }

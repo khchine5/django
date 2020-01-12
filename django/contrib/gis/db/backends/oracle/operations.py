@@ -45,8 +45,8 @@ class SDORelate(SpatialOperator):
             raise ValueError('Invalid SDO_RELATE mask: "%s"' % arg)
 
     def as_sql(self, connection, lookup, template_params, sql_params):
-        template_params['mask'] = sql_params.pop()
-        return super().as_sql(connection, lookup, template_params, sql_params)
+        template_params['mask'] = sql_params[-1]
+        return super().as_sql(connection, lookup, template_params, sql_params[:-1])
 
 
 class OracleOperations(BaseSpatialOperations, DatabaseOperations):
@@ -64,10 +64,14 @@ class OracleOperations(BaseSpatialOperations, DatabaseOperations):
 
     function_names = {
         'Area': 'SDO_GEOM.SDO_AREA',
+        'AsGeoJSON': 'SDO_UTIL.TO_GEOJSON',
+        'AsWKB': 'SDO_UTIL.TO_WKBGEOMETRY',
+        'AsWKT': 'SDO_UTIL.TO_WKTGEOMETRY',
         'BoundingCircle': 'SDO_GEOM.SDO_MBC',
         'Centroid': 'SDO_GEOM.SDO_CENTROID',
         'Difference': 'SDO_GEOM.SDO_DIFFERENCE',
         'Distance': 'SDO_GEOM.SDO_DISTANCE',
+        'Envelope': 'SDO_GEOM_MBR',
         'Intersection': 'SDO_GEOM.SDO_INTERSECTION',
         'IsValid': 'SDO_GEOM.VALIDATE_GEOMETRY_WITH_CONTEXT',
         'Length': 'SDO_GEOM.SDO_LENGTH',
@@ -105,9 +109,9 @@ class OracleOperations(BaseSpatialOperations, DatabaseOperations):
     }
 
     unsupported_functions = {
-        'AsGeoJSON', 'AsKML', 'AsSVG', 'Azimuth', 'Envelope',
-        'ForcePolygonCW', 'ForceRHR', 'GeoHash', 'LineLocatePoint',
-        'MakeValid', 'MemSize', 'Scale', 'SnapToGrid', 'Translate',
+        'AsKML', 'AsSVG', 'Azimuth', 'ForcePolygonCW', 'GeoHash',
+        'GeometryDistance', 'LineLocatePoint', 'MakeValid', 'MemSize',
+        'Scale', 'SnapToGrid', 'Translate',
     }
 
     def geo_quote_name(self, name):

@@ -72,7 +72,7 @@ class AdminActionsTest(TestCase):
         self.assertContains(response, 'Are you sure you want to delete the selected subscribers?')
         self.assertContains(response, '<ul></ul>', html=True)
 
-    @override_settings(USE_THOUSAND_SEPARATOR=True, USE_L10N=True)
+    @override_settings(USE_THOUSAND_SEPARATOR=True, USE_L10N=True, NUMBER_GROUPING=3)
     def test_non_localized_pk(self):
         """
         If USE_THOUSAND_SEPARATOR is set, the ids for the objects selected for
@@ -410,15 +410,15 @@ class AdminActionsPermissionTests(TestCase):
     def setUpTestData(cls):
         cls.s1 = ExternalSubscriber.objects.create(name='John Doe', email='john@example.org')
         cls.s2 = Subscriber.objects.create(name='Max Mustermann', email='max@example.org')
-
-    def setUp(self):
-        self.user = User.objects.create_user(
+        cls.user = User.objects.create_user(
             username='user', password='secret', email='user@example.com',
             is_staff=True,
         )
-        self.client.force_login(self.user)
         permission = Permission.objects.get(codename='change_subscriber')
-        self.user.user_permissions.add(permission)
+        cls.user.user_permissions.add(permission)
+
+    def setUp(self):
+        self.client.force_login(self.user)
 
     def test_model_admin_no_delete_permission(self):
         """
@@ -429,8 +429,11 @@ class AdminActionsPermissionTests(TestCase):
             ACTION_CHECKBOX_NAME: [self.s1.pk],
             'action': 'delete_selected',
         }
-        response = self.client.post(reverse('admin:admin_views_subscriber_changelist'), action_data)
-        self.assertEqual(response.status_code, 403)
+        url = reverse('admin:admin_views_subscriber_changelist')
+        response = self.client.post(url, action_data)
+        self.assertRedirects(response, url, fetch_redirect_response=False)
+        response = self.client.get(response.url)
+        self.assertContains(response, 'No action selected.')
 
     def test_model_admin_no_delete_permission_externalsubscriber(self):
         """
