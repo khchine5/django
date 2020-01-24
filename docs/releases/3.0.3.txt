@@ -26,3 +26,16 @@ Bugfixes
 
 * Fixed a system check to ensure the ``max_length`` attribute fits the longest
   choice, when a named group contains only non-string values (:ticket:`31155`).
+
+* Fixed a regression in Django 2.2 that caused a crash of
+  :class:`~django.contrib.postgres.aggregates.ArrayAgg` and
+  :class:`~django.contrib.postgres.aggregates.StringAgg` with ``filter``
+  argument when used in a ``Subquery`` (:ticket:`31097`).
+
+* Fixed a regression in Django 2.2.7 that caused
+  :meth:`~django.db.models.Model.get_FOO_display` to work incorrectly when
+  overriding inherited choices (:ticket:`31124`).
+
+* Fixed a regression in Django 3.0 that caused a crash of
+  ``QuerySet.prefetch_related()`` for ``GenericForeignKey`` with a custom
+  ``ContentType`` foreign key (:ticket:`31190`).
