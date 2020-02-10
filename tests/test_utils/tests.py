@@ -226,7 +226,8 @@ class AssertNumQueriesUponConnectionTests(TransactionTestCase):
             if is_opening_connection:
                 # Avoid infinite recursion. Creating a cursor calls
                 # ensure_connection() which is currently mocked by this method.
-                connection.cursor().execute('SELECT 1' + connection.features.bare_select_suffix)
+                with connection.cursor() as cursor:
+                    cursor.execute('SELECT 1' + connection.features.bare_select_suffix)
 
         ensure_connection = 'django.db.backends.base.base.BaseDatabaseWrapper.ensure_connection'
         with mock.patch(ensure_connection, side_effect=make_configuration_query):
@@ -373,13 +374,13 @@ class AssertNumQueriesContextManagerTests(TestCase):
             Person.objects.count()
 
     def test_failure(self):
-        with self.assertRaises(AssertionError) as exc_info:
+        msg = (
+            '1 != 2 : 1 queries executed, 2 expected\nCaptured queries were:\n'
+            '1.'
+        )
+        with self.assertRaisesMessage(AssertionError, msg):
             with self.assertNumQueries(2):
                 Person.objects.count()
-        exc_lines = str(exc_info.exception).split('\n')
-        self.assertEqual(exc_lines[0], '1 != 2 : 1 queries executed, 2 expected')
-        self.assertEqual(exc_lines[1], 'Captured queries were:')
-        self.assertTrue(exc_lines[2].startswith('1.'))  # queries are numbered
 
         with self.assertRaises(TypeError):
             with self.assertNumQueries(4000):
