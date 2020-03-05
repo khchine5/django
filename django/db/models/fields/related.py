@@ -4,7 +4,7 @@ from functools import partial
 
 from django import forms
 from django.apps import apps
-from django.conf import SettingsReference
+from django.conf import SettingsReference, settings
 from django.core import checks, exceptions
 from django.db import connection, router
 from django.db.backends import utils
@@ -528,6 +528,10 @@ class ForeignObject(RelatedField):
             frozenset(ut)
             for ut in self.remote_field.model._meta.unique_together
         })
+        unique_foreign_fields.update({
+            frozenset(uc.fields)
+            for uc in self.remote_field.model._meta.total_unique_constraints
+        })
         foreign_fields = {f.name for f in self.foreign_related_fields}
         has_unique_constraint = any(u <= foreign_fields for u in unique_foreign_fields)
 
@@ -541,8 +545,10 @@ class ForeignObject(RelatedField):
                     "No subset of the fields %s on model '%s' is unique."
                     % (field_combination, model_name),
                     hint=(
-                        "Add unique=True on any of those fields or add at "
-                        "least a subset of them to a unique_together constraint."
+                        'Mark a single field as unique=True or add a set of '
+                        'fields to a unique constraint (via unique_together '
+                        'or a UniqueConstraint (without condition) in the '
+                        'model Meta.constraints).'
                     ),
                     obj=self,
                     id='fields.E310',
@@ -553,8 +559,13 @@ class ForeignObject(RelatedField):
             model_name = self.remote_field.model.__name__
             return [
                 checks.Error(
-                    "'%s.%s' must set unique=True because it is referenced by "
+                    "'%s.%s' must be unique because it is referenced by "
                     "a foreign key." % (model_name, field_name),
+                    hint=(
+                        'Add unique=True to this field or add a '
+                        'UniqueConstraint (without condition) in the model '
+                        'Meta.constraints.'
+                    ),
                     obj=self,
                     id='fields.E311',
                 )
@@ -1298,7 +1309,7 @@ class ManyToManyField(RelatedField):
                              "through_fields keyword argument.") % (self, from_model_name),
                             hint=(
                                 'If you want to create a recursive relationship, '
-                                'use ForeignKey("%s", symmetrical=False, through="%s").'
+                                'use ManyToManyField("%s", through="%s").'
                             ) % (
                                 RECURSIVE_RELATIONSHIP_CONSTANT,
                                 relationship_model_name,
@@ -1318,7 +1329,7 @@ class ManyToManyField(RelatedField):
                             "through_fields keyword argument." % (self, to_model_name),
                             hint=(
                                 'If you want to create a recursive relationship, '
-                                'use ForeignKey("%s", symmetrical=False, through="%s").'
+                                'use ManyToManyField("%s", through="%s").'
                             ) % (
                                 RECURSIVE_RELATIONSHIP_CONSTANT,
                                 relationship_model_name,
@@ -1436,12 +1447,23 @@ class ManyToManyField(RelatedField):
                 clashing_obj = '%s.%s' % (opts.label, _get_field_name(model))
             else:
                 clashing_obj = model._meta.label
+            if settings.DATABASE_ROUTERS:
+                error_class, error_id = checks.Warning, 'fields.W344'
+                error_hint = (
+                    'You have configured settings.DATABASE_ROUTERS. Verify '
+                    'that the table of %r is correctly routed to a separate '
+                    'database.' % clashing_obj
+                )
+            else:
+                error_class, error_id = checks.Error, 'fields.E340'
+                error_hint = None
             return [
-                checks.Error(
+                error_class(
                     "The field's intermediary table '%s' clashes with the "
                     "table name of '%s'." % (m2m_db_table, clashing_obj),
                     obj=self,
-                    id='fields.E340',
+                    hint=error_hint,
+                    id=error_id,
                 )
             ]
         return []

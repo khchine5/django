@@ -1,3 +1,5 @@
+import psycopg2
+
 from django.db.models import (
     CharField, Expression, Field, FloatField, Func, Lookup, TextField, Value,
 )
@@ -19,7 +21,7 @@ class SearchVectorExact(Lookup):
         lhs, lhs_params = self.process_lhs(qn, connection)
         rhs, rhs_params = self.process_rhs(qn, connection)
         params = lhs_params + rhs_params
-        return '%s @@ %s = true' % (lhs, rhs), params
+        return '%s @@ %s' % (lhs, rhs), params
 
 
 class SearchVectorField(Field):
@@ -40,6 +42,12 @@ class SearchConfig(Expression):
         if not hasattr(config, 'resolve_expression'):
             config = Value(config)
         self.config = config
+
+    @classmethod
+    def from_parameter(cls, config):
+        if config is None or isinstance(config, cls):
+            return config
+        return cls(config)
 
     def get_source_expressions(self):
         return [self.config]
@@ -70,13 +78,10 @@ class SearchVector(SearchVectorCombinable, Func):
     function = 'to_tsvector'
     arg_joiner = " || ' ' || "
     output_field = SearchVectorField()
-    config = None
 
-    def __init__(self, *expressions, **extra):
-        super().__init__(*expressions, **extra)
-        config = self.extra.get('config', self.config)
-        self.config = SearchConfig(config) if config else None
-        weight = self.extra.get('weight')
+    def __init__(self, *expressions, config=None, weight=None):
+        super().__init__(*expressions)
+        self.config = SearchConfig.from_parameter(config)
         if weight is not None and not hasattr(weight, 'resolve_expression'):
             weight = Value(weight)
         self.weight = weight
@@ -162,7 +167,7 @@ class SearchQuery(SearchQueryCombinable, Value):
     }
 
     def __init__(self, value, output_field=None, *, config=None, invert=False, search_type='plain'):
-        self.config = SearchConfig(config) if config else None
+        self.config = SearchConfig.from_parameter(config)
         self.invert = invert
         if search_type not in self.SEARCH_TYPES:
             raise ValueError("Unknown search_type argument '%s'." % search_type)
@@ -214,30 +219,68 @@ class SearchRank(Func):
     function = 'ts_rank'
     output_field = FloatField()
 
-    def __init__(self, vector, query, **extra):
+    def __init__(self, vector, query, weights=None):
         if not hasattr(vector, 'resolve_expression'):
             vector = SearchVector(vector)
         if not hasattr(query, 'resolve_expression'):
             query = SearchQuery(query)
-        weights = extra.get('weights')
-        if weights is not None and not hasattr(weights, 'resolve_expression'):
-            weights = Value(weights)
-        self.weights = weights
-        super().__init__(vector, query, **extra)
+        expressions = (vector, query)
+        if weights is not None:
+            if not hasattr(weights, 'resolve_expression'):
+                weights = Value(weights)
+            expressions = (weights,) + expressions
+        super().__init__(*expressions)
+
+
+class SearchHeadline(Func):
+    function = 'ts_headline'
+    template = '%(function)s(%(expressions)s%(options)s)'
+    output_field = TextField()
+
+    def __init__(
+        self, expression, query, *, config=None, start_sel=None, stop_sel=None,
+        max_words=None, min_words=None, short_word=None, highlight_all=None,
+        max_fragments=None, fragment_delimiter=None,
+    ):
+        if not hasattr(query, 'resolve_expression'):
+            query = SearchQuery(query)
+        options = {
+            'StartSel': start_sel,
+            'StopSel': stop_sel,
+            'MaxWords': max_words,
+            'MinWords': min_words,
+            'ShortWord': short_word,
+            'HighlightAll': highlight_all,
+            'MaxFragments': max_fragments,
+            'FragmentDelimiter': fragment_delimiter,
+        }
+        self.options = {
+            option: value
+            for option, value in options.items() if value is not None
+        }
+        expressions = (expression, query)
+        if config is not None:
+            config = SearchConfig.from_parameter(config)
+            expressions = (config,) + expressions
+        super().__init__(*expressions)
 
     def as_sql(self, compiler, connection, function=None, template=None):
-        extra_params = []
-        extra_context = {}
-        if template is None and self.extra.get('weights'):
-            if self.weights:
-                template = '%(function)s(%(weights)s, %(expressions)s)'
-                weight_sql, extra_params = compiler.compile(self.weights)
-                extra_context['weights'] = weight_sql
+        options_sql = ''
+        options_params = []
+        if self.options:
+            # getquoted() returns a quoted bytestring of the adapted value.
+            options_params.append(', '.join(
+                '%s=%s' % (
+                    option,
+                    psycopg2.extensions.adapt(value).getquoted().decode(),
+                ) for option, value in self.options.items()
+            ))
+            options_sql = ', %s'
         sql, params = super().as_sql(
-            compiler, connection,
-            function=function, template=template, **extra_context
+            compiler, connection, function=function, template=template,
+            options=options_sql,
         )
-        return sql, extra_params + params
+        return sql, params + options_params
 
 
 SearchVectorField.register_lookup(SearchVectorExact)
