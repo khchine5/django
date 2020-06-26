@@ -2,7 +2,7 @@
 Helper functions for creating Form classes from Django models
 and database field objects.
 """
-
+import warnings
 from itertools import chain
 
 from django.core.exceptions import (
@@ -15,6 +15,7 @@ from django.forms.utils import ErrorList
 from django.forms.widgets import (
     HiddenInput, MultipleHiddenInput, RadioSelect, SelectMultiple,
 )
+from django.utils.deprecation import RemovedInDjango40Warning
 from django.utils.text import capfirst, get_text_list
 from django.utils.translation import gettext, gettext_lazy as _
 
@@ -861,7 +862,8 @@ def modelformset_factory(model, form=ModelForm, formfield_callback=None,
                          can_order=False, max_num=None, fields=None, exclude=None,
                          widgets=None, validate_max=False, localized_fields=None,
                          labels=None, help_texts=None, error_messages=None,
-                         min_num=None, validate_min=False, field_classes=None):
+                         min_num=None, validate_min=False, field_classes=None,
+                         absolute_max=None, can_delete_extra=True):
     """Return a FormSet class for the given Django model class."""
     meta = getattr(form, 'Meta', None)
     if (getattr(meta, 'fields', fields) is None and
@@ -878,7 +880,8 @@ def modelformset_factory(model, form=ModelForm, formfield_callback=None,
                              error_messages=error_messages, field_classes=field_classes)
     FormSet = formset_factory(form, formset, extra=extra, min_num=min_num, max_num=max_num,
                               can_order=can_order, can_delete=can_delete,
-                              validate_min=validate_min, validate_max=validate_max)
+                              validate_min=validate_min, validate_max=validate_max,
+                              absolute_max=absolute_max, can_delete_extra=can_delete_extra)
     FormSet.model = model
     return FormSet
 
@@ -1047,7 +1050,8 @@ def inlineformset_factory(parent_model, model, form=ModelForm,
                           can_delete=True, max_num=None, formfield_callback=None,
                           widgets=None, validate_max=False, localized_fields=None,
                           labels=None, help_texts=None, error_messages=None,
-                          min_num=None, validate_min=False, field_classes=None):
+                          min_num=None, validate_min=False, field_classes=None,
+                          absolute_max=None, can_delete_extra=True):
     """
     Return an ``InlineFormSet`` for the given kwargs.
 
@@ -1077,6 +1081,8 @@ def inlineformset_factory(parent_model, model, form=ModelForm,
         'help_texts': help_texts,
         'error_messages': error_messages,
         'field_classes': field_classes,
+        'absolute_max': absolute_max,
+        'can_delete_extra': can_delete_extra,
     }
     FormSet = modelformset_factory(model, **kwargs)
     FormSet.fk = fk
@@ -1291,7 +1297,7 @@ class ModelMultipleChoiceField(ModelChoiceField):
     widget = SelectMultiple
     hidden_widget = MultipleHiddenInput
     default_error_messages = {
-        'list': _('Enter a list of values.'),
+        'invalid_list': _('Enter a list of values.'),
         'invalid_choice': _('Select a valid choice. %(value)s is not one of the'
                             ' available choices.'),
         'invalid_pk_value': _('“%(pk)s” is not a valid value.')
@@ -1299,6 +1305,13 @@ class ModelMultipleChoiceField(ModelChoiceField):
 
     def __init__(self, queryset, **kwargs):
         super().__init__(queryset, empty_label=None, **kwargs)
+        if self.error_messages.get('list') is not None:
+            warnings.warn(
+                "The 'list' error message key is deprecated in favor of "
+                "'invalid_list'.",
+                RemovedInDjango40Warning, stacklevel=2,
+            )
+            self.error_messages['invalid_list'] = self.error_messages['list']
 
     def to_python(self, value):
         if not value:
@@ -1312,7 +1325,10 @@ class ModelMultipleChoiceField(ModelChoiceField):
         elif not self.required and not value:
             return self.queryset.none()
         if not isinstance(value, (list, tuple)):
-            raise ValidationError(self.error_messages['list'], code='list')
+            raise ValidationError(
+                self.error_messages['invalid_list'],
+                code='invalid_list',
+            )
         qs = self._check_values(value)
         # Since this overrides the inherited ModelChoiceField.clean
         # we run custom validators here
@@ -1333,8 +1349,8 @@ class ModelMultipleChoiceField(ModelChoiceField):
         except TypeError:
             # list of lists isn't hashable, for example
             raise ValidationError(
-                self.error_messages['list'],
-                code='list',
+                self.error_messages['invalid_list'],
+                code='invalid_list',
             )
         for pk in value:
             try:

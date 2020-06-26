@@ -1,10 +1,13 @@
 import datetime
 from decimal import Decimal
+from unittest import skipIf
 
 from django.core.exceptions import FieldDoesNotExist, FieldError
+from django.db import connection
 from django.db.models import (
-    BooleanField, CharField, Count, DateTimeField, ExpressionWrapper, F, Func,
-    IntegerField, NullBooleanField, OuterRef, Q, Subquery, Sum, Value,
+    BooleanField, Case, CharField, Count, DateTimeField, Exists,
+    ExpressionWrapper, F, Func, IntegerField, Max, NullBooleanField, OuterRef,
+    Q, Subquery, Sum, Value, When,
 )
 from django.db.models.expressions import RawSQL
 from django.db.models.functions import Length, Lower
@@ -166,6 +169,14 @@ class NonAggregateAnnotationTestCase(TestCase):
         for book in books:
             self.assertEqual(book.is_book, 1)
             self.assertEqual(book.rating_count, 1)
+
+    def test_combined_expression_annotation_with_aggregation(self):
+        book = Book.objects.annotate(
+            combined=ExpressionWrapper(Value(3) * Value(4), output_field=IntegerField()),
+            rating_count=Count('rating'),
+        ).first()
+        self.assertEqual(book.combined, 12)
+        self.assertEqual(book.rating_count, 1)
 
     def test_aggregate_over_annotation(self):
         agg = Author.objects.annotate(other_age=F('age')).aggregate(otherage_sum=Sum('other_age'))
@@ -619,3 +630,34 @@ class NonAggregateAnnotationTestCase(TestCase):
             total_books=Subquery(long_books_qs, output_field=IntegerField()),
         ).values('name')
         self.assertCountEqual(publisher_books_qs, [{'name': 'Sams'}, {'name': 'Morgan Kaufmann'}])
+
+    def test_annotation_exists_aggregate_values_chaining(self):
+        qs = Book.objects.values('publisher').annotate(
+            has_authors=Exists(Book.authors.through.objects.filter(book=OuterRef('pk'))),
+            max_pubdate=Max('pubdate'),
+        ).values_list('max_pubdate', flat=True).order_by('max_pubdate')
+        self.assertCountEqual(qs, [
+            datetime.date(1991, 10, 15),
+            datetime.date(2008, 3, 3),
+            datetime.date(2008, 6, 23),
+            datetime.date(2008, 11, 3),
+        ])
+
+    @skipIf(
+        connection.vendor == 'mysql' and 'ONLY_FULL_GROUP_BY' in connection.sql_mode,
+        'GROUP BY optimization does not work properly when ONLY_FULL_GROUP_BY '
+        'mode is enabled on MySQL, see #31331.',
+    )
+    def test_annotation_aggregate_with_m2o(self):
+        qs = Author.objects.filter(age__lt=30).annotate(
+            max_pages=Case(
+                When(book_contact_set__isnull=True, then=Value(0)),
+                default=Max(F('book__pages')),
+                output_field=IntegerField(),
+            ),
+        ).values('name', 'max_pages')
+        self.assertCountEqual(qs, [
+            {'name': 'James Bennett', 'max_pages': 300},
+            {'name': 'Paul Bissex', 'max_pages': 0},
+            {'name': 'Wesley J. Chun', 'max_pages': 0},
+        ])

@@ -103,6 +103,7 @@ LANGUAGES = [
     ('km', gettext_noop('Khmer')),
     ('kn', gettext_noop('Kannada')),
     ('ko', gettext_noop('Korean')),
+    ('ky', gettext_noop('Kyrgyz')),
     ('lb', gettext_noop('Luxembourgish')),
     ('lt', gettext_noop('Lithuanian')),
     ('lv', gettext_noop('Latvian')),
@@ -131,6 +132,7 @@ LANGUAGES = [
     ('sw', gettext_noop('Swahili')),
     ('ta', gettext_noop('Tamil')),
     ('te', gettext_noop('Telugu')),
+    ('tg', gettext_noop('Tajik')),
     ('th', gettext_noop('Thai')),
     ('tr', gettext_noop('Turkish')),
     ('tt', gettext_noop('Tatar')),
@@ -505,8 +507,7 @@ LOGOUT_REDIRECT_URL = None
 # The number of days a password reset link is valid for
 PASSWORD_RESET_TIMEOUT_DAYS = 3
 
-# The minimum number of seconds a password reset link is valid for
-# (default: 3 days).
+# The number of seconds a password reset link is valid for (default: 3 days).
 PASSWORD_RESET_TIMEOUT = 60 * 60 * 24 * 3
 
 # the first hasher in this list is the preferred algorithm.  any

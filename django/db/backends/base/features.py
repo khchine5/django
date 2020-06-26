@@ -20,6 +20,8 @@ class BaseDatabaseFeatures:
     # Does the backend allow inserting duplicate rows when a unique_together
     # constraint exists and some fields are nullable but not all of them?
     supports_partially_nullable_unique_constraints = True
+    # Does the backend support initially deferrable unique constraints?
+    supports_deferrable_unique_constraints = False
 
     can_use_chunked_reads = True
     can_return_columns_from_insert = False
@@ -36,6 +38,7 @@ class BaseDatabaseFeatures:
     has_select_for_update_nowait = False
     has_select_for_update_skip_locked = False
     has_select_for_update_of = False
+    has_select_for_no_key_update = False
     # Does the database's SELECT FOR UPDATE OF syntax require a column rather
     # than a table?
     select_for_update_of_column = False
@@ -91,6 +94,9 @@ class BaseDatabaseFeatures:
     # Does the backend support NULLS FIRST and NULLS LAST in ORDER BY?
     supports_order_by_nulls_modifier = True
 
+    # Does the backend orders NULLS FIRST by default?
+    order_by_nulls_first = False
+
     # The database's limit on the number of query parameters.
     max_query_params = None
 
@@ -119,41 +125,25 @@ class BaseDatabaseFeatures:
     # which can't do it for MyISAM tables
     can_introspect_foreign_keys = True
 
-    # Can the backend introspect an AutoField, instead of an IntegerField?
-    can_introspect_autofield = False
-
-    # Can the backend introspect a BigIntegerField, instead of an IntegerField?
-    can_introspect_big_integer_field = True
-
-    # Can the backend introspect an BinaryField, instead of an TextField?
-    can_introspect_binary_field = True
-
-    # Can the backend introspect an DecimalField, instead of an FloatField?
-    can_introspect_decimal_field = True
-
-    # Can the backend introspect a DurationField, instead of a BigIntegerField?
-    can_introspect_duration_field = True
-
-    # Can the backend introspect an IPAddressField, instead of an CharField?
-    can_introspect_ip_address_field = False
-
-    # Can the backend introspect a PositiveIntegerField, instead of an IntegerField?
-    can_introspect_positive_integer_field = False
-
-    # Can the backend introspect a SmallIntegerField, instead of an IntegerField?
-    can_introspect_small_integer_field = False
-
-    # Can the backend introspect a TimeField, instead of a DateTimeField?
-    can_introspect_time_field = True
-
-    # Some backends may not be able to differentiate BigAutoField or
-    # SmallAutoField from other fields such as AutoField.
-    introspected_big_auto_field_type = 'BigAutoField'
-    introspected_small_auto_field_type = 'SmallAutoField'
-
-    # Some backends may not be able to differentiate BooleanField from other
-    # fields such as IntegerField.
-    introspected_boolean_field_type = 'BooleanField'
+    # Map fields which some backends may not be able to differentiate to the
+    # field it's introspected as.
+    introspected_field_types = {
+        'AutoField': 'AutoField',
+        'BigAutoField': 'BigAutoField',
+        'BigIntegerField': 'BigIntegerField',
+        'BinaryField': 'BinaryField',
+        'BooleanField': 'BooleanField',
+        'CharField': 'CharField',
+        'DurationField': 'DurationField',
+        'GenericIPAddressField': 'GenericIPAddressField',
+        'IntegerField': 'IntegerField',
+        'PositiveBigIntegerField': 'PositiveBigIntegerField',
+        'PositiveIntegerField': 'PositiveIntegerField',
+        'PositiveSmallIntegerField': 'PositiveSmallIntegerField',
+        'SmallAutoField': 'SmallAutoField',
+        'SmallIntegerField': 'SmallIntegerField',
+        'TimeField': 'TimeField',
+    }
 
     # Can the backend introspect the column order (ASC/DESC) for indexes?
     supports_index_column_ordering = True
@@ -287,13 +277,27 @@ class BaseDatabaseFeatures:
     # Does the backend support partial indexes (CREATE INDEX ... WHERE ...)?
     supports_partial_indexes = True
     supports_functions_in_partial_indexes = True
+    # Does the backend support covering indexes (CREATE INDEX ... INCLUDE ...)?
+    supports_covering_indexes = False
 
     # Does the database allow more than one constraint or index on the same
     # field(s)?
     allows_multiple_constraints_on_same_fields = True
 
-    # Does the backend support boolean expressions in the SELECT clause?
+    # Does the backend support boolean expressions in SELECT and GROUP BY
+    # clauses?
     supports_boolean_expr_in_select_clause = True
+
+    # Does the backend support JSONField?
+    supports_json_field = True
+    # Can the backend introspect a JSONField?
+    can_introspect_json_field = True
+    # Does the backend support primitives in JSONField?
+    supports_primitives_in_json_field = True
+    # Is there a true datatype for JSON?
+    has_native_json_field = False
+    # Does the backend use PostgreSQL-style JSON operators like '->'?
+    has_json_operators = False
 
     def __init__(self, connection):
         self.connection = connection

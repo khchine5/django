@@ -51,6 +51,7 @@ class Combinable:
     BITOR = '|'
     BITLEFTSHIFT = '<<'
     BITRIGHTSHIFT = '>>'
+    BITXOR = '#'
 
     def _combine(self, other, connector, reversed):
         if not hasattr(other, 'resolve_expression'):
@@ -104,6 +105,9 @@ class Combinable:
 
     def bitrightshift(self, other):
         return self._combine(other, self.BITRIGHTSHIFT, False)
+
+    def bitxor(self, other):
+        return self._combine(other, self.BITXOR, False)
 
     def __or__(self, other):
         if getattr(self, 'conditional', False) and getattr(other, 'conditional', False):
@@ -379,7 +383,9 @@ class BaseExpression:
         Custom format for select clauses. For example, EXISTS expressions need
         to be wrapped in CASE WHEN on Oracle.
         """
-        return self.output_field.select_format(compiler, sql, params)
+        if hasattr(self.output_field, 'select_format'):
+            return self.output_field.select_format(compiler, sql, params)
+        return sql, params
 
     @cached_property
     def identity(self):
@@ -580,6 +586,9 @@ class OuterRef(F):
         if isinstance(self.name, self.__class__):
             return self.name
         return ResolvedOuterRef(self.name)
+
+    def relabeled_clone(self, relabels):
+        return self
 
 
 class Func(SQLiteNumericMixin, Expression):
@@ -848,6 +857,9 @@ class ExpressionWrapper(Expression):
 
     def __init__(self, expression, output_field):
         super().__init__(output_field=output_field)
+        if getattr(expression, '_output_field_or_none', True) is None:
+            expression = expression.copy()
+            expression.output_field = output_field
         self.expression = expression
 
     def set_source_expressions(self, exprs):
@@ -855,6 +867,9 @@ class ExpressionWrapper(Expression):
 
     def get_source_expressions(self):
         return [self.expression]
+
+    def get_group_by_cols(self, alias=None):
+        return self.expression.get_group_by_cols(alias=alias)
 
     def as_sql(self, compiler, connection):
         return self.expression.as_sql(compiler, connection)
@@ -869,8 +884,11 @@ class When(Expression):
     conditional = False
 
     def __init__(self, condition=None, then=None, **lookups):
-        if lookups and condition is None:
-            condition, lookups = Q(**lookups), None
+        if lookups:
+            if condition is None:
+                condition, lookups = Q(**lookups), None
+            elif getattr(condition, 'conditional', False):
+                condition, lookups = Q(condition, **lookups), None
         if condition is None or not getattr(condition, 'conditional', False) or lookups:
             raise TypeError(
                 'When() supports a Q object, a boolean expression, or lookups '
@@ -1014,11 +1032,18 @@ class Subquery(Expression):
     def __init__(self, queryset, output_field=None, **extra):
         self.query = queryset.query
         self.extra = extra
+        # Prevent the QuerySet from being evaluated.
+        self.queryset = queryset._chain(_result_cache=[], prefetch_done=True)
         super().__init__(output_field)
 
     def __getstate__(self):
         state = super().__getstate__()
-        state.pop('_constructor_args', None)
+        args, kwargs = state['_constructor_args']
+        if args:
+            args = (self.queryset, *args[1:])
+        else:
+            kwargs['queryset'] = self.queryset
+        state['_constructor_args'] = args, kwargs
         return state
 
     def get_source_expressions(self):
@@ -1082,7 +1107,8 @@ class Exists(Subquery):
 
     def select_format(self, compiler, sql, params):
         # Wrap EXISTS() with a CASE WHEN expression if a database backend
-        # (e.g. Oracle) doesn't support boolean expression in the SELECT list.
+        # (e.g. Oracle) doesn't support boolean expression in SELECT or GROUP
+        # BY list.
         if not compiler.connection.features.supports_boolean_expr_in_select_clause:
             sql = 'CASE WHEN {} THEN 1 ELSE 0 END'.format(sql)
         return sql, params
@@ -1120,9 +1146,13 @@ class OrderBy(BaseExpression):
             elif self.nulls_first:
                 template = '%s NULLS FIRST' % template
         else:
-            if self.nulls_last:
+            if self.nulls_last and not (
+                self.descending and connection.features.order_by_nulls_first
+            ):
                 template = '%%(expression)s IS NULL, %s' % template
-            elif self.nulls_first:
+            elif self.nulls_first and not (
+                not self.descending and connection.features.order_by_nulls_first
+            ):
                 template = '%%(expression)s IS NOT NULL, %s' % template
         connection.ops.check_expression_support(self)
         expression_sql, params = compiler.compile(self.expression)

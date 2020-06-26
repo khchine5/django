@@ -5,7 +5,7 @@ from django import forms
 from django.core import checks
 from django.core.files.base import File
 from django.core.files.images import ImageFile
-from django.core.files.storage import default_storage
+from django.core.files.storage import Storage, default_storage
 from django.db.models import signals
 from django.db.models.fields import Field
 from django.utils.translation import gettext_lazy as _
@@ -173,11 +173,9 @@ class FileDescriptor:
 
         # The instance dict contains whatever was originally assigned
         # in __set__.
-        if self.field.name in instance.__dict__:
-            file = instance.__dict__[self.field.name]
-        else:
+        if self.field.name not in instance.__dict__:
             instance.refresh_from_db(fields=[self.field.name])
-            file = getattr(instance, self.field.name)
+        file = instance.__dict__[self.field.name]
 
         # If this value is a string (instance.file = "path/to/file") or None
         # then we simply wrap it with the appropriate attribute class according
@@ -234,6 +232,13 @@ class FileField(Field):
         self._primary_key_set_explicitly = 'primary_key' in kwargs
 
         self.storage = storage or default_storage
+        if callable(self.storage):
+            self.storage = self.storage()
+            if not isinstance(self.storage, Storage):
+                raise TypeError(
+                    "%s.storage must be a subclass/instance of %s.%s"
+                    % (self.__class__.__qualname__, Storage.__module__, Storage.__qualname__)
+                )
         self.upload_to = upload_to
 
         kwargs.setdefault('max_length', 100)
